@@ -1,6 +1,6 @@
 # SayhiSort
 
-Block merge sort implementation inspired by [GrailSort](https://github.com/Mrrl/GrailSort). It's in-place, stable and runs in O(NlogN) time complexity.
+Block merge sort implementation inspired by [GrailSort](https://github.com/Mrrl/GrailSort). It's in-place, stable and runs in O(N log(N)) wort-case time complexity.
 
 The implementation is purely swap-based. So items nither default-constructible nor move-constructible are allowed, as long as they are swappable.
 
@@ -10,8 +10,7 @@ TODO: complete sort routine. Most subroutines are already unittested.
 
 Remaining tasks are
 
-* refactor merge level management to a struct
-* test and fix it
+* test and fix MergeSortState
 * test and fix MergeOneLevel
 * test and fix the toplevel Sort routine
 
