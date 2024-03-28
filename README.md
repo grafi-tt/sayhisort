@@ -19,6 +19,8 @@ TODO: doc
 
 TODO: benchmark
 
+TODO: overflow resistance test by using 16bit index iterator. Its carefully written to avoid any overflow. Should be tested.
+
 ## Similar projects
 
 * https://github.com/HolyGrailSortProject/Rewritten-Grailsort
