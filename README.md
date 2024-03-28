@@ -1,6 +1,10 @@
 # SayhiSort
 
-Block merge sort implementation inspired by [GrailSort](https://github.com/Mrrl/GrailSort). Pronunciation of “say hi” sounds like 「聖杯（せいはい）」 in Japanese, which means “grail”.
+Block merge sort implementation inspired by [GrailSort](https://github.com/Mrrl/GrailSort). It's in-place, stable and runs in O(NlogN) time complexity.
+
+The implementation is purely swap-based. So items nither default-constructible nor move-constructible are allowed, as long as they are swappable.
+
+Its name derives from GrailSort, in honor of its auhor [Andrey Astrelin](https://superliminal.com/andrey/biography.html) rest in peace. Pronunciation of “say hi” sounds like the Japanse word 「聖杯（せいはい）」, which means grail.
 
 TODO: complete sort routine. Most subroutines are already unittested.
 
