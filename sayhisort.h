@@ -405,13 +405,13 @@ constexpr void DeinterleaveImitation(Iterator imit, SsizeT imit_len, Iterator bu
     Iterator cur = mid_key + 1;
     mid_key = buf;
 
-    while (cur != imit + imit_len) {
+    do {
         if (comp(*cur, *mid_key)) {
-            swap(*cur++, *left_cur++);
+            swap(*cur, *left_cur++);
         } else {
-            swap(*cur++, *right_cur++);
+            swap(*cur, *right_cur++);
         }
-    }
+    } while (++cur != imit + imit_len);
 
     // now `left_cur` points to the start of right keys
     SwapChunk(buf, left_cur, imit_len / 2);
@@ -681,14 +681,18 @@ constexpr void MergeAdjacentBlocks(Iterator imit, Iterator& buf, Iterator blocks
 template <bool has_buf, typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
 constexpr void MergeBlocking(Iterator imit, Iterator& buf, Iterator blocks, BlockingParam<SsizeT> p, Compare comp) {
     // Skip interleaving the first block and the last one, those may have shorter length.
-    Iterator mid_key = InterleaveBlocks(imit, blocks + p.first_block_len, p.num_blocks - 2, p.block_len, comp);
+    SsizeT imit_len = p.num_blocks - 2;
+    Iterator mid_key = InterleaveBlocks(imit, blocks + p.first_block_len, imit_len, p.block_len, comp);
 
     MergeAdjacentBlocks<has_buf>(imit, buf, blocks, p, mid_key, comp);
+    if (!imit_len) {
+        return;
+    }
 
     if constexpr (has_buf) {
-        DeinterleaveImitation(imit, p.num_blocks - 2, buf, mid_key, comp);
+        DeinterleaveImitation(imit, imit_len, buf, mid_key, comp);
     } else {
-        DeinterleaveImitation(imit, p.num_blocks - 2, mid_key, comp);
+        DeinterleaveImitation(imit, imit_len, mid_key, comp);
     }
 }
 
