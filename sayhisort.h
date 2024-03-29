@@ -666,7 +666,7 @@ struct MergeSortState {
         }
         forward = !forward;
 
-        if (!log2_num_seqs || seq_len > bufferable_len) {
+        if (!log2_num_seqs || seq_spec.seq_len > bufferable_len) {
             SsizeT buf_len_to_sort = buf_len;
             imit_len += buf_len;
             buf_len = 0;
@@ -675,14 +675,15 @@ struct MergeSortState {
         return 0;
     }
 
-    constexpr SsizeT num_seqs() const { return seq_spec.num_seqs; }
-    constexpr SsizeT seq_len() const { return seq_spec.seq_len; }
-    constexpr SsizeT decr_pos() const { return seq_spec.decr_pos; }
-
+    //! imit_len is positive and multiple of 2
     SsizeT imit_len = 0;
+    //! buf_len is non-negative, and seq_spec.seq_len <= bufferable_len if buf_len > 0
     SsizeT buf_len = 0;
+    //! bufferable_len = ((imit_len + 2) / 2) * buf_len
     SsizeT bufferable_len = 0;
+    //! data_len > 8
     SsizeT data_len;
+
     SsizeT log2_num_seqs = 1;
     bool forward = true;
     // initialized for pre-C++20 constexpr restriction
@@ -743,34 +744,8 @@ constexpr void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, SsizeT 
 /**
  * @brief Merge sequences in pairwise manner. It processes one level of bottom-up merge sort.
  *
- * @param forward
- * @param imit Imitation buffer
- *   @pre [imit, imit + imit_len)
- * @param buf Internal buffer; it moves while merging
- *   If forward:
- *     @pre  buf + buf_len = data
- *     @post data + data_len = buf
- *   Otherwise:
- *     @pre  data + data_len = buf
- *     @post buf + buf_len = data
- * @param data
- * @param imit_len
- *   @pre imit_len is positive
- *   @pre imit_len is multiple of 2
- * @param buf_len
- *   @pre buf_len is non-negative
- *   @pre If buf_len > 0, seq_len <= (imit_len + 2) / 2 * buf_len
- * @param data_len
- *   @pre data_len = decr_pos * num_seqs + (num_seqs - decr_pos) * (seq_len - 1)
- * @param num_seqs
- *   @pre num_seqs is positive
- *   @pre num_seqs is multiple of 2
- * @param seq_len
- *   @pre seq_len >= 8
- * @param seq_len
- *   @pre seq_len is positive
- * @param decr_pos
- *   @pre 1 <= decr_pos <= num_seqs
+ * @param ary
+ * @param mss
  * @param comp
  */
 template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
