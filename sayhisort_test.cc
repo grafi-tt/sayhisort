@@ -365,82 +365,6 @@ TEST(SayhiSortTest, DeinterleaveImitation) {
     }
 }
 
-TEST(SayhiSortTest, FirstShellSortGap) {
-    SsizeT n;
-    SsizeT gap;
-
-    for (SsizeT len = 2; len < 1600; ++len) {
-        SsizeT n_ans;
-        if (len <= 4) {
-            n_ans = 0;
-        } else if (len <= 10) {
-            n_ans = 1;
-        } else if (len <= 23) {
-            n_ans = 2;
-        } else if (len <= 57) {
-            n_ans = 3;
-        } else if (len <= 132) {
-            n_ans = 4;
-        } else if (len <= 301) {
-            n_ans = 5;
-        } else if (len <= 701) {
-            n_ans = 6;
-        } else if (len <= 1577) {
-            n_ans = 7;
-        } else {
-            n_ans = 8;
-        }
-        gap = FirstShellSortGap(len, n);
-        EXPECT_EQ(n, n_ans);
-        EXPECT_EQ(gap, n_ans == 8 ? 1577 : kCiuraGaps[n]);
-    }
-
-    gap = FirstShellSortGap(SsizeT{3548}, n);
-    EXPECT_EQ(n, 8);
-    EXPECT_EQ(gap, 1577);
-
-    gap = FirstShellSortGap(SsizeT{3549}, n);
-    EXPECT_EQ(n, 9);
-    EXPECT_EQ(gap, 3548);
-
-    gap = FirstShellSortGap(SsizeT{7983}, n);
-    EXPECT_EQ(n, 9);
-    EXPECT_EQ(gap, 3548);
-
-    gap = FirstShellSortGap(SsizeT{7984}, n);
-    EXPECT_EQ(n, 10);
-    EXPECT_EQ(gap, 7983);
-}
-
-TEST(SayhiSortTest, NthShellSortGap) {
-    EXPECT_EQ(NthShellSortGap(0), 1);
-    EXPECT_EQ(NthShellSortGap(1), 4);
-    EXPECT_EQ(NthShellSortGap(2), 10);
-    EXPECT_EQ(NthShellSortGap(3), 23);
-    EXPECT_EQ(NthShellSortGap(4), 57);
-    EXPECT_EQ(NthShellSortGap(5), 132);
-    EXPECT_EQ(NthShellSortGap(6), 301);
-    EXPECT_EQ(NthShellSortGap(7), 701);
-    EXPECT_EQ(NthShellSortGap(8), 1577);
-    EXPECT_EQ(NthShellSortGap(9), 3548);
-    EXPECT_EQ(NthShellSortGap(10), 7983);
-}
-
-TEST(SayhiSortTest, ShellSort) {
-    auto rng = GetPerTestRNG();
-
-    for (SsizeT sz : {5, 2024}) {
-        std::vector<int> data(sz);
-        std::iota(data.begin(), data.end(), 0);
-        std::shuffle(data.begin(), data.end(), rng);
-        ShellSort(data.begin(), sz, Compare{});
-
-        std::vector<int> expected(sz);
-        std::iota(expected.begin(), expected.end(), 0);
-        EXPECT_EQ(data, expected);
-    }
-}
-
 TEST(SayhiSortTest, MergeAdjacentBlocks) {
     BlockingParam<SsizeT> params[] = {
         {6, 6, 5, 4},
@@ -554,12 +478,25 @@ TEST(SayhiSortTest, ReverseCompare) {
     EXPECT_TRUE(gt_ebo(3, 2));
 }
 
-TEST(SayhiSort, MergeSortState) {
-    MergeSortState mss{8, 16};
-    EXPECT_EQ(mss.log2_num_seqs, 1);
-    EXPECT_EQ(mss.imit_len, 2);
-    EXPECT_EQ(mss.buf_len, 6);
-    EXPECT_EQ(mss.bufferable_len, 12);
+TEST(SayhiSort, MergeSortControl) {
+    MergeSortControl<SsizeT> ctrl{8, 16};
+
+    EXPECT_EQ(ctrl.log2_num_seqs, 1);
+    EXPECT_EQ(ctrl.imit_len, 2);
+    EXPECT_EQ(ctrl.buf_len, 6);
+    EXPECT_EQ(ctrl.bufferable_len, 12);
+    EXPECT_EQ(ctrl.Next(), 6);
+    EXPECT_EQ(ctrl.imit_len, 8);
+    EXPECT_EQ(ctrl.buf_len, 0);
+    EXPECT_EQ(ctrl.log2_num_seqs, 0);
+
+    ctrl = {21, 123};
+    EXPECT_EQ(ctrl.log2_num_seqs, 4);
+    EXPECT_EQ(ctrl.imit_len, 8);
+    EXPECT_EQ(ctrl.buf_len, 13);
+    ctrl = {22, 123};
+    EXPECT_EQ(ctrl.imit_len, 10);
+    EXPECT_EQ(ctrl.buf_len, 12);
 }
 
 TEST(SayhiSortTest, CollectKeys) {
@@ -600,6 +537,82 @@ TEST(SayhiSortTest, CollectKeys) {
         SsizeT num_keys = CollectKeys(ary.begin(), ary.end(), num_desired_keys, Compare{});
         EXPECT_EQ(num_keys, expected_num_keys);
         EXPECT_EQ(ary, expected);
+    }
+}
+
+TEST(SayhiSortTest, FirstShellSortGap) {
+    SsizeT n;
+    SsizeT gap;
+
+    for (SsizeT len = 2; len < 1600; ++len) {
+        SsizeT n_ans;
+        if (len <= 4) {
+            n_ans = 0;
+        } else if (len <= 10) {
+            n_ans = 1;
+        } else if (len <= 23) {
+            n_ans = 2;
+        } else if (len <= 57) {
+            n_ans = 3;
+        } else if (len <= 132) {
+            n_ans = 4;
+        } else if (len <= 301) {
+            n_ans = 5;
+        } else if (len <= 701) {
+            n_ans = 6;
+        } else if (len <= 1577) {
+            n_ans = 7;
+        } else {
+            n_ans = 8;
+        }
+        gap = FirstShellSortGap(len, n);
+        EXPECT_EQ(n, n_ans);
+        EXPECT_EQ(gap, n_ans == 8 ? 1577 : kCiuraGaps[n]);
+    }
+
+    gap = FirstShellSortGap(SsizeT{3548}, n);
+    EXPECT_EQ(n, 8);
+    EXPECT_EQ(gap, 1577);
+
+    gap = FirstShellSortGap(SsizeT{3549}, n);
+    EXPECT_EQ(n, 9);
+    EXPECT_EQ(gap, 3548);
+
+    gap = FirstShellSortGap(SsizeT{7983}, n);
+    EXPECT_EQ(n, 9);
+    EXPECT_EQ(gap, 3548);
+
+    gap = FirstShellSortGap(SsizeT{7984}, n);
+    EXPECT_EQ(n, 10);
+    EXPECT_EQ(gap, 7983);
+}
+
+TEST(SayhiSortTest, NthShellSortGap) {
+    EXPECT_EQ(NthShellSortGap(0), 1);
+    EXPECT_EQ(NthShellSortGap(1), 4);
+    EXPECT_EQ(NthShellSortGap(2), 10);
+    EXPECT_EQ(NthShellSortGap(3), 23);
+    EXPECT_EQ(NthShellSortGap(4), 57);
+    EXPECT_EQ(NthShellSortGap(5), 132);
+    EXPECT_EQ(NthShellSortGap(6), 301);
+    EXPECT_EQ(NthShellSortGap(7), 701);
+    EXPECT_EQ(NthShellSortGap(8), 1577);
+    EXPECT_EQ(NthShellSortGap(9), 3548);
+    EXPECT_EQ(NthShellSortGap(10), 7983);
+}
+
+TEST(SayhiSortTest, ShellSort) {
+    auto rng = GetPerTestRNG();
+
+    for (SsizeT sz : {5, 2024}) {
+        std::vector<int> data(sz);
+        std::iota(data.begin(), data.end(), 0);
+        std::shuffle(data.begin(), data.end(), rng);
+        ShellSort(data.begin(), sz, Compare{});
+
+        std::vector<int> expected(sz);
+        std::iota(expected.begin(), expected.end(), 0);
+        EXPECT_EQ(data, expected);
     }
 }
 

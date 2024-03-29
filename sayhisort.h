@@ -633,14 +633,14 @@ private:
 };
 
 template <typename SsizeT>
-struct MergeSortState {
+struct MergeSortControl {
     /**
      * @param num_keys
      *   @pre num_keys == 0 or num_keys >= 8
      * @param data_len
      *   @pre data_len > 8
      */
-    constexpr MergeSortState(SsizeT num_keys, SsizeT data_len) : data_len{data_len} {
+    constexpr MergeSortControl(SsizeT num_keys, SsizeT data_len) : data_len{data_len} {
         if (num_keys) {
             // imit_len >= 2
             imit_len = (num_keys + 2) / 4 * 2 - 2;
@@ -675,9 +675,18 @@ struct MergeSortState {
         return 0;
     }
 
-    //! imit_len is positive and multiple of 2
+    /**
+     * imit_len is positive and multiple of 2.
+     * imit_len + buf_len = num_keys.
+     */
     SsizeT imit_len = 0;
-    //! buf_len is non-negative, and seq_spec.seq_len <= bufferable_len if buf_len > 0
+    /**
+     * buf_len is non-negative.
+     * If buf_len > 0
+     *   - seq_spec.seq_len <= bufferable_len
+     *   - imit_len + 2 <= buf_len
+     */
+    //! buf_len is non-negative, and  if buf_len > 0
     SsizeT buf_len = 0;
     //! bufferable_len = ((imit_len + 2) / 2) * buf_len
     SsizeT bufferable_len = 0;
@@ -745,22 +754,22 @@ constexpr void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, SsizeT 
  * @brief Merge sequences in pairwise manner. It processes one level of bottom-up merge sort.
  *
  * @param ary
- * @param mss
+ * @param ctrl
  * @param comp
  */
 template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
-constexpr void MergeOneLevel(Iterator ary, const MergeSortState<SsizeT>& mss, Compare comp) {
-    SsizeT s = mss.seq_spec;
-    SsizeT num_blocks = mss.imit_len + 2;
+constexpr void MergeOneLevel(Iterator ary, const MergeSortControl<SsizeT>& ctrl, Compare comp) {
+    SsizeT s = ctrl.seq_spec;
+    SsizeT num_blocks = ctrl.imit_len + 2;
 
-    if (mss.buf_len) {
+    if (ctrl.buf_len) {
         // We don't need to perform runtime-checking so that computed `num_blocks` fits in imitation buffer.
         // Since
         //   seq_len <= (imit_len + 2) / 2 * buf_len
         // is assured,
         //   ceil(seq_len / buf_len) * 2 <= imit_len + 2
         // always holds.
-        num_blocks = ((s.seq_len - 1) / mss.buf_len + 1) * 2;
+        num_blocks = ((s.seq_len - 1) / ctrl.buf_len + 1) * 2;
     } else {
         // max_num_blocks must be a multple of 2 and under-approx of sqrt(2 * seq_len)
         SsizeT max_num_blocks = s.seq_len < 12 ? 2 : s.seq_len / OverApproxSqrt(s.seq_len * 2) * 2;
@@ -811,8 +820,8 @@ constexpr void MergeOneLevel(Iterator ary, const MergeSortState<SsizeT>& mss, Co
     //
     // For the case `buf_len > 0`, we use the following constraints.
     //
-    //   (a):  imit_len + 2 <= buf_len .                   (by the function's requirement)
-    //   (b):  seq_len <= (imit_len + 2) / 2 * buf_len .   (by the function's requirement)
+    //   (a):  imit_len + 2 <= buf_len .                   (by MergeSortControll)
+    //   (b):  seq_len <= (imit_len + 2) / 2 * buf_len .   (by MergeSortControll)
     //   (c):  num_blocks / 2 = ceil(seq_len / buf_len) .  (by definition)
     //
     // From (a) and (b), we have `seq_len <= (buf_len ** 2) / 2`. Therefore
@@ -835,21 +844,21 @@ constexpr void MergeOneLevel(Iterator ary, const MergeSortState<SsizeT>& mss, Co
     SsizeT residual_len = s.seq_len - block_len * (num_blocks / 2 - 1);
 
     Iterator imit = ary;
-    Iterator buf = ary + mss.imit_len;
-    Iterator data = ary + mss.imit_len + mss.buf_len;
-    if (!mss.forward) {
-        buf += mss.data_len;
-        data += mss.data_len;
+    Iterator buf = ary + ctrl.imit_len;
+    Iterator data = ary + ctrl.imit_len + ctrl.buf_len;
+    if (!ctrl.forward) {
+        buf += ctrl.data_len;
+        data += ctrl.data_len;
     }
 
     BlockingParam p{num_blocks, block_len, residual_len, residual_len};
 
-    if (!mss.buf_len) {
-        MergeOneLevel<false, true>(imit, buf, data, mss.buf_len, s, p, comp);
-    } else if (mss.forward) {
-        MergeOneLevel<true, true>(imit, buf, data, mss.buf_len, s, p, comp);
+    if (!ctrl.buf_len) {
+        MergeOneLevel<false, true>(imit, buf, data, ctrl.buf_len, s, p, comp);
+    } else if (ctrl.forward) {
+        MergeOneLevel<true, true>(imit, buf, data, ctrl.buf_len, s, p, comp);
     } else {
-        MergeOneLevel<true, false>(imit, buf, data, mss.buf_len, s, p, comp);
+        MergeOneLevel<true, false>(imit, buf, data, ctrl.buf_len, s, p, comp);
     }
 }
 
@@ -1109,25 +1118,26 @@ static constexpr void Sort(Iterator first, Iterator last, Compare comp) {
 
     // If len = 17, num_keys is at most 8; so data_len > 8
     SsizeT data_len = len - num_keys;
-    MergeSortState mss{num_keys, data_len};
-    SortLeaves(first, mss.seq_spec, comp);
+    MergeSortControl ctrl{num_keys, data_len};
+    SortLeaves(first, ctrl.seq_spec, comp);
 
     Iterator data = first + num_keys;
     do {
-        bool buf_len_to_sort = MergeOneLevel(first, mss, comp);
+        MergeOneLevel(first, ctrl, comp);
+        bool buf_len_to_sort = ctrl.Next();
         if (buf_len_to_sort) {
             Iterator buf_assumed = data - buf_len_to_sort;
-            if (!mss.forward) {
+            if (!ctrl.forward) {
                 Iterator data_last = buf_assumed + data_len;
                 Iterator buf_last = data_last + buf_len_to_sort;
                 do {
                     swap(*--data_last, *--buf_last);
                 } while (data_last != buf_assumed);
-                mss.forward = true;
+                ctrl.forward = true;
             }
             ShellSort(buf_assumed, buf_len_to_sort, comp);
         }
-    } while (mss.log2_num_seqs);
+    } while (ctrl.log2_num_seqs);
 
     MergeWithoutBuf<false>(first, data, last);
 }
