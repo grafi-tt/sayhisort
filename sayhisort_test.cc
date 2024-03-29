@@ -494,6 +494,17 @@ TEST(SayhiSort, MergeSortControl) {
     EXPECT_EQ(ctrl.log2_num_seqs, 4);
     EXPECT_EQ(ctrl.imit_len, 8);
     EXPECT_EQ(ctrl.buf_len, 13);
+    EXPECT_EQ(ctrl.seq_spec.seq_len, 8);
+    EXPECT_EQ(ctrl.seq_spec.decr_pos, 11);
+    EXPECT_TRUE(ctrl.forward);
+    EXPECT_EQ(ctrl.Next(), 0);
+    EXPECT_EQ(ctrl.log2_num_seqs, 3);
+    EXPECT_EQ(ctrl.imit_len, 8);
+    EXPECT_EQ(ctrl.buf_len, 13);
+    EXPECT_EQ(ctrl.seq_spec.seq_len, 16);
+    EXPECT_EQ(ctrl.seq_spec.decr_pos, 3);
+    EXPECT_FALSE(ctrl.forward);
+
     ctrl = {22, 123};
     EXPECT_EQ(ctrl.imit_len, 10);
     EXPECT_EQ(ctrl.buf_len, 12);

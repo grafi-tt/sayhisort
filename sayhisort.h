@@ -498,8 +498,8 @@ struct SequenceSpec {
     constexpr SequenceSpec() = default;
     constexpr SequenceSpec(SsizeT data_len, SsizeT log2_num_seqs) :
         num_seqs{1 << log2_num_seqs},
-        seq_len{data_len >> log2_num_seqs},
-        decr_pos{(data_len - 1) % (1 << log2_num_seqs) + 1} {}
+        seq_len{(data_len - 1) / num_seqs + 1},
+        decr_pos{(data_len - 1) % num_seqs + 1} {}
     SsizeT num_seqs;
     SsizeT seq_len;
     SsizeT decr_pos;
