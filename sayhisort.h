@@ -405,13 +405,13 @@ constexpr void DeinterleaveImitation(Iterator imit, SsizeT imit_len, Iterator bu
     Iterator cur = mid_key + 1;
     mid_key = buf;
 
-    do {
+    while (cur != imit + imit_len) {
         if (comp(*cur, *mid_key)) {
-            swap(*cur, *left_cur++);
+            swap(*cur++, *left_cur++);
         } else {
-            swap(*cur, *right_cur++);
+            swap(*cur++, *right_cur++);
         }
-    } while (++cur != imit + imit_len);
+    }
 
     // now `left_cur` points to the start of right keys
     SwapChunk(buf, left_cur, imit_len / 2);
@@ -479,97 +479,6 @@ constexpr void DeinterleaveImitation(Iterator imit, SsizeT imit_len, Iterator mi
             rotate_runs(cur);
         }
     } while (rotated);
-}
-
-//
-// Shell sort to reset buf
-//
-
-constexpr int kCiuraGaps[8] = {1, 4, 10, 23, 57, 132, 301, 701};
-
-/**
- * @brief Find the larget gap within len from Ciura's gap sequence.
- *
- * The sequence is extended by repeatedly applying `x \mapsto ceil(2.25 * x)`.
- *
- * @param len
- *   @pre len >= 2
- * @param[out] n
- *   @post n >= 0
- *   @post NthShellSortGap(n) == gap
- * @return gap
- *   @post gap < len
- */
-template <typename SsizeT>
-constexpr SsizeT FirstShellSortGap(SsizeT len, SsizeT& n) {
-    n = 4 * (kCiuraGaps[4] < len);
-    n += 2 * (kCiuraGaps[n + 2] < len);
-    n += kCiuraGaps[n + 1] < len;
-    SsizeT gap = kCiuraGaps[n];
-    if (n == 7) {
-        // floor(2.25 * gap) < len
-        while (gap < (len - gap / 4 + 1) / 2) {
-            gap = gap * 2 + gap / 4;
-            ++n;
-        }
-    }
-    return gap;
-}
-
-/**
- * @brief Find the n'th gap within len from Ciura's gap sequence.
- *
- * The sequence is extended by repeatedly applying `x \mapsto ceil(2.25 * x)`.
- * This function is strictly increasing, and returns 1 if `n = 0`.
- *
- * @param n
- *   @pre n >= 0
- * @returns gap
- *   @post gap >= 1
- */
-template <typename SsizeT>
-constexpr SsizeT NthShellSortGap(SsizeT n) {
-    if (n < 8) {
-        return kCiuraGaps[n];
-    }
-    SsizeT i = 7;
-    SsizeT gap = kCiuraGaps[i];
-    do {
-        gap = gap * 2 + gap / 4;
-    } while (++i < n);
-    return gap;
-}
-
-/**
- * @brief Sort data by Shell sorting with Ciura's gap sequence. Sorting is unstable.
- *
- * The sequence is extended by repeatedly applying `x \mapsto ceil(2.25 * x)`.
- *
- * @param data
- * @param len
- *   @pre len >= 2
- * @param comp
- */
-template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
-constexpr void ShellSort(Iterator data, SsizeT len, Compare comp) {
-    SsizeT n;
-    SsizeT gap = FirstShellSortGap(len, n);
-
-    while (true) {
-        SsizeT i = gap;
-        do {
-            for (SsizeT j = i; j >= gap; j -= gap) {
-                if (comp(data[j - gap], data[j])) {
-                    break;
-                }
-                swap(data[j - gap], data[j]);
-            }
-        } while (++i < len);
-        if (!n) {
-            break;
-        }
-        gap = NthShellSortGap(--n);
-    }
 }
 
 //
@@ -745,40 +654,30 @@ struct MergeSortState {
             ++log2_num_seqs;
         }
         // seq_len <= 8, so seq_len < bufferable_len holds if num_keys != 0
-        seq_spec_ = SequenceSpec{data_len, log2_num_seqs};
+        seq_spec = SequenceSpec{data_len, log2_num_seqs};
     }
 
-    template <typename Iterator, typename Compare>
-    constexpr void Next(Iterator ary, Compare comp) {
+    constexpr SsizeT Next() {
         --log2_num_seqs;
-        seq_spec_ = SequenceSpec{data_len, log2_num_seqs};
+        seq_spec = SequenceSpec{data_len, log2_num_seqs};
 
         if (!buf_len) {
-            return;
+            return 0;
         }
         forward = !forward;
 
         if (!log2_num_seqs || seq_len > bufferable_len) {
-            Iterator new_buf = ary + imit_len;
-            if (!forward) {
-                Iterator data_last = new_buf + data_len;
-                Iterator buf_last = data_last + buf_len;
-                do {
-                    swap(*--data_last, *--buf_last);
-                } while (data_last != new_buf);
-            }
-            ShellSort(new_buf, buf_len, comp);
-
+            SsizeT buf_len_to_sort = buf_len;
             imit_len += buf_len;
             buf_len = 0;
-            forward = true;
+            return buf_len_to_sort;
         }
+        return 0;
     }
 
-    constexpr SequenceSpec<SsizeT> seq_spec() const { return seq_spec_; }
-    constexpr SsizeT num_seqs() const { return seq_spec_.num_seqs; }
-    constexpr SsizeT seq_len() const { return seq_spec_.seq_len; }
-    constexpr SsizeT decr_pos() const { return seq_spec_.decr_pos; }
+    constexpr SsizeT num_seqs() const { return seq_spec.num_seqs; }
+    constexpr SsizeT seq_len() const { return seq_spec.seq_len; }
+    constexpr SsizeT decr_pos() const { return seq_spec.decr_pos; }
 
     SsizeT imit_len = 0;
     SsizeT buf_len = 0;
@@ -786,16 +685,16 @@ struct MergeSortState {
     SsizeT data_len;
     SsizeT log2_num_seqs = 1;
     bool forward = true;
+    // initialized for pre-C++20 constexpr restriction
+    SequenceSpec<SsizeT> seq_spec{};
 
 private:
     constexpr void ComputeSeqSpecs() {
-        seq_spec_.num_seqs = 1 << log2_num_seqs;
-        seq_spec_.seq_len = data_len >> log2_num_seqs;
-        seq_spec_.decr_pos = (data_len - 1) % (1 << log2_num_seqs) + 1;
+        seq_spec.num_seqs = 1 << log2_num_seqs;
+        seq_spec.seq_len = data_len >> log2_num_seqs;
+        seq_spec.decr_pos = (data_len - 1) % (1 << log2_num_seqs) + 1;
     }
 
-    // initialized for pre-C++20 constexpr restriction
-    SequenceSpec<SsizeT> seq_spec_{};
 };
 
 template <bool has_buf, bool forward, typename Iterator, typename Compare,
@@ -876,7 +775,9 @@ constexpr void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, SsizeT 
  */
 template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
 constexpr void MergeOneLevel(Iterator ary, const MergeSortState<SsizeT>& mss, Compare comp) {
+    SsizeT s = mss.seq_spec;
     SsizeT num_blocks = mss.imit_len + 2;
+
     if (mss.buf_len) {
         // We don't need to perform runtime-checking so that computed `num_blocks` fits in imitation buffer.
         // Since
@@ -884,10 +785,10 @@ constexpr void MergeOneLevel(Iterator ary, const MergeSortState<SsizeT>& mss, Co
         // is assured,
         //   ceil(seq_len / buf_len) * 2 <= imit_len + 2
         // always holds.
-        num_blocks = ((mss.seq_len - 1) / mss.buf_len + 1) * 2;
+        num_blocks = ((s.seq_len - 1) / mss.buf_len + 1) * 2;
     } else {
         // max_num_blocks must be a multple of 2 and under-approx of sqrt(2 * seq_len)
-        SsizeT max_num_blocks = mss.seq_len < 12 ? 2 : mss.seq_len / OverApproxSqrt(mss.seq_len * 2) * 2;
+        SsizeT max_num_blocks = s.seq_len < 12 ? 2 : s.seq_len / OverApproxSqrt(s.seq_len * 2) * 2;
         if (num_blocks > max_num_blocks) {
             num_blocks = max_num_blocks;
         }
@@ -946,29 +847,17 @@ constexpr void MergeOneLevel(Iterator ary, const MergeSortState<SsizeT>& mss, Co
     // holds. Using (c) and (d), we have
     //
     //   (e):  num_blocks / 2 <= ceil(sqrt(seq_len) / sqrt(2)) .
+    //                        <= (sqrt(seq_len) / sqrt(2)) + 1
     //
-    // Note the formula (proposition) is equivalent to
+    // Thanks to (e), it's easy to show that the following (subprop) is enough to prove (proposition).
     //
-    //   (prop'):  num_blocks / 2 <= sqrt(seq_len) .
+    //   (subprop):  sqrt(seq_len) >= (sqrt(seq_len) / sqrt(2)) + 1
     //
-    // Since we have (e), the following is enough to show (prop') .
-    //
-    //   (subprop):   ceil(sqrt(seq_len) / sqrt(2)) <= sqrt(seq_len) .
-    //
-    // Intuitively, (subprop) should hold if `seq_len` is sufficiently large. To be precise, the following condition
-    //
-    //   (subprop'):  (sqrt(seq_len) / sqrt(2)) + 1 <= sqrt(seq_len) .
-    //
-    // is enough to show (subprop). It's equivalent to:
-    //
-    //   (subprop''): seq_len <= 1 / (3 - 2 * sqrt(2))
-    //                        =  5.8...   .
-    //
-    // As the function requires `seq_len >= 8`, (subprop'') is always satisfied. Thus (proposition) is true.
+    // As the function requires `seq_len >= 8`, (subprop) is always satisfied. Thus (proposition) is true.
     // Therefore We have proven `residual_len >= 2`.
 
-    SsizeT block_len = (mss.seq_len - 1) / (mss.num_blocks / 2) + 1;
-    SsizeT residual_len = mss.seq_len - mss.block_len * (mss.num_blocks / 2 - 1);
+    SsizeT block_len = (s.seq_len - 1) / (num_blocks / 2) + 1;
+    SsizeT residual_len = s.seq_len - block_len * (num_blocks / 2 - 1);
 
     Iterator imit = ary;
     Iterator buf = ary + mss.imit_len;
@@ -981,44 +870,12 @@ constexpr void MergeOneLevel(Iterator ary, const MergeSortState<SsizeT>& mss, Co
     BlockingParam p{num_blocks, block_len, residual_len, residual_len};
 
     if (!mss.buf_len) {
-        MergeOneLevel<false, true>(imit, buf, data, mss.buf_len, mss.seq_spec(), p, comp);
+        MergeOneLevel<false, true>(imit, buf, data, mss.buf_len, s, p, comp);
     } else if (mss.forward) {
-        MergeOneLevel<true, true>(imit, buf, data, mss.buf_len, mss.seq_spec(), p, comp);
+        MergeOneLevel<true, true>(imit, buf, data, mss.buf_len, s, p, comp);
     } else {
-        MergeOneLevel<true, false>(imit, buf, data, mss.buf_len, mss.num_spec(), p, comp);
+        MergeOneLevel<true, false>(imit, buf, data, mss.buf_len, s, p, comp);
     }
-}
-
-template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
-constexpr SsizeT CollectKeys(Iterator first, Iterator last, SsizeT num_desired_keys, Compare comp) {
-    if (first == last) {
-        return 0;
-    }
-    if (num_desired_keys <= 1) {
-        return num_desired_keys;
-    }
-
-    Iterator keys = first;
-    Iterator keys_last = first + 1;
-
-    for (Iterator cur = keys_last; cur < last; ++cur) {
-        Iterator inspos = BinarySearch<false>(keys, keys_last, cur, comp);
-        if (inspos == keys_last || comp(*cur, *inspos)) {
-            // Rotate keys forward so that insertion works in O(num_keys)
-            Rotate(keys, keys_last, cur);
-            keys += cur - keys_last;
-            inspos += cur - keys_last;
-            keys_last = cur;
-            // Insert the new key
-            Rotate(inspos, keys_last, cur + 1);
-            if (++keys_last - keys == num_desired_keys) {
-                break;
-            }
-        }
-    }
-
-    Rotate(first, keys, keys_last);
-    return keys_last - keys;
 }
 
 //
@@ -1129,6 +986,129 @@ constexpr void Sort0To8(Iterator data, SsizeT len, Compare comp) {
 }
 
 //
+// Full sorting subroutines
+//
+
+template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
+constexpr SsizeT CollectKeys(Iterator first, Iterator last, SsizeT num_desired_keys, Compare comp) {
+    if (first == last) {
+        return 0;
+    }
+    if (num_desired_keys <= 1) {
+        return num_desired_keys;
+    }
+
+    Iterator keys = first;
+    Iterator keys_last = first + 1;
+
+    for (Iterator cur = keys_last; cur < last; ++cur) {
+        Iterator inspos = BinarySearch<false>(keys, keys_last, cur, comp);
+        if (inspos == keys_last || comp(*cur, *inspos)) {
+            // Rotate keys forward so that insertion works in O(num_keys)
+            Rotate(keys, keys_last, cur);
+            keys += cur - keys_last;
+            inspos += cur - keys_last;
+            keys_last = cur;
+            // Insert the new key
+            Rotate(inspos, keys_last, cur + 1);
+            if (++keys_last - keys == num_desired_keys) {
+                break;
+            }
+        }
+    }
+
+    Rotate(first, keys, keys_last);
+    return keys_last - keys;
+}
+
+constexpr int kCiuraGaps[8] = {1, 4, 10, 23, 57, 132, 301, 701};
+
+/**
+ * @brief Find the larget gap within len from Ciura's gap sequence.
+ *
+ * The sequence is extended by repeatedly applying `x \mapsto ceil(2.25 * x)`.
+ *
+ * @param len
+ *   @pre len >= 2
+ * @param[out] n
+ *   @post n >= 0
+ *   @post NthShellSortGap(n) == gap
+ * @return gap
+ *   @post gap < len
+ */
+template <typename SsizeT>
+constexpr SsizeT FirstShellSortGap(SsizeT len, SsizeT& n) {
+    n = 4 * (kCiuraGaps[4] < len);
+    n += 2 * (kCiuraGaps[n + 2] < len);
+    n += kCiuraGaps[n + 1] < len;
+    SsizeT gap = kCiuraGaps[n];
+    if (n == 7) {
+        // floor(2.25 * gap) < len
+        while (gap < (len - gap / 4 + 1) / 2) {
+            gap = gap * 2 + gap / 4;
+            ++n;
+        }
+    }
+    return gap;
+}
+
+/**
+ * @brief Find the n'th gap within len from Ciura's gap sequence.
+ *
+ * The sequence is extended by repeatedly applying `x \mapsto ceil(2.25 * x)`.
+ * This function is strictly increasing, and returns 1 if `n = 0`.
+ *
+ * @param n
+ *   @pre n >= 0
+ * @returns gap
+ *   @post gap >= 1
+ */
+template <typename SsizeT>
+constexpr SsizeT NthShellSortGap(SsizeT n) {
+    if (n < 8) {
+        return kCiuraGaps[n];
+    }
+    SsizeT i = 7;
+    SsizeT gap = kCiuraGaps[i];
+    do {
+        gap = gap * 2 + gap / 4;
+    } while (++i < n);
+    return gap;
+}
+
+/**
+ * @brief Sort data by Shell sorting with Ciura's gap sequence. Sorting is unstable.
+ *
+ * The sequence is extended by repeatedly applying `x \mapsto ceil(2.25 * x)`.
+ *
+ * @param data
+ * @param len
+ *   @pre len >= 2
+ * @param comp
+ */
+template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
+constexpr void ShellSort(Iterator data, SsizeT len, Compare comp) {
+    SsizeT n;
+    SsizeT gap = FirstShellSortGap(len, n);
+
+    while (true) {
+        SsizeT i = gap;
+        do {
+            for (SsizeT j = i; j >= gap; j -= gap) {
+                if (comp(data[j - gap], data[j])) {
+                    break;
+                }
+                swap(data[j - gap], data[j]);
+            }
+        } while (++i < len);
+        if (!n) {
+            break;
+        }
+        gap = NthShellSortGap(--n);
+    }
+}
+
+//
 // Full sorting
 //
 
@@ -1155,15 +1135,26 @@ static constexpr void Sort(Iterator first, Iterator last, Compare comp) {
     // If len = 17, num_keys is at most 8; so data_len > 8
     SsizeT data_len = len - num_keys;
     MergeSortState mss{num_keys, data_len};
-    SortLeaves(first, mss.seq_spec(), comp);
+    SortLeaves(first, mss.seq_spec, comp);
 
+    Iterator data = first + num_keys;
     do {
-        MergeOneLevel(first, mss, comp);
+        bool buf_len_to_sort = MergeOneLevel(first, mss, comp);
+        if (buf_len_to_sort) {
+            Iterator buf_assumed = data - buf_len_to_sort;
+            if (!mss.forward) {
+                Iterator data_last = buf_assumed + data_len;
+                Iterator buf_last = data_last + buf_len_to_sort;
+                do {
+                    swap(*--data_last, *--buf_last);
+                } while (data_last != buf_assumed);
+                mss.forward = true;
+            }
+            ShellSort(buf_assumed, buf_len_to_sort, comp);
+        }
     } while (mss.log2_num_seqs);
 
-    Iterator imit = first;
-    Iterator data = first + num_keys;
-    MergeWithoutBuf<false>(imit, data, last);
+    MergeWithoutBuf<false>(first, data, last);
 }
 
 }  // namespace
