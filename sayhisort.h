@@ -58,11 +58,8 @@ constexpr void Rotate(Iterator first, Iterator middle, Iterator last) {
 #if 0
             SsizeT rem = r_len % l_len;
 #else
-            SsizeT rem = 0;
-            if (l_len >= 2) {
-                rem = r_len % 2;
-            }
-            if (l_len > 2) {
+            SsizeT rem = r_len & (l_len - 1);
+            if (l_len & (l_len - 1)) {
                 rem = r_len % l_len;
             }
 #endif
@@ -77,11 +74,8 @@ constexpr void Rotate(Iterator first, Iterator middle, Iterator last) {
             l_len -= rem;
             r_len = rem;
         } else {
-            SsizeT rem = 0;
-            if (r_len >= 2) {
-                rem = l_len % 2;
-            }
-            if (r_len > 2) {
+            SsizeT rem = l_len & (r_len - 1);
+            if (r_len & (r_len - 1)) {
                 rem = l_len % r_len;
             }
             do {
@@ -545,16 +539,11 @@ constexpr void MergeAdjacentBlocks(Iterator imit, Iterator& buf, Iterator blocks
             } else {
                 if (num_remained_blocks) {
                     xs = xs_latest_block;
-                } else {
-                    // Seek xs so that xs[0] > cur[0]
-                    // Note that cur_origin is kRight since num_remained_blocks
-                    xs = BinarySearch<true>(xs, cur, cur, comp);
-                    // Rotate xs and cur to ensure time complexity
-                    if (cur - xs > p.last_block_len) {
-                        Rotate(xs, cur, cur_last);
-                        cur = xs + p.last_block_len;
-                        xs_origin = kRight;
-                    }
+                } else if (cur - xs > p.last_block_len) {
+                    // Ensure that length of xs is at most block_len
+                    Rotate(xs, cur, cur_last);
+                    cur = xs + p.last_block_len;
+                    xs_origin = kRight;
                 }
             }
         }

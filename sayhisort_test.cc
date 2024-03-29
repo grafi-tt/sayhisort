@@ -418,6 +418,7 @@ TEST(SayhiSortTest, MergeBlocking) {
     BlockingParam<SsizeT> params[] = {
         {6, 6, 5, 4},
         {16, 17, 8, 8},
+        {24, 25, 1, 1},
     };
 
     auto rng = GetPerTestRNG();
@@ -478,7 +479,7 @@ TEST(SayhiSortTest, ReverseCompare) {
     EXPECT_TRUE(gt_ebo(3, 2));
 }
 
-TEST(SayhiSort, MergeSortControl) {
+TEST(SayhiSortTest, MergeSortControl) {
     MergeSortControl<SsizeT> ctrl{8, 16};
 
     EXPECT_EQ(ctrl.log2_num_seqs, 1);
