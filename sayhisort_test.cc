@@ -24,6 +24,12 @@ using Iterator = std::vector<int>::iterator;
 using Compare = std::less<int>;
 using SsizeT = Iterator::difference_type;
 
+struct CompareDiv4 {
+    bool operator()(int x, int y) const {
+        return (x >> 2) < (y >> 2);
+    }
+};
+
 std::mt19937_64 GetPerTestRNG() {
     uint64_t h = 0xcbf29ce484222325;
     auto fnv1a = [&h](const char* m) {
@@ -571,35 +577,72 @@ TEST(SayhiSortTest, DetermineBlocking) {
 
 TEST(SayhiSortTest, MergeOneLevel) {
     BlockingParam<SsizeT> p{16, 19, 17, 17};
-    SequenceSpec<SsizeT> s{600, 2};
+    SequenceSpec<SsizeT> s{599, 2};
     SsizeT imit_len = 14;
     SsizeT buf_len = 19;
-    SsizeT ary_len = imit_len + buf_len + 600;
+    SsizeT ary_len = imit_len + buf_len + 599;
 
     std::vector<int> ary(ary_len);
     std::vector<int> expected(ary_len);
 
     auto rng = GetPerTestRNG();
 
-    Iterator data = ary.begin() + imit_len + buf_len;
-    std::iota(ary.begin(), ary.begin() + imit_len, 0);
-    std::fill(ary.begin() + imit_len, ary.begin() + imit_len + buf_len, 42);
-    std::iota(data, ary.end(), 100);
-    std::shuffle(data, ary.end(), rng);
+    auto test_fwd = [&](auto comp) {
+        Iterator data = ary.begin() + imit_len + buf_len;
+        for (SsizeT i = 0; i < imit_len; ++i) {
+            ary[i] = i * 4;
+        }
+        std::fill(ary.begin() + imit_len, data, 42);
+        std::iota(data, data + 599, 100);
+        std::shuffle(data, data + 599, rng);
+        std::stable_sort(data, data + 150, comp);
+        std::stable_sort(data + 150, data + 300, comp);
+        std::stable_sort(data + 300, data + 450, comp);
+        std::stable_sort(data + 450, data + 599, comp);
 
-    std::sort(data, data + 150, Compare{});
-    std::sort(data + 150, data + 300, Compare{});
-    std::sort(data + 300, data + 450, Compare{});
-    std::sort(data + 450, data + 600, Compare{});
+        Iterator edata = expected.begin() + imit_len;
+        for (SsizeT i = 0; i < imit_len; ++i) {
+            expected[i] = i * 4;
+        }
+        std::copy(data, data + 599, edata);
+        std::stable_sort(edata, edata + 300, comp);
+        std::stable_sort(edata + 300, edata + 599, comp);
+        std::fill(expected.end() - buf_len, expected.end(), 42);
 
-    std::iota(expected.begin(), expected.begin() + imit_len, 0);
-    std::fill(expected.end() - buf_len, expected.end(), 42);
-    std::copy(data, data + 600, expected.begin() + imit_len);
-    std::sort(expected.begin() + imit_len, expected.begin() + imit_len + 300, Compare{});
-    std::sort(expected.begin() + imit_len + 300, expected.begin() + imit_len + 600, Compare{});
+        MergeOneLevel<true, true>(ary.begin(), ary.begin() + imit_len, data, s, p, comp);
+        EXPECT_EQ(ary, expected);
+    };
 
-    MergeOneLevel<true, true>(ary.begin(), ary.begin() + imit_len, data, s, p, Compare{});
-    EXPECT_EQ(ary, expected);
+    auto test_bwd = [&](auto comp) {
+        Iterator data = ary.begin() + imit_len;
+        for (SsizeT i = 0; i < imit_len; ++i) {
+            ary[i] = i * 4;
+        }
+        std::iota(data, data + 599, 100);
+        std::shuffle(data, data + 599, rng);
+        std::stable_sort(data, data + 150, comp);
+        std::stable_sort(data + 150, data + 300, comp);
+        std::stable_sort(data + 300, data + 450, comp);
+        std::stable_sort(data + 450, data + 599, comp);
+        std::fill(ary.end() - buf_len, ary.end(), 42);
+
+        Iterator edata = expected.begin() + imit_len + buf_len;
+        for (SsizeT i = 0; i < imit_len; ++i) {
+            expected[i] = i * 4;
+        }
+        std::fill(expected.begin() + imit_len, edata, 42);
+        std::copy(data, data + 599, edata);
+        std::stable_sort(edata, edata + 300, comp);
+        std::stable_sort(edata + 300, edata + 599, comp);
+
+        MergeOneLevel<true, false>(ary.begin(), ary.end(), ary.end() - buf_len, s, p, comp);
+        EXPECT_EQ(ary, expected);
+    };
+
+    test_fwd(Compare{});
+    test_bwd(Compare{});
+    test_fwd(CompareDiv4{});
+    test_bwd(CompareDiv4{});
 }
 
 TEST(SayhiSortTest, CollectKeys) {

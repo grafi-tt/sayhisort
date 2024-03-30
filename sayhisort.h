@@ -128,21 +128,28 @@ constexpr Iterator BinarySearch(Iterator first, Iterator last, Iterator key, Com
     // So-called monobound binary search
     // The algorithm statically determines how many times the loop body runs, so that CPU pipeline becomes happier
     // See https://github.com/scandum/binary_search for idea
-    using SsizeT = typename Iterator::difference_type;
+    auto pred = [&comp, &key](Iterator p) {
+        if constexpr(nonstrict) {
+            return !comp(*key, *p);
+        } else {
+            return comp(*p, *key);
+        }
+    };
 
+    using SsizeT = typename Iterator::difference_type;
     Iterator base = first;
     SsizeT len = last - first;
     SsizeT mid;
 
     while ((mid = len / 2)) {
         Iterator pivot = base + mid;
-        if (nonstrict ? !comp(*key, *pivot) : comp(*pivot, *key)) {
+        if (pred(pivot)) {
             base = pivot;
         }
         len -= mid;
     } while (mid);
 
-    base += nonstrict ? !comp(*key, *base) : comp(*base, *key);
+    base += pred(base);
     return base;
 }
 
@@ -183,9 +190,8 @@ template <bool flipped, typename Iterator, typename Compare>
 constexpr bool MergeWithBuf(Iterator& buf, Iterator xs, Iterator& ys, Iterator ys_last, Compare comp) {
     // So-called cross merge optimization is applied
     // See https://github.com/scandum/quadsort#cross-merge for idea
-
-    auto is_x_selected = [comp](decltype(xs[0]) x, decltype(ys[0]) y) {
-        if (flipped) {
+    auto is_x_selected = [&comp](decltype(xs[0]) x, decltype(ys[0]) y) {
+        if constexpr (flipped) {
             return comp(x, y);
         } else {
             return !comp(y, x);
@@ -790,24 +796,26 @@ constexpr void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, Sequenc
                              BlockingParam<SsizeT> p, Compare comp) {
     constexpr SsizeT incr = forward ? 1 : -1;
     if constexpr (!forward) {
+        s.seq_len -= 1;
         p.first_block_len -= 1;
         p.last_block_len -= 1;
     }
 
     for (SsizeT i = 0; i < s.num_seqs; i += 2) {
+        SsizeT i_ = i;
         if constexpr (!forward) {
-            i = s.num_seqs - i;
+            i_ = s.num_seqs - i;
         }
 
         p.first_block_len = p.last_block_len;
-        if (i == s.decr_pos) {
+        if (i_ == s.decr_pos) {
             s.seq_len -= incr;
             p.first_block_len -= incr;
         }
         SsizeT merging_len = s.seq_len;
 
         p.last_block_len = p.first_block_len;
-        if (i + incr == s.decr_pos) {
+        if (i_ + incr == s.decr_pos) {
             s.seq_len -= incr;
             p.last_block_len -= incr;
         }
@@ -817,9 +825,10 @@ constexpr void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, Sequenc
             auto rev_imit = std::make_reverse_iterator(imit + p.num_blocks - 2);
             auto rev_buf = std::make_reverse_iterator(buf);
             auto rev_data = std::make_reverse_iterator(data);
-            MergeBlocking<has_buf>(rev_imit, rev_buf, data, p, ReverseCompare{comp});
-            buf = rev_buf.base();
+            MergeBlocking<has_buf>(rev_imit, rev_buf, rev_data, p, ReverseCompare{comp});
+            //buf = rev_buf.base();
             data -= merging_len;
+            buf -= merging_len;
         } else {
             MergeBlocking<has_buf>(imit, buf, data, p, comp);
             data += merging_len;
