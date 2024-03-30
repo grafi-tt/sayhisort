@@ -487,18 +487,6 @@ struct BlockingParam {
     SsizeT last_block_len;
 };
 
-template <typename SsizeT>
-struct SequenceSpec {
-    constexpr SequenceSpec() = default;
-    constexpr SequenceSpec(SsizeT data_len, SsizeT log2_num_seqs) :
-        num_seqs{1 << log2_num_seqs},
-        seq_len{(data_len - 1) / num_seqs + 1},
-        decr_pos{(data_len - 1) % num_seqs + 1} {}
-    SsizeT num_seqs;
-    SsizeT seq_len;
-    SsizeT decr_pos;
-};
-
 template <bool has_buf, typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
 constexpr void MergeAdjacentBlocks(Iterator imit, Iterator& buf, Iterator blocks, BlockingParam<SsizeT> p,
                                    Iterator mid_key, Compare comp) {
@@ -622,6 +610,18 @@ private:
 };
 
 template <typename SsizeT>
+struct SequenceSpec {
+    constexpr SequenceSpec() = default;
+    constexpr SequenceSpec(SsizeT data_len, SsizeT log2_num_seqs) :
+        num_seqs{1 << log2_num_seqs},
+        seq_len{(data_len - 1) / num_seqs + 1},
+        decr_pos{(data_len - 1) % num_seqs + 1} {}
+    SsizeT num_seqs;
+    SsizeT seq_len;
+    SsizeT decr_pos;
+};
+
+template <typename SsizeT>
 struct MergeSortControl {
     /**
      * @param num_keys
@@ -696,59 +696,9 @@ private:
 
 };
 
-template <bool has_buf, bool forward, typename Iterator, typename Compare,
-          typename SsizeT = typename Iterator::difference_type>
-constexpr void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, SsizeT buf_len, SequenceSpec<SsizeT> s,
-                             BlockingParam<SsizeT> p, Compare comp) {
-    constexpr SsizeT incr = forward ? 1 : -1;
-    if constexpr (!forward) {
-        p.first_block_len -= 1;
-        p.last_block_len -= 1;
-    }
-
-    for (SsizeT i = 0; i < s.num_seqs; i += 2) {
-        if constexpr (!forward) {
-            i = s.num_seqs - i;
-        }
-
-        if (i == s.decr_pos) {
-            s.seq_len -= incr;
-            p.first_block_len -= incr;
-        }
-        SsizeT merging_len = s.seq_len;
-
-        if (i + incr == s.decr_pos) {
-            s.seq_len -= incr;
-            p.last_block_len -= incr;
-        }
-        merging_len += s.seq_len;
-
-        if constexpr (!forward) {
-            auto rev_imit = std::make_reverse_iterator(imit + p.num_blocks - 2);
-            auto rev_buf = std::make_reverse_iterator(buf + buf_len);
-            auto rev_data = std::make_reverse_iterator(data);
-            MergeBlocking<has_buf>(rev_imit, rev_buf, data, p, comp);
-            if constexpr (has_buf) {
-                buf = rev_buf.base();
-            }
-            data -= merging_len;
-        } else {
-            MergeBlocking<has_buf>(imit, buf, data, p, comp);
-            data += merging_len;
-        }
-    }
-}
-
-/**
- * @brief Merge sequences in pairwise manner. It processes one level of bottom-up merge sort.
- *
- * @param ary
- * @param ctrl
- * @param comp
- */
-template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
-constexpr void MergeOneLevel(Iterator ary, const MergeSortControl<SsizeT>& ctrl, Compare comp) {
-    SsizeT s = ctrl.seq_spec;
+template <typename SsizeT>
+constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>& ctrl) {
+    SequenceSpec<SsizeT> s = ctrl.seq_spec;
     SsizeT num_blocks = ctrl.imit_len + 2;
 
     if (ctrl.buf_len) {
@@ -767,10 +717,11 @@ constexpr void MergeOneLevel(Iterator ary, const MergeSortControl<SsizeT>& ctrl,
         }
     }
 
-    // We need to proof `residual_len >= 2`.
+    // We need to proof `residual_len >= 2` to assure that all blocks have positive length.
+    // (Note that `residual_len` may be decremented once in `MergeOneLevel`.)
     //
-    // Let `N` and `m` be positive integers. Assume `N >= m ** 2`, `N >= 2` and `m >= 1`.
-    // We first show the following lemma.
+    // We first show the following lemma. Let `N` and `m` be positive integers, such that
+    // `N >= m ** 2`, `N >= 2` and `m >= 1`.
     //
     //   (lemma):  N - ceil(N / m) * (m - 1) >= 2 .
     //
@@ -796,7 +747,6 @@ constexpr void MergeOneLevel(Iterator ary, const MergeSortControl<SsizeT>& ctrl,
     //
     // which is equivalent to (lemma). Thus the lemma is proven.
     //
-    //
     // Now it's enough to show that
     //
     //   (proposition):  seq_len >= (num_blocks / 2) ** 2 ,
@@ -806,7 +756,6 @@ constexpr void MergeOneLevel(Iterator ary, const MergeSortControl<SsizeT>& ctrl,
     // Note that (*) and (**) are immediate from the function's requirement.
     //
     // When `buf_len = 0`, the definition of `max_num_blocks` ensures that (proposition) is satisfied.
-    //
     // For the case `buf_len > 0`, we use the following constraints.
     //
     //   (a):  imit_len + 2 <= buf_len .                   (by MergeSortControll)
@@ -832,22 +781,49 @@ constexpr void MergeOneLevel(Iterator ary, const MergeSortControl<SsizeT>& ctrl,
     SsizeT block_len = (s.seq_len - 1) / (num_blocks / 2) + 1;
     SsizeT residual_len = s.seq_len - block_len * (num_blocks / 2 - 1);
 
-    Iterator imit = ary;
-    Iterator buf = ary + ctrl.imit_len;
-    Iterator data = ary + ctrl.imit_len + ctrl.buf_len;
-    if (!ctrl.forward) {
-        buf += ctrl.data_len;
-        data += ctrl.data_len;
+    return {num_blocks, block_len, residual_len, residual_len};
+}
+
+template <bool has_buf, bool forward, typename Iterator, typename Compare,
+          typename SsizeT = typename Iterator::difference_type>
+constexpr void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, SequenceSpec<SsizeT> s,
+                             BlockingParam<SsizeT> p, Compare comp) {
+    constexpr SsizeT incr = forward ? 1 : -1;
+    if constexpr (!forward) {
+        p.first_block_len -= 1;
+        p.last_block_len -= 1;
     }
 
-    BlockingParam p{num_blocks, block_len, residual_len, residual_len};
+    for (SsizeT i = 0; i < s.num_seqs; i += 2) {
+        if constexpr (!forward) {
+            i = s.num_seqs - i;
+        }
 
-    if (!ctrl.buf_len) {
-        MergeOneLevel<false, true>(imit, buf, data, ctrl.buf_len, s, p, comp);
-    } else if (ctrl.forward) {
-        MergeOneLevel<true, true>(imit, buf, data, ctrl.buf_len, s, p, comp);
-    } else {
-        MergeOneLevel<true, false>(imit, buf, data, ctrl.buf_len, s, p, comp);
+        p.first_block_len = p.last_block_len;
+        if (i == s.decr_pos) {
+            s.seq_len -= incr;
+            p.first_block_len -= incr;
+        }
+        SsizeT merging_len = s.seq_len;
+
+        p.last_block_len = p.first_block_len;
+        if (i + incr == s.decr_pos) {
+            s.seq_len -= incr;
+            p.last_block_len -= incr;
+        }
+        merging_len += s.seq_len;
+
+        if constexpr (!forward) {
+            auto rev_imit = std::make_reverse_iterator(imit + p.num_blocks - 2);
+            auto rev_buf = std::make_reverse_iterator(buf);
+            auto rev_data = std::make_reverse_iterator(data);
+            MergeBlocking<has_buf>(rev_imit, rev_buf, data, p, ReverseCompare{comp});
+            buf = rev_buf.base();
+            data -= merging_len;
+        } else {
+            MergeBlocking<has_buf>(imit, buf, data, p, comp);
+            data += merging_len;
+        }
     }
 }
 
@@ -1003,15 +979,15 @@ constexpr int kCiuraGaps[8] = {1, 4, 10, 23, 57, 132, 301, 701};
  *
  * @param len
  *   @pre len >= 2
- * @param[out] n
+ * @return gap
+ *   @post 1 <= gap < len
+ * @return n
  *   @post n >= 0
  *   @post NthShellSortGap(n) == gap
- * @return gap
- *   @post gap < len
  */
 template <typename SsizeT>
-constexpr SsizeT FirstShellSortGap(SsizeT len, SsizeT& n) {
-    n = 4 * (kCiuraGaps[4] < len);
+constexpr std::pair<SsizeT, SsizeT> FirstShellSortGap(SsizeT len) {
+    SsizeT n = 4 * (kCiuraGaps[4] < len);
     n += 2 * (kCiuraGaps[n + 2] < len);
     n += kCiuraGaps[n + 1] < len;
     SsizeT gap = kCiuraGaps[n];
@@ -1022,7 +998,7 @@ constexpr SsizeT FirstShellSortGap(SsizeT len, SsizeT& n) {
             ++n;
         }
     }
-    return gap;
+    return {gap, n};
 }
 
 /**
@@ -1061,8 +1037,7 @@ constexpr SsizeT NthShellSortGap(SsizeT n) {
  */
 template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
 constexpr void ShellSort(Iterator data, SsizeT len, Compare comp) {
-    SsizeT n;
-    SsizeT gap = FirstShellSortGap(len, n);
+    auto [gap, n] = FirstShellSortGap(len);
 
     while (true) {
         SsizeT i = gap;
@@ -1111,20 +1086,29 @@ static constexpr void Sort(Iterator first, Iterator last, Compare comp) {
     SortLeaves(first, ctrl.seq_spec, comp);
 
     Iterator data = first + num_keys;
+    Iterator buf = first + ctrl.imit_len;
+
     do {
-        MergeOneLevel(first, ctrl, comp);
-        bool buf_len_to_sort = ctrl.Next();
-        if (buf_len_to_sort) {
-            Iterator buf_assumed = data - buf_len_to_sort;
+        BlockingParam p = DetermineBlocking(ctrl);
+
+        if (!ctrl.buf_len) {
+            MergeOneLevel<false, true>(first, buf, data, ctrl.buf_len, ctrl.seq_spec, p, comp);
+        } else if (ctrl.forward) {
+            MergeOneLevel<true, true>(first, buf, data, ctrl.buf_len, ctrl.seq_spec, p, comp);
+        } else {
+            MergeOneLevel<true, false>(first, last, last - ctrl.buf_len, ctrl.buf_len, ctrl.seq_spec, p, comp);
+        }
+
+        if (SsizeT buf_len_to_sort = ctrl.Next()) {
             if (!ctrl.forward) {
-                Iterator data_last = buf_assumed + data_len;
-                Iterator buf_last = data_last + buf_len_to_sort;
+                Iterator back_buf = last;
+                Iterator back_data = last - ctrl.buf_len;
                 do {
-                    swap(*--data_last, *--buf_last);
-                } while (data_last != buf_assumed);
+                    swap(*--back_data, *--back_buf);
+                } while (back_data != buf);
                 ctrl.forward = true;
             }
-            ShellSort(buf_assumed, buf_len_to_sort, comp);
+            ShellSort(buf, buf_len_to_sort, comp);
         }
     } while (ctrl.log2_num_seqs);
 

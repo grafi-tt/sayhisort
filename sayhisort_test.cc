@@ -1,4 +1,3 @@
-#include <iostream>
 #include "sayhisort.h"
 
 #include <algorithm>
@@ -11,6 +10,7 @@
 #include <numeric>
 #include <random>
 #include <set>
+#include <tuple>
 #include <type_traits>
 #include <vector>
 
@@ -509,6 +509,97 @@ TEST(SayhiSortTest, MergeSortControl) {
     ctrl = {22, 123};
     EXPECT_EQ(ctrl.imit_len, 10);
     EXPECT_EQ(ctrl.buf_len, 12);
+
+    ctrl = {47, 953};
+    EXPECT_EQ(ctrl.log2_num_seqs, 7);
+    EXPECT_EQ(ctrl.imit_len, 22);
+    EXPECT_EQ(ctrl.buf_len, 25);
+    EXPECT_EQ(ctrl.seq_spec.seq_len, 8);
+    EXPECT_EQ(ctrl.Next(), 0);
+    EXPECT_EQ(ctrl.seq_spec.seq_len, 15);
+    EXPECT_EQ(ctrl.Next(), 0);
+    EXPECT_EQ(ctrl.seq_spec.seq_len, 30);
+    EXPECT_EQ(ctrl.Next(), 0);
+    EXPECT_EQ(ctrl.seq_spec.seq_len, 60);
+    EXPECT_EQ(ctrl.Next(), 0);
+    EXPECT_EQ(ctrl.seq_spec.seq_len, 120);
+    EXPECT_EQ(ctrl.Next(), 0);
+    EXPECT_EQ(ctrl.seq_spec.seq_len, 239);
+    EXPECT_EQ(ctrl.Next(), 25);
+    EXPECT_EQ(ctrl.seq_spec.seq_len, 477);
+    EXPECT_EQ(ctrl.Next(), 0);
+    EXPECT_EQ(ctrl.seq_spec.seq_len, 953);
+}
+
+TEST(SayhiSortTest, DetermineBlocking) {
+    MergeSortControl<SsizeT> ctrl{47, 953};
+    BlockingParam<SsizeT> p = DetermineBlocking(ctrl);
+    EXPECT_EQ(p.num_blocks, 2);
+    EXPECT_GE(p.first_block_len, 2);
+    EXPECT_LE(p.first_block_len, p.block_len);
+    ctrl.Next();
+    p = DetermineBlocking(ctrl);
+    EXPECT_EQ(p.num_blocks, 2);
+    EXPECT_GE(p.first_block_len, 2);
+    EXPECT_LE(p.first_block_len, p.block_len);
+    ctrl.Next();
+    p = DetermineBlocking(ctrl);
+    EXPECT_EQ(p.num_blocks, 4);
+    EXPECT_GE(p.first_block_len, 2);
+    EXPECT_LE(p.first_block_len, p.block_len);
+    ctrl.Next();
+    p = DetermineBlocking(ctrl);
+    EXPECT_EQ(p.num_blocks, 6);
+    EXPECT_GE(p.first_block_len, 2);
+    EXPECT_LE(p.first_block_len, p.block_len);
+    ctrl.Next();
+    p = DetermineBlocking(ctrl);
+    EXPECT_EQ(p.num_blocks, 10);
+    EXPECT_GE(p.first_block_len, 2);
+    EXPECT_LE(p.first_block_len, p.block_len);
+    ctrl.Next();
+    p = DetermineBlocking(ctrl);
+    EXPECT_EQ(p.num_blocks, 20);
+    EXPECT_GE(p.first_block_len, 2);
+    EXPECT_LE(p.first_block_len, p.block_len);
+    ctrl.Next();
+    p = DetermineBlocking(ctrl);
+    EXPECT_EQ(p.num_blocks, 30);
+    EXPECT_GE(p.first_block_len, 2);
+    EXPECT_LE(p.first_block_len, p.block_len);
+}
+
+TEST(SayhiSortTest, MergeOneLevel) {
+    BlockingParam<SsizeT> p{16, 19, 17, 17};
+    SequenceSpec<SsizeT> s{600, 2};
+    SsizeT imit_len = 14;
+    SsizeT buf_len = 19;
+    SsizeT ary_len = imit_len + buf_len + 600;
+
+    std::vector<int> ary(ary_len);
+    std::vector<int> expected(ary_len);
+
+    auto rng = GetPerTestRNG();
+
+    Iterator data = ary.begin() + imit_len + buf_len;
+    std::iota(ary.begin(), ary.begin() + imit_len, 0);
+    std::fill(ary.begin() + imit_len, ary.begin() + imit_len + buf_len, 42);
+    std::iota(data, ary.end(), 100);
+    std::shuffle(data, ary.end(), rng);
+
+    std::sort(data, data + 150, Compare{});
+    std::sort(data + 150, data + 300, Compare{});
+    std::sort(data + 300, data + 450, Compare{});
+    std::sort(data + 450, data + 600, Compare{});
+
+    std::iota(expected.begin(), expected.begin() + imit_len, 0);
+    std::fill(expected.end() - buf_len, expected.end(), 42);
+    std::copy(data, data + 600, expected.begin() + imit_len);
+    std::sort(expected.begin() + imit_len, expected.begin() + imit_len + 300, Compare{});
+    std::sort(expected.begin() + imit_len + 300, expected.begin() + imit_len + 600, Compare{});
+
+    MergeOneLevel<true, true>(ary.begin(), ary.begin() + imit_len, data, s, p, Compare{});
+    EXPECT_EQ(ary, expected);
 }
 
 TEST(SayhiSortTest, CollectKeys) {
@@ -577,24 +668,24 @@ TEST(SayhiSortTest, FirstShellSortGap) {
         } else {
             n_ans = 8;
         }
-        gap = FirstShellSortGap(len, n);
+        std::tie(gap, n) = FirstShellSortGap(len);
         EXPECT_EQ(n, n_ans);
         EXPECT_EQ(gap, n_ans == 8 ? 1577 : kCiuraGaps[n]);
     }
 
-    gap = FirstShellSortGap(SsizeT{3548}, n);
+    std::tie(gap, n) = FirstShellSortGap(SsizeT{3548});
     EXPECT_EQ(n, 8);
     EXPECT_EQ(gap, 1577);
 
-    gap = FirstShellSortGap(SsizeT{3549}, n);
+    std::tie(gap, n) = FirstShellSortGap(SsizeT{3549});
     EXPECT_EQ(n, 9);
     EXPECT_EQ(gap, 3548);
 
-    gap = FirstShellSortGap(SsizeT{7983}, n);
+    std::tie(gap, n) = FirstShellSortGap(SsizeT{7983});
     EXPECT_EQ(n, 9);
     EXPECT_EQ(gap, 3548);
 
-    gap = FirstShellSortGap(SsizeT{7984}, n);
+    std::tie(gap, n) = FirstShellSortGap(SsizeT{7984});
     EXPECT_EQ(n, 10);
     EXPECT_EQ(gap, 7983);
 }
