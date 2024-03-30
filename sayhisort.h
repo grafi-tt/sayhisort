@@ -15,6 +15,15 @@ using std::swap;
 // Utilities
 //
 
+/**
+ * @brief Compute an over-approximation of sqrt(x)
+ *
+ * @param x
+ *   @pre x >= 8
+ * @returns r
+ *   @post sqrt(x) <= r
+ *   @post r < max(sqrt(x) + 2, sqrt(x) * (1.0 + 1.0/256))  (numerically tested)
+ */
 template <typename SsizeT>
 constexpr SsizeT OverApproxSqrt(SsizeT x) {
     // https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Binary_estimates
@@ -620,11 +629,11 @@ struct SequenceSpec {
     constexpr SequenceSpec() = default;
     constexpr SequenceSpec(SsizeT data_len, SsizeT log2_num_seqs) :
         num_seqs{1 << log2_num_seqs},
-        seq_len{(data_len - 1) / num_seqs + 1},
-        decr_pos{(data_len - 1) % num_seqs + 1} {}
+        num_full_seqs{(data_len - 1) % num_seqs + 1},
+        seq_len{(data_len - 1) / num_seqs + 1} {}
     SsizeT num_seqs;
+    SsizeT num_full_seqs;
     SsizeT seq_len;
-    SsizeT decr_pos;
 };
 
 template <typename SsizeT>
@@ -692,14 +701,6 @@ struct MergeSortControl {
     bool forward = true;
     // initialized for pre-C++20 constexpr restriction
     SequenceSpec<SsizeT> seq_spec{};
-
-private:
-    constexpr void ComputeSeqSpecs() {
-        seq_spec.num_seqs = 1 << log2_num_seqs;
-        seq_spec.seq_len = data_len >> log2_num_seqs;
-        seq_spec.decr_pos = (data_len - 1) % (1 << log2_num_seqs) + 1;
-    }
-
 };
 
 template <typename SsizeT>
@@ -808,14 +809,14 @@ constexpr void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, Sequenc
         }
 
         p.first_block_len = p.last_block_len;
-        if (i_ == s.decr_pos) {
+        if (i_ == s.num_full_seqs) {
             s.seq_len -= incr;
             p.first_block_len -= incr;
         }
         SsizeT merging_len = s.seq_len;
 
         p.last_block_len = p.first_block_len;
-        if (i_ + incr == s.decr_pos) {
+        if (i_ + incr == s.num_full_seqs) {
             s.seq_len -= incr;
             p.last_block_len -= incr;
         }
@@ -904,7 +905,7 @@ constexpr void Sort4To8(Iterator data, SsizeT len, Compare comp) {
 template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
 constexpr void SortLeaves(Iterator data, SequenceSpec<SsizeT> s, Compare comp) {
     for (SsizeT i = 0; i < s.num_seqs; ++i) {
-        if (i == s.decr_pos) {
+        if (i == s.num_full_seqs) {
             --s.seq_len;
         }
         Sort4To8(data, s.seq_len, comp);

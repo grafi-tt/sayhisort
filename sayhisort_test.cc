@@ -62,19 +62,17 @@ std::mt19937_64 GetPerTestRNG() {
 }
 
 TEST(SayhiSortTest, OverApproxSqrt) {
-    EXPECT_EQ(OverApproxSqrt(16), 4);
-
-    for (int x = 17; x < 1000; ++x) {
-        SsizeT r = OverApproxSqrt(x);
-        EXPECT_GT(r, 0);
-        EXPECT_LE(r, x);
-        EXPECT_GE(r * r, x);
+    for (int x = 8; x < 8192; ++x) {
+        SsizeT ar = OverApproxSqrt(x);
+        double r = std::sqrt(static_cast<double>(x));
+        EXPECT_GE(ar, r);
+        EXPECT_LT(ar, std::max(r + 2, r * (1.0 + 1.0 / 256)));
     }
-
-    for (int x = 2048; x <= 8192; ++x) {
-        int r = OverApproxSqrt(x);
-        int q = 0.97 * r;
-        EXPECT_LT(q * q, x);
+    for (int x = 8192; x < 2000000; x += 123) {
+        SsizeT ar = OverApproxSqrt(x);
+        double r = std::sqrt(static_cast<double>(x));
+        EXPECT_GE(ar, r);
+        EXPECT_LT(ar, std::max(r + 2, r * (1.0 + 1.0 / 256)));
     }
 }
 
@@ -502,14 +500,14 @@ TEST(SayhiSortTest, MergeSortControl) {
     EXPECT_EQ(ctrl.imit_len, 8);
     EXPECT_EQ(ctrl.buf_len, 13);
     EXPECT_EQ(ctrl.seq_spec.seq_len, 8);
-    EXPECT_EQ(ctrl.seq_spec.decr_pos, 11);
+    EXPECT_EQ(ctrl.seq_spec.num_full_seqs, 11);
     EXPECT_TRUE(ctrl.forward);
     EXPECT_EQ(ctrl.Next(), 0);
     EXPECT_EQ(ctrl.log2_num_seqs, 3);
     EXPECT_EQ(ctrl.imit_len, 8);
     EXPECT_EQ(ctrl.buf_len, 13);
     EXPECT_EQ(ctrl.seq_spec.seq_len, 16);
-    EXPECT_EQ(ctrl.seq_spec.decr_pos, 3);
+    EXPECT_EQ(ctrl.seq_spec.num_full_seqs, 3);
     EXPECT_FALSE(ctrl.forward);
 
     ctrl = {22, 123};
