@@ -1097,12 +1097,13 @@ static constexpr void Sort(Iterator first, Iterator last, Compare comp) {
         return Sort0To8(first, len, comp);
     }
 
+    Iterator imit = first;
     SsizeT num_keys = 0;
     if (len > 16) {
         SsizeT num_desired_keys = 2 * OverApproxSqrt(len) - 2;
         num_keys = CollectKeys(first, last, num_desired_keys, comp);
         if (num_keys < 8) {
-            first += num_keys;
+            imit += num_keys;
             len -= num_keys;
             num_keys = 0;
         }
@@ -1112,18 +1113,18 @@ static constexpr void Sort(Iterator first, Iterator last, Compare comp) {
     SsizeT data_len = len - num_keys;
     MergeSortControl ctrl{num_keys, data_len};
 
-    Iterator data = first + num_keys;
+    Iterator data = imit + num_keys;
     SortLeaves(data, ctrl.data_len, ctrl.log2_num_seqs, comp);
 
     do {
         BlockingParam p = DetermineBlocking(ctrl);
 
         if (!ctrl.buf_len) {
-            MergeOneLevel<false, true>(first, first + ctrl.imit_len, data, ctrl.data_len, ctrl.log2_num_seqs, p, comp);
+            MergeOneLevel<false, true>(imit, imit + ctrl.imit_len, data, ctrl.data_len, ctrl.log2_num_seqs, p, comp);
         } else if (ctrl.forward) {
-            MergeOneLevel<true, true>(first, first + ctrl.imit_len, data, ctrl.data_len, ctrl.log2_num_seqs, p, comp);
+            MergeOneLevel<true, true>(imit, imit + ctrl.imit_len, data, ctrl.data_len, ctrl.log2_num_seqs, p, comp);
         } else {
-            MergeOneLevel<true, false>(first, last, last - ctrl.buf_len, ctrl.data_len, ctrl.log2_num_seqs, p, comp);
+            MergeOneLevel<true, false>(imit, last, last - ctrl.buf_len, ctrl.data_len, ctrl.log2_num_seqs, p, comp);
         }
 
         if (SsizeT old_buf_len = ctrl.Next()) {
@@ -1137,7 +1138,7 @@ static constexpr void Sort(Iterator first, Iterator last, Compare comp) {
                 ctrl.forward = true;
             }
             ShellSort(buf, old_buf_len, comp);
-            MergeWithoutBuf<false>(first, buf, data, comp);
+            MergeWithoutBuf<false>(imit, buf, data, comp);
         }
     } while (ctrl.log2_num_seqs);
 

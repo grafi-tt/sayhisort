@@ -807,6 +807,7 @@ TEST(SayhiSortTest, Sort) {
         std::copy(ary.begin(), ary.end(), expected.begin());
         sayhisort::sort(ary.begin(), ary.begin() + i, CompareDiv4{});
         std::stable_sort(expected.begin(), expected.begin() + i, CompareDiv4{});
+        EXPECT_EQ(ary, expected) << i;
     }
 }
 
