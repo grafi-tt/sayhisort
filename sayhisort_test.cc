@@ -1,3 +1,4 @@
+#include <iostream>
 #include "sayhisort.h"
 
 #include <algorithm>
@@ -787,6 +788,24 @@ TEST(SayhiSortTest, Sort0To8) {
         std::shuffle(ary.begin(), ary.begin() + len, rng);
         Sort0To8(ary.begin(), len, Compare{});
         EXPECT_EQ(ary, expected) << len;
+    }
+}
+
+TEST(SayhiSortTest, Sort) {
+    SsizeT ary_len = 32;
+    std::vector<int> ary(ary_len);
+    std::vector<int> expected(ary_len);
+
+    auto rng = GetPerTestRNG();
+
+    for (SsizeT i = 0; i < ary_len; ++i) {
+        std::iota(ary.begin(), ary.begin() + i, 0);
+        std::fill(ary.begin() + i, ary.end(), ary_len);
+        std::shuffle(ary.begin(), ary.begin() + i, rng);
+        std::copy(ary.begin(), ary.end(), expected.begin());
+        sayhisort::sort(ary.begin(), ary.begin() + i, Compare{});
+        std::stable_sort(expected.begin(), expected.begin() + i, Compare{});
+        EXPECT_EQ(ary, expected) << "i=" << i;
     }
 }
 

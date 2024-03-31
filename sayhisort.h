@@ -643,6 +643,7 @@ struct MergeSortControl {
      *   @pre num_keys == 0 or num_keys >= 8
      * @param data_len
      *   @pre data_len > 8
+     * @post 5 < seq_spec.seq_len <= 8
      */
     constexpr MergeSortControl(SsizeT num_keys, SsizeT data_len) : data_len{data_len} {
         if (num_keys) {
@@ -671,10 +672,10 @@ struct MergeSortControl {
         forward = !forward;
 
         if (!log2_num_seqs || seq_spec.seq_len > bufferable_len) {
-            SsizeT buf_len_to_sort = buf_len;
+            SsizeT old_buf_len = buf_len;
             imit_len += buf_len;
             buf_len = 0;
-            return buf_len_to_sort;
+            return old_buf_len;
         }
         return 0;
     }
@@ -983,9 +984,7 @@ constexpr SsizeT CollectKeys(Iterator first, Iterator last, SsizeT num_desired_k
 constexpr int kCiuraGaps[8] = {1, 4, 10, 23, 57, 132, 301, 701};
 
 /**
- * @brief Find the larget gap within len from Ciura's gap sequence.
- *
- * The sequence is extended by repeatedly applying `x \mapsto ceil(2.25 * x)`.
+ * @brief Find the larget gap within `len` from Ciura's gap sequence.
  *
  * @param len
  *   @pre len >= 2
@@ -1012,10 +1011,7 @@ constexpr std::pair<SsizeT, SsizeT> FirstShellSortGap(SsizeT len) {
 }
 
 /**
- * @brief Find the n'th gap within len from Ciura's gap sequence.
- *
- * The sequence is extended by repeatedly applying `x \mapsto ceil(2.25 * x)`.
- * This function is strictly increasing, and returns 1 if `n = 0`.
+ * @brief Find the n'th gap within `len` from Ciura's gap sequence.
  *
  * @param n
  *   @pre n >= 0
@@ -1038,7 +1034,7 @@ constexpr SsizeT NthShellSortGap(SsizeT n) {
 /**
  * @brief Sort data by Shell sorting with Ciura's gap sequence. Sorting is unstable.
  *
- * The sequence is extended by repeatedly applying `x \mapsto ceil(2.25 * x)`.
+ * The sequence is extended by repeatedly applying `x \mapsto ceil(2.25 * x)` to the last pre-computed element 701.
  *
  * @param data
  * @param len
@@ -1082,7 +1078,7 @@ static constexpr void Sort(Iterator first, Iterator last, Compare comp) {
     SsizeT num_keys = 0;
     if (len > 16) {
         SsizeT num_desired_keys = 2 * OverApproxSqrt(len) - 2;
-        num_keys = CollectKeys(first, last, num_desired_keys);
+        num_keys = CollectKeys(first, last, num_desired_keys, comp);
         if (num_keys < 8) {
             first += num_keys;
             len -= num_keys;
@@ -1093,36 +1089,39 @@ static constexpr void Sort(Iterator first, Iterator last, Compare comp) {
     // If len = 17, num_keys is at most 8; so data_len > 8
     SsizeT data_len = len - num_keys;
     MergeSortControl ctrl{num_keys, data_len};
-    SortLeaves(first, ctrl.seq_spec, comp);
 
     Iterator data = first + num_keys;
-    Iterator buf = first + ctrl.imit_len;
+    SortLeaves(data, ctrl.seq_spec, comp);
 
     do {
         BlockingParam p = DetermineBlocking(ctrl);
 
         if (!ctrl.buf_len) {
-            MergeOneLevel<false, true>(first, buf, data, ctrl.buf_len, ctrl.seq_spec, p, comp);
+            MergeOneLevel<false, true>(first, first + ctrl.imit_len, data, ctrl.seq_spec, p, comp);
         } else if (ctrl.forward) {
-            MergeOneLevel<true, true>(first, buf, data, ctrl.buf_len, ctrl.seq_spec, p, comp);
+            MergeOneLevel<true, true>(first, first + ctrl.imit_len, data, ctrl.seq_spec, p, comp);
         } else {
-            MergeOneLevel<true, false>(first, last, last - ctrl.buf_len, ctrl.buf_len, ctrl.seq_spec, p, comp);
+            MergeOneLevel<true, false>(first, last, last - ctrl.buf_len, ctrl.seq_spec, p, comp);
         }
 
-        if (SsizeT buf_len_to_sort = ctrl.Next()) {
+        if (SsizeT old_buf_len = ctrl.Next()) {
+            Iterator buf = data - old_buf_len;
             if (!ctrl.forward) {
                 Iterator back_buf = last;
-                Iterator back_data = last - ctrl.buf_len;
+                Iterator back_data = last - old_buf_len;
                 do {
                     swap(*--back_data, *--back_buf);
                 } while (back_data != buf);
                 ctrl.forward = true;
             }
-            ShellSort(buf, buf_len_to_sort, comp);
+            ShellSort(buf, old_buf_len, comp);
+            MergeWithoutBuf<false>(first, buf, data, comp);
         }
     } while (ctrl.log2_num_seqs);
 
-    MergeWithoutBuf<false>(first, data, last);
+    if (first != data) {
+        MergeWithoutBuf<false>(first, data, last, comp);
+    }
 }
 
 }  // namespace
