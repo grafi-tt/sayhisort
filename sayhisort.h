@@ -624,218 +624,86 @@ private:
     Compare comp_;
 };
 
+template <bool forward, typename SsizeT>
+struct SequenceIterator;
+
 template <typename SsizeT>
-struct SequenceSpec {
-    constexpr SequenceSpec() = default;
-    constexpr SequenceSpec(SsizeT data_len, SsizeT log2_num_seqs) :
-        num_seqs{1 << log2_num_seqs},
-        num_full_seqs{(data_len - 1) % num_seqs + 1},
-        seq_len{(data_len - 1) / num_seqs + 1} {}
-    SsizeT num_seqs;
-    SsizeT num_full_seqs;
+struct SequenceIterator<true, SsizeT> {
+    constexpr SequenceIterator(SsizeT data_len, SsizeT log2_num_seqs) :
+        log2_num_seqs{log2_num_seqs},
+        num_rest{1 << log2_num_seqs},
+        seq_len{((data_len - 1) / num_rest) + 1},
+        remainder{(data_len - 1) % num_rest + 1},
+        frac_counter{0} {}
+
+    constexpr std::pair<SsizeT, bool> Next() {
+        frac_counter += remainder;
+        bool no_carry = !(frac_counter & (1 << log2_num_seqs));
+        frac_counter &= ~(1 << log2_num_seqs);
+        --num_rest;
+        return {seq_len - no_carry, no_carry};
+    }
+
+    constexpr SsizeT IsEnd() const { return !num_rest; }
+
+    SsizeT log2_num_seqs;
+    SsizeT num_rest;
     SsizeT seq_len;
+    SsizeT remainder;
+    SsizeT frac_counter;
 };
 
 template <typename SsizeT>
-struct MergeSortControl {
-    /**
-     * @param num_keys
-     *   @pre num_keys == 0 or num_keys >= 8
-     * @param data_len
-     *   @pre data_len > 8
-     * @post 5 < seq_spec.seq_len <= 8
-     */
-    constexpr MergeSortControl(SsizeT num_keys, SsizeT data_len) : data_len{data_len} {
-        if (num_keys) {
-            // imit_len >= 2
-            imit_len = (num_keys + 2) / 4 * 2 - 2;
-            // buf_len >= 6
-            buf_len = num_keys - imit_len;
-            // bufferable_len >= 12
-            bufferable_len = (imit_len + 2) / 2 * buf_len;
-        }
+struct SequenceIterator<false, SsizeT> {
+    constexpr SequenceIterator(SsizeT data_len, SsizeT log2_num_seqs) :
+        log2_num_seqs{log2_num_seqs},
+        num_rest{1 << log2_num_seqs},
+        seq_len{((data_len - 1) / num_rest) + 1},
+        remainder{num_rest - ((data_len - 1) % num_rest + 1)},
+        frac_counter{0} {}
 
-        while ((data_len - 1) >> (log2_num_seqs + 3)) {
-            ++log2_num_seqs;
-        }
-        // seq_len <= 8, so seq_len < bufferable_len holds if num_keys != 0
-        seq_spec = SequenceSpec{data_len, log2_num_seqs};
+    constexpr std::pair<SsizeT, bool> Next() {
+        frac_counter += remainder;
+        bool no_borrow = !!(frac_counter & (1 << log2_num_seqs));
+        frac_counter &= ~(1 << log2_num_seqs);
+        --num_rest;
+        return {seq_len - no_borrow, no_borrow};
     }
 
-    constexpr SsizeT Next() {
-        --log2_num_seqs;
-        seq_spec = SequenceSpec{data_len, log2_num_seqs};
+    constexpr SsizeT IsEnd() const { return !num_rest; }
 
-        if (!buf_len) {
-            return 0;
-        }
-        forward = !forward;
-
-        if (!log2_num_seqs || seq_spec.seq_len > bufferable_len) {
-            SsizeT old_buf_len = buf_len;
-            imit_len += buf_len;
-            buf_len = 0;
-            return old_buf_len;
-        }
-        return 0;
-    }
-
-    /**
-     * imit_len is positive and multiple of 2.
-     * imit_len + buf_len = num_keys.
-     */
-    SsizeT imit_len = 0;
-    /**
-     * buf_len is non-negative.
-     * If buf_len > 0
-     *   - seq_spec.seq_len <= bufferable_len
-     *   - imit_len + 2 <= buf_len
-     */
-    //! buf_len is non-negative, and  if buf_len > 0
-    SsizeT buf_len = 0;
-    //! bufferable_len = ((imit_len + 2) / 2) * buf_len
-    SsizeT bufferable_len = 0;
-    //! data_len > 8
-    SsizeT data_len;
-
-    SsizeT log2_num_seqs = 1;
-    bool forward = true;
-    // initialized for pre-C++20 constexpr restriction
-    SequenceSpec<SsizeT> seq_spec{};
+    SsizeT log2_num_seqs;
+    SsizeT num_rest;
+    SsizeT seq_len;
+    SsizeT remainder;
+    SsizeT frac_counter;
 };
-
-template <typename SsizeT>
-constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>& ctrl) {
-    SequenceSpec<SsizeT> s = ctrl.seq_spec;
-    SsizeT num_blocks = ctrl.imit_len + 2;
-
-    if (ctrl.buf_len) {
-        // We don't need to perform runtime-checking so that computed `num_blocks` fits in imitation buffer.
-        // Since
-        //   seq_len <= (imit_len + 2) / 2 * buf_len
-        // is assured,
-        //   ceil(seq_len / buf_len) * 2 <= imit_len + 2
-        // always holds.
-        num_blocks = ((s.seq_len - 1) / ctrl.buf_len + 1) * 2;
-    } else {
-        // max_num_blocks must be a multple of 2 and under-approx of sqrt(2 * seq_len)
-        SsizeT max_num_blocks = s.seq_len < 12 ? 2 : s.seq_len / OverApproxSqrt(s.seq_len * 2) * 2;
-        if (num_blocks > max_num_blocks) {
-            num_blocks = max_num_blocks;
-        }
-    }
-
-    // We need to proof `residual_len >= 2` to assure that all blocks have positive length.
-    // (Note that `residual_len` may be decremented once in `MergeOneLevel`.)
-    //
-    // We first show the following lemma. Let `N` and `m` be positive integers, such that
-    // `N >= m ** 2`, `N >= 2` and `m >= 1`.
-    //
-    //   (lemma):  N - ceil(N / m) * (m - 1) >= 2 .
-    //
-    // There are three cases.
-    //
-    //   (1):  m = 1 .
-    //   (2):  N = m ** 2, and m >= 2 .
-    //   (3):  N >= (m ** 2) + 1, and m >= 2 .
-    //
-    // If case (1) and (2), it's trivial to check that (lemma) holds.
-    // For case (3), we can use the following property:
-    //
-    //   ceil(N / m) <= (N / m) + ((m - 1) / m) .
-    //
-    // By multiplying `m - 1` to left and right hand sides, we have
-    //
-    //   ceil(N / m) * (m - 1) <= N + (m - 1) - ceil(N / m) .
-    //
-    // Since `N >= (m ** 2) + 1` from (3), `ceil(N / m) >= m + 1` holds. Therefore
-    //
-    //   ceil(N / m) * (m - 1) <= N + (m - 1) - (m + 1)
-    //                         =  N - 2 ,
-    //
-    // which is equivalent to (lemma). Thus the lemma is proven.
-    //
-    // Now it's enough to show that
-    //
-    //   (proposition):  seq_len >= (num_blocks / 2) ** 2 ,
-    //   (*):            seq_len >= 2 , and
-    //   (**):           num_blocks / 2 >= 1 .
-    //
-    // Note that (*) and (**) are immediate from the function's requirement.
-    //
-    // When `buf_len = 0`, the definition of `max_num_blocks` ensures that (proposition) is satisfied.
-    // For the case `buf_len > 0`, we use the following constraints.
-    //
-    //   (a):  imit_len + 2 <= buf_len .                   (by MergeSortControll)
-    //   (b):  seq_len <= (imit_len + 2) / 2 * buf_len .   (by MergeSortControll)
-    //   (c):  num_blocks / 2 = ceil(seq_len / buf_len) .  (by definition)
-    //
-    // From (a) and (b), we have `seq_len <= (buf_len ** 2) / 2`. Therefore
-    //
-    //   (d):  buf_len >= sqrt(2) * sqrt(seq_len)
-    //
-    // holds. Using (c) and (d), we have
-    //
-    //   (e):  num_blocks / 2 <= ceil(sqrt(seq_len) / sqrt(2)) .
-    //                        <= (sqrt(seq_len) / sqrt(2)) + 1
-    //
-    // Thanks to (e), it's easy to show that the following (subprop) is enough to prove (proposition).
-    //
-    //   (subprop):  sqrt(seq_len) >= (sqrt(seq_len) / sqrt(2)) + 1
-    //
-    // As the function requires `seq_len >= 8`, (subprop) is always satisfied. Thus (proposition) is true.
-    // Therefore We have proven `residual_len >= 2`.
-
-    SsizeT block_len = (s.seq_len - 1) / (num_blocks / 2) + 1;
-    SsizeT residual_len = s.seq_len - block_len * (num_blocks / 2 - 1);
-
-    return {num_blocks, block_len, residual_len, residual_len};
-}
 
 template <bool has_buf, bool forward, typename Iterator, typename Compare,
           typename SsizeT = typename Iterator::difference_type>
-constexpr void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, SequenceSpec<SsizeT> s,
+constexpr void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, SsizeT data_len, SsizeT log2_num_seqs,
                              BlockingParam<SsizeT> p, Compare comp) {
-    constexpr SsizeT incr = forward ? 1 : -1;
-    if constexpr (!forward) {
-        s.seq_len -= 1;
-        p.first_block_len -= 1;
-        p.last_block_len -= 1;
-    }
-
-    for (SsizeT i = 0; i < s.num_seqs; i += 2) {
-        SsizeT i_ = i;
-        if constexpr (!forward) {
-            i_ = s.num_seqs - i;
-        }
-
-        p.first_block_len = p.last_block_len;
-        if (i_ == s.num_full_seqs) {
-            s.seq_len -= incr;
-            p.first_block_len -= incr;
-        }
-        SsizeT merging_len = s.seq_len;
-
-        p.last_block_len = p.first_block_len;
-        if (i_ + incr == s.num_full_seqs) {
-            s.seq_len -= incr;
-            p.last_block_len -= incr;
-        }
-        merging_len += s.seq_len;
+    SsizeT residual_len = p.first_block_len;
+    SequenceIterator<forward, SsizeT> seq_iter{data_len, log2_num_seqs};
+    do {
+        auto [lseq_len, lseq_decr] = seq_iter.Next();
+        auto [rseq_len, rseq_decr] = seq_iter.Next();
+        SsizeT merging_len = lseq_len + rseq_len;
+        p.first_block_len = residual_len - lseq_decr;
+        p.last_block_len = residual_len - rseq_decr;
 
         if constexpr (!forward) {
             auto rev_imit = std::make_reverse_iterator(imit + p.num_blocks - 2);
             auto rev_buf = std::make_reverse_iterator(buf);
             auto rev_data = std::make_reverse_iterator(data);
             MergeBlocking<has_buf>(rev_imit, rev_buf, rev_data, p, ReverseCompare{comp});
-            //buf = rev_buf.base();
+            buf = rev_buf.base();
             data -= merging_len;
-            buf -= merging_len;
         } else {
             MergeBlocking<has_buf>(imit, buf, data, p, comp);
             data += merging_len;
         }
-    }
+    } while (!seq_iter.IsEnd());
 }
 
 //
@@ -904,14 +772,13 @@ constexpr void Sort4To8(Iterator data, SsizeT len, Compare comp) {
 }
 
 template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
-constexpr void SortLeaves(Iterator data, SequenceSpec<SsizeT> s, Compare comp) {
-    for (SsizeT i = 0; i < s.num_seqs; ++i) {
-        if (i == s.num_full_seqs) {
-            --s.seq_len;
-        }
-        Sort4To8(data, s.seq_len, comp);
-        data += s.seq_len;
-    }
+constexpr void SortLeaves(Iterator data, SsizeT data_len, SsizeT log2_num_seqs, Compare comp) {
+    SequenceIterator<true, SsizeT> seq_iter{data_len, log2_num_seqs};
+    do {
+        SsizeT seq_len = seq_iter.Next().first;
+        Sort4To8(data, seq_len, comp);
+        data += seq_len;
+    } while (!seq_iter.IsEnd());
 }
 
 /**
@@ -942,7 +809,7 @@ constexpr void Sort0To8(Iterator data, SsizeT len, Compare comp) {
         }
         return;
     }
-    return SortLeaves(data, {len, 0}, comp);
+    return SortLeaves(data, len, SsizeT{0}, comp);
 }
 
 //
@@ -1066,6 +933,161 @@ constexpr void ShellSort(Iterator data, SsizeT len, Compare comp) {
 // Full sorting
 //
 
+template <typename SsizeT>
+struct MergeSortControl {
+    /**
+     * @param num_keys
+     *   @pre num_keys == 0 or num_keys >= 8
+     * @param data_len
+     *   @pre data_len > 8
+     * @post 5 < seq_spec.seq_len <= 8
+     */
+    constexpr MergeSortControl(SsizeT num_keys, SsizeT data_len) : data_len{data_len} {
+        if (num_keys) {
+            // imit_len >= 2
+            imit_len = (num_keys + 2) / 4 * 2 - 2;
+            // buf_len >= 6
+            buf_len = num_keys - imit_len;
+            // bufferable_len >= 12
+            bufferable_len = (imit_len + 2) / 2 * buf_len;
+        }
+
+        while ((data_len - 1) >> (log2_num_seqs + 3)) {
+            ++log2_num_seqs;
+        }
+        // seq_len <= 8, so seq_len < bufferable_len holds if num_keys != 0
+        seq_len = ((data_len - 1) >> log2_num_seqs) + 1;
+    }
+
+    constexpr SsizeT Next() {
+        --log2_num_seqs;
+        seq_len = ((data_len - 1) >> log2_num_seqs) + 1;
+
+        if (!buf_len) {
+            return 0;
+        }
+        forward = !forward;
+
+        if (!log2_num_seqs || seq_len > bufferable_len) {
+            SsizeT old_buf_len = buf_len;
+            imit_len += buf_len;
+            buf_len = 0;
+            return old_buf_len;
+        }
+        return 0;
+    }
+
+    /**
+     * imit_len is positive and multiple of 2.
+     * imit_len + buf_len = num_keys.
+     */
+    SsizeT imit_len = 0;
+    /**
+     * buf_len is non-negative.
+     * If buf_len > 0
+     *   - seq_spec.seq_len <= bufferable_len
+     *   - imit_len + 2 <= buf_len
+     */
+    //! buf_len is non-negative, and  if buf_len > 0
+    SsizeT buf_len = 0;
+    //! bufferable_len = ((imit_len + 2) / 2) * buf_len
+    SsizeT bufferable_len = 0;
+    //! data_len > 8
+    SsizeT data_len;
+
+    SsizeT log2_num_seqs = 1;
+    SsizeT seq_len{};
+    bool forward = true;
+};
+
+template <typename SsizeT>
+constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>& ctrl) {
+    SsizeT num_blocks = ctrl.imit_len + 2;
+    SsizeT seq_len = ctrl.seq_len;
+
+    if (ctrl.buf_len) {
+        // We don't need to perform runtime-checking so that computed `num_blocks` fits in imitation buffer.
+        // Since
+        //   seq_len <= (imit_len + 2) / 2 * buf_len
+        // is assured,
+        //   ceil(seq_len / buf_len) * 2 <= imit_len + 2
+        // always holds.
+        num_blocks = ((seq_len - 1) / ctrl.buf_len + 1) * 2;
+    } else {
+        // max_num_blocks must be a multple of 2 and under-approx of sqrt(2 * seq_len)
+        SsizeT max_num_blocks = seq_len < 12 ? 2 : seq_len / OverApproxSqrt(seq_len * 2) * 2;
+        if (num_blocks > max_num_blocks) {
+            num_blocks = max_num_blocks;
+        }
+    }
+
+    // We need to proof `residual_len >= 2` to assure that all blocks have positive length.
+    // (Note that `residual_len` may be decremented once in `MergeOneLevel`.)
+    //
+    // We first show the following lemma. Let `N` and `m` be positive integers, such that
+    // `N >= m ** 2`, `N >= 2` and `m >= 1`.
+    //
+    //   (lemma):  N - ceil(N / m) * (m - 1) >= 2 .
+    //
+    // There are three cases.
+    //
+    //   (1):  m = 1 .
+    //   (2):  N = m ** 2, and m >= 2 .
+    //   (3):  N >= (m ** 2) + 1, and m >= 2 .
+    //
+    // If case (1) and (2), it's trivial to check that (lemma) holds.
+    // For case (3), we can use the following property:
+    //
+    //   ceil(N / m) <= (N / m) + ((m - 1) / m) .
+    //
+    // By multiplying `m - 1` to left and right hand sides, we have
+    //
+    //   ceil(N / m) * (m - 1) <= N + (m - 1) - ceil(N / m) .
+    //
+    // Since `N >= (m ** 2) + 1` from (3), `ceil(N / m) >= m + 1` holds. Therefore
+    //
+    //   ceil(N / m) * (m - 1) <= N + (m - 1) - (m + 1)
+    //                         =  N - 2 ,
+    //
+    // which is equivalent to (lemma). Thus the lemma is proven.
+    //
+    // Now it's enough to show that
+    //
+    //   (proposition):  seq_len >= (num_blocks / 2) ** 2 ,
+    //   (*):            seq_len >= 2 , and
+    //   (**):           num_blocks / 2 >= 1 .
+    //
+    // Note that (*) and (**) are immediate from the function's requirement.
+    //
+    // When `buf_len = 0`, the definition of `max_num_blocks` ensures that (proposition) is satisfied.
+    // For the case `buf_len > 0`, we use the following constraints.
+    //
+    //   (a):  imit_len + 2 <= buf_len .                   (by MergeSortControll)
+    //   (b):  seq_len <= (imit_len + 2) / 2 * buf_len .   (by MergeSortControll)
+    //   (c):  num_blocks / 2 = ceil(seq_len / buf_len) .  (by definition)
+    //
+    // From (a) and (b), we have `seq_len <= (buf_len ** 2) / 2`. Therefore
+    //
+    //   (d):  buf_len >= sqrt(2) * sqrt(seq_len)
+    //
+    // holds. Using (c) and (d), we have
+    //
+    //   (e):  num_blocks / 2 <= ceil(sqrt(seq_len) / sqrt(2)) .
+    //                        <= (sqrt(seq_len) / sqrt(2)) + 1
+    //
+    // Thanks to (e), it's easy to show that the following (subprop) is enough to prove (proposition).
+    //
+    //   (subprop):  sqrt(seq_len) >= (sqrt(seq_len) / sqrt(2)) + 1
+    //
+    // As the function requires `seq_len >= 8`, (subprop) is always satisfied. Thus (proposition) is true.
+    // Therefore We have proven `residual_len >= 2`.
+
+    SsizeT block_len = (seq_len - 1) / (num_blocks / 2) + 1;
+    SsizeT residual_len = seq_len - block_len * (num_blocks / 2 - 1);
+
+    return {num_blocks, block_len, residual_len, residual_len};
+}
+
 template <typename Iterator, typename Compare>
 static constexpr void Sort(Iterator first, Iterator last, Compare comp) {
     using SsizeT = typename Iterator::difference_type;
@@ -1091,17 +1113,17 @@ static constexpr void Sort(Iterator first, Iterator last, Compare comp) {
     MergeSortControl ctrl{num_keys, data_len};
 
     Iterator data = first + num_keys;
-    SortLeaves(data, ctrl.seq_spec, comp);
+    SortLeaves(data, ctrl.data_len, ctrl.log2_num_seqs, comp);
 
     do {
         BlockingParam p = DetermineBlocking(ctrl);
 
         if (!ctrl.buf_len) {
-            MergeOneLevel<false, true>(first, first + ctrl.imit_len, data, ctrl.seq_spec, p, comp);
+            MergeOneLevel<false, true>(first, first + ctrl.imit_len, data, ctrl.data_len, ctrl.log2_num_seqs, p, comp);
         } else if (ctrl.forward) {
-            MergeOneLevel<true, true>(first, first + ctrl.imit_len, data, ctrl.seq_spec, p, comp);
+            MergeOneLevel<true, true>(first, first + ctrl.imit_len, data, ctrl.data_len, ctrl.log2_num_seqs, p, comp);
         } else {
-            MergeOneLevel<true, false>(first, last, last - ctrl.buf_len, ctrl.seq_spec, p, comp);
+            MergeOneLevel<true, false>(first, last, last - ctrl.buf_len, ctrl.data_len, ctrl.log2_num_seqs, p, comp);
         }
 
         if (SsizeT old_buf_len = ctrl.Next()) {

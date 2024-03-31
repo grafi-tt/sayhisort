@@ -6,16 +6,6 @@ The implementation is purely swap-based. So items nither default-constructible n
 
 Its name derives from GrailSort, in honor of its auhor [Andrey Astrelin](https://superliminal.com/andrey/biography.html) rest in peace. Pronunciation of “say hi” sounds like the Japanse word 「聖杯（せいはい）」, which means grail.
 
-TODO: complete sort routine. Most subroutines are already unittested.
-
-Remaining tasks are
-
-* test and fix MergeSortState
-* test and fix MergeOneLevel
-* test and fix the toplevel Sort routine
-
-TODO: doc
-
 TODO: benchmark
 
 TODO: overflow resistance test by using 16bit index iterator. Its carefully written to avoid any overflow. Should be tested.

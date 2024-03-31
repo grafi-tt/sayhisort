@@ -1,4 +1,3 @@
-#include <iostream>
 #include "sayhisort.h"
 
 #include <algorithm>
@@ -500,15 +499,13 @@ TEST(SayhiSortTest, MergeSortControl) {
     EXPECT_EQ(ctrl.log2_num_seqs, 4);
     EXPECT_EQ(ctrl.imit_len, 8);
     EXPECT_EQ(ctrl.buf_len, 13);
-    EXPECT_EQ(ctrl.seq_spec.seq_len, 8);
-    EXPECT_EQ(ctrl.seq_spec.num_full_seqs, 11);
+    EXPECT_EQ(ctrl.seq_len, 8);
     EXPECT_TRUE(ctrl.forward);
     EXPECT_EQ(ctrl.Next(), 0);
     EXPECT_EQ(ctrl.log2_num_seqs, 3);
     EXPECT_EQ(ctrl.imit_len, 8);
     EXPECT_EQ(ctrl.buf_len, 13);
-    EXPECT_EQ(ctrl.seq_spec.seq_len, 16);
-    EXPECT_EQ(ctrl.seq_spec.num_full_seqs, 3);
+    EXPECT_EQ(ctrl.seq_len, 16);
     EXPECT_FALSE(ctrl.forward);
 
     ctrl = {22, 123};
@@ -519,21 +516,21 @@ TEST(SayhiSortTest, MergeSortControl) {
     EXPECT_EQ(ctrl.log2_num_seqs, 7);
     EXPECT_EQ(ctrl.imit_len, 22);
     EXPECT_EQ(ctrl.buf_len, 25);
-    EXPECT_EQ(ctrl.seq_spec.seq_len, 8);
+    EXPECT_EQ(ctrl.seq_len, 8);
     EXPECT_EQ(ctrl.Next(), 0);
-    EXPECT_EQ(ctrl.seq_spec.seq_len, 15);
+    EXPECT_EQ(ctrl.seq_len, 15);
     EXPECT_EQ(ctrl.Next(), 0);
-    EXPECT_EQ(ctrl.seq_spec.seq_len, 30);
+    EXPECT_EQ(ctrl.seq_len, 30);
     EXPECT_EQ(ctrl.Next(), 0);
-    EXPECT_EQ(ctrl.seq_spec.seq_len, 60);
+    EXPECT_EQ(ctrl.seq_len, 60);
     EXPECT_EQ(ctrl.Next(), 0);
-    EXPECT_EQ(ctrl.seq_spec.seq_len, 120);
+    EXPECT_EQ(ctrl.seq_len, 120);
     EXPECT_EQ(ctrl.Next(), 0);
-    EXPECT_EQ(ctrl.seq_spec.seq_len, 239);
+    EXPECT_EQ(ctrl.seq_len, 239);
     EXPECT_EQ(ctrl.Next(), 25);
-    EXPECT_EQ(ctrl.seq_spec.seq_len, 477);
+    EXPECT_EQ(ctrl.seq_len, 477);
     EXPECT_EQ(ctrl.Next(), 0);
-    EXPECT_EQ(ctrl.seq_spec.seq_len, 953);
+    EXPECT_EQ(ctrl.seq_len, 953);
 }
 
 TEST(SayhiSortTest, DetermineBlocking) {
@@ -576,7 +573,6 @@ TEST(SayhiSortTest, DetermineBlocking) {
 
 TEST(SayhiSortTest, MergeOneLevel) {
     BlockingParam<SsizeT> p{16, 19, 17, 17};
-    SequenceSpec<SsizeT> s{599, 2};
     SsizeT imit_len = 14;
     SsizeT buf_len = 19;
     SsizeT ary_len = imit_len + buf_len + 599;
@@ -594,21 +590,21 @@ TEST(SayhiSortTest, MergeOneLevel) {
         std::fill(ary.begin() + imit_len, data, 42);
         std::iota(data, data + 599, 100);
         std::shuffle(data, data + 599, rng);
-        std::stable_sort(data, data + 150, comp);
-        std::stable_sort(data + 150, data + 300, comp);
-        std::stable_sort(data + 300, data + 450, comp);
-        std::stable_sort(data + 450, data + 599, comp);
+        std::stable_sort(data, data + 149, comp);
+        std::stable_sort(data + 149, data + 299, comp);
+        std::stable_sort(data + 299, data + 449, comp);
+        std::stable_sort(data + 449, data + 599, comp);
 
         Iterator edata = expected.begin() + imit_len;
         for (SsizeT i = 0; i < imit_len; ++i) {
             expected[i] = i * 4;
         }
         std::copy(data, data + 599, edata);
-        std::stable_sort(edata, edata + 300, comp);
-        std::stable_sort(edata + 300, edata + 599, comp);
+        std::stable_sort(edata, edata + 299, comp);
+        std::stable_sort(edata + 299, edata + 599, comp);
         std::fill(expected.end() - buf_len, expected.end(), 42);
 
-        MergeOneLevel<true, true>(ary.begin(), ary.begin() + imit_len, data, s, p, comp);
+        MergeOneLevel<true, true>(ary.begin(), ary.begin() + imit_len, data, SsizeT{599}, SsizeT{2}, p, comp);
         EXPECT_EQ(ary, expected);
     };
 
@@ -619,10 +615,10 @@ TEST(SayhiSortTest, MergeOneLevel) {
         }
         std::iota(data, data + 599, 100);
         std::shuffle(data, data + 599, rng);
-        std::stable_sort(data, data + 150, comp);
-        std::stable_sort(data + 150, data + 300, comp);
-        std::stable_sort(data + 300, data + 450, comp);
-        std::stable_sort(data + 450, data + 599, comp);
+        std::stable_sort(data, data + 149, comp);
+        std::stable_sort(data + 149, data + 299, comp);
+        std::stable_sort(data + 299, data + 449, comp);
+        std::stable_sort(data + 449, data + 599, comp);
         std::fill(ary.end() - buf_len, ary.end(), 42);
 
         Iterator edata = expected.begin() + imit_len + buf_len;
@@ -631,10 +627,10 @@ TEST(SayhiSortTest, MergeOneLevel) {
         }
         std::fill(expected.begin() + imit_len, edata, 42);
         std::copy(data, data + 599, edata);
-        std::stable_sort(edata, edata + 300, comp);
-        std::stable_sort(edata + 300, edata + 599, comp);
+        std::stable_sort(edata, edata + 299, comp);
+        std::stable_sort(edata + 299, edata + 599, comp);
 
-        MergeOneLevel<true, false>(ary.begin(), ary.end(), ary.end() - buf_len, s, p, comp);
+        MergeOneLevel<true, false>(ary.begin(), ary.end(), ary.end() - buf_len, SsizeT{599}, SsizeT{2}, p, comp);
         EXPECT_EQ(ary, expected);
     };
 
@@ -792,7 +788,7 @@ TEST(SayhiSortTest, Sort0To8) {
 }
 
 TEST(SayhiSortTest, Sort) {
-    SsizeT ary_len = 32;
+    SsizeT ary_len = 1024;
     std::vector<int> ary(ary_len);
     std::vector<int> expected(ary_len);
 
@@ -805,7 +801,12 @@ TEST(SayhiSortTest, Sort) {
         std::copy(ary.begin(), ary.end(), expected.begin());
         sayhisort::sort(ary.begin(), ary.begin() + i, Compare{});
         std::stable_sort(expected.begin(), expected.begin() + i, Compare{});
-        EXPECT_EQ(ary, expected) << "i=" << i;
+        EXPECT_EQ(ary, expected) << i;
+
+        std::shuffle(ary.begin(), ary.begin() + i, rng);
+        std::copy(ary.begin(), ary.end(), expected.begin());
+        sayhisort::sort(ary.begin(), ary.begin() + i, CompareDiv4{});
+        std::stable_sort(expected.begin(), expected.begin() + i, CompareDiv4{});
     }
 }
 
