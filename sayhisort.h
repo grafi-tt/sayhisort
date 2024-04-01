@@ -1,5 +1,8 @@
 #pragma once
 
+// just for  __cpp_lib_constexpr_algorithms macro
+#include <algorithm>
+
 #include <iterator>
 #include <type_traits>
 #include <utility>
@@ -54,7 +57,10 @@ constexpr SsizeT OverApproxSqrt(SsizeT x) {
  *   @pre middle <= last
  */
 template <typename Iterator>
-constexpr void Rotate(Iterator first, Iterator middle, Iterator last) {
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+void Rotate(Iterator first, Iterator middle, Iterator last) {
     // Helix Rotation
     // description available: https://github.com/scandum/rotate#helix-rotation
     diff_t<Iterator> l_len = middle - first;
@@ -115,7 +121,10 @@ constexpr void Rotate(Iterator first, Iterator middle, Iterator last) {
  *   @pre len is positive
  */
 template <typename Iterator>
-constexpr void SwapChunk(Iterator xs, Iterator ys, diff_t<Iterator> len) {
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+void SwapChunk(Iterator xs, Iterator ys, diff_t<Iterator> len) {
     if (xs == ys) {
         return;
     }
@@ -149,7 +158,7 @@ constexpr Iterator BinarySearch(Iterator first, Iterator last, Iterator key, Com
 
     Iterator base = first;
     diff_t<Iterator> len = last - first;
-    diff_t<Iterator> mid;
+    diff_t<Iterator> mid{};
 
     while ((mid = len / 2)) {
         Iterator pivot = base + mid;
@@ -197,7 +206,10 @@ constexpr Iterator BinarySearch(Iterator first, Iterator last, Iterator key, Com
  * @note The implementation actually works if xs or ys is empty, but the behaviour shall not be depended on.
  */
 template <bool flipped, typename Iterator, typename Compare>
-constexpr bool MergeWithBuf(Iterator& buf, Iterator xs, Iterator& ys, Iterator ys_last, Compare comp) {
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+bool MergeWithBuf(Iterator& buf, Iterator xs, Iterator& ys, Iterator ys_last, Compare comp) {
     // So-called cross merge optimization is applied
     // See https://github.com/scandum/quadsort#cross-merge for idea
     auto is_x_selected = [&comp](decltype(xs[0]) x, decltype(ys[0]) y) {
@@ -296,7 +308,10 @@ constexpr bool MergeWithBuf(Iterator& buf, Iterator xs, Iterator& ys, Iterator y
  *       the numbers of unique keys in `xs` and `ys`.
  */
 template <bool flipped, typename Iterator, typename Compare>
-constexpr bool MergeWithoutBuf(Iterator xs, Iterator& ys, Iterator ys_last, Compare comp) {
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+bool MergeWithoutBuf(Iterator xs, Iterator& ys, Iterator ys_last, Compare comp) {
     while (true) {
         // Seek xs so that xs[0] > ys[0]
         xs = BinarySearch<!flipped>(xs, ys, ys, comp);
@@ -333,7 +348,10 @@ constexpr bool MergeWithoutBuf(Iterator xs, Iterator& ys, Iterator ys_last, Comp
  * @param comp
  */
 template <typename Iterator, typename Compare>
-constexpr Iterator InterleaveBlocks(Iterator imit, Iterator blocks, diff_t<Iterator> num_blocks,
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+Iterator InterleaveBlocks(Iterator imit, Iterator blocks, diff_t<Iterator> num_blocks,
                                     diff_t<Iterator> block_len, Compare comp) {
     // Algorithm similar to wikisort's block movement
     // https://github.com/BonzaiThePenguin/WikiSort/blob/master/Chapter%203.%20In-Place.md
@@ -406,7 +424,10 @@ constexpr Iterator InterleaveBlocks(Iterator imit, Iterator blocks, diff_t<Itera
  * @param comp
  */
 template <typename Iterator, typename Compare>
-constexpr void DeinterleaveImitation(Iterator imit, diff_t<Iterator> imit_len, Iterator buf, Iterator mid_key,
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+void DeinterleaveImitation(Iterator imit, diff_t<Iterator> imit_len, Iterator buf, Iterator mid_key,
                                      Compare comp) {
     // Bin-sort like algorithm based on partitioning.
     // Same algorithm founds in HolyGrailsort.
@@ -439,7 +460,10 @@ constexpr void DeinterleaveImitation(Iterator imit, diff_t<Iterator> imit_len, I
  * @param comp
  */
 template <typename Iterator, typename Compare>
-constexpr void DeinterleaveImitation(Iterator imit, diff_t<Iterator> imit_len, Iterator mid_key, Compare comp) {
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+void DeinterleaveImitation(Iterator imit, diff_t<Iterator> imit_len, Iterator mid_key, Compare comp) {
     // We colour each key by whether they are from left or right.
     // Then we can see the imitation buffer as a sequence of runs with alternating colour.
     //
@@ -506,7 +530,10 @@ struct BlockingParam {
 };
 
 template <bool has_buf, typename Iterator, typename Compare>
-constexpr void MergeAdjacentBlocks(Iterator imit, Iterator& buf, Iterator blocks, BlockingParam<diff_t<Iterator>> p,
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+void MergeAdjacentBlocks(Iterator imit, Iterator& buf, Iterator blocks, BlockingParam<diff_t<Iterator>> p,
                                    Iterator mid_key, Compare comp) {
     diff_t<Iterator> num_remained_blocks = p.num_blocks;
 
@@ -583,7 +610,10 @@ constexpr void MergeAdjacentBlocks(Iterator imit, Iterator& buf, Iterator blocks
 }
 
 template <bool has_buf, typename Iterator, typename Compare>
-constexpr void MergeBlocking(Iterator imit, Iterator& buf, Iterator blocks, BlockingParam<diff_t<Iterator>> p,
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+void MergeBlocking(Iterator imit, Iterator& buf, Iterator blocks, BlockingParam<diff_t<Iterator>> p,
                              Compare comp) {
     // Skip interleaving the first block and the last one, those may have shorter length.
     diff_t<Iterator> imit_len = p.num_blocks - 2;
@@ -684,7 +714,10 @@ struct SequenceIterator<false, SsizeT> {
 };
 
 template <bool has_buf, bool forward, typename Iterator, typename Compare>
-constexpr void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, diff_t<Iterator> data_len,
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, diff_t<Iterator> data_len,
                              diff_t<Iterator> log2_num_seqs, BlockingParam<diff_t<Iterator>> p, Compare comp) {
     diff_t<Iterator> residual_len = p.first_block_len;
     SequenceIterator<forward, diff_t<Iterator>> seq_iter{data_len, log2_num_seqs};
@@ -724,7 +757,10 @@ constexpr void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, diff_t<
  * @param comp
  */
 template <int len, typename Iterator, typename Compare>
-constexpr void OddEvenSort(Iterator data, Compare comp) {
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+void OddEvenSort(Iterator data, Compare comp) {
     for (diff_t<Iterator> i = 0; i < len; i += 2) {
         for (diff_t<Iterator> j = 0; j < len - 1; j += 2) {
             if (comp(data[j + 1], data[j])) {
@@ -752,7 +788,10 @@ constexpr void OddEvenSort(Iterator data, Compare comp) {
  * @param comp
  */
 template <typename Iterator, typename Compare>
-constexpr void Sort4To8(Iterator data, diff_t<Iterator> len, Compare comp) {
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+void Sort4To8(Iterator data, diff_t<Iterator> len, Compare comp) {
     switch (len) {
     case 4:
         return OddEvenSort<4>(data, comp);
@@ -765,7 +804,7 @@ constexpr void Sort4To8(Iterator data, diff_t<Iterator> len, Compare comp) {
     case 8:
         return OddEvenSort<8>(data, comp);
     default:
-#ifdef __GNUC__
+#if __GNUC__
         __builtin_unreachable();
 #endif
         return;
@@ -773,7 +812,10 @@ constexpr void Sort4To8(Iterator data, diff_t<Iterator> len, Compare comp) {
 }
 
 template <typename Iterator, typename Compare>
-constexpr void SortLeaves(Iterator data, diff_t<Iterator> data_len, diff_t<Iterator> log2_num_seqs, Compare comp) {
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+void SortLeaves(Iterator data, diff_t<Iterator> data_len, diff_t<Iterator> log2_num_seqs, Compare comp) {
     SequenceIterator<true, diff_t<Iterator>> seq_iter{data_len, log2_num_seqs};
     do {
         diff_t<Iterator> seq_len = seq_iter.Next().first;
@@ -791,7 +833,10 @@ constexpr void SortLeaves(Iterator data, diff_t<Iterator> data_len, diff_t<Itera
  * @param comp
  */
 template <typename Iterator, typename Compare>
-constexpr void Sort0To8(Iterator data, diff_t<Iterator> len, Compare comp) {
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+void Sort0To8(Iterator data, diff_t<Iterator> len, Compare comp) {
     if (len <= 1) {
         return;
     }
@@ -818,7 +863,10 @@ constexpr void Sort0To8(Iterator data, diff_t<Iterator> len, Compare comp) {
 //
 
 template <typename Iterator, typename Compare>
-constexpr diff_t<Iterator> CollectKeys(Iterator first, Iterator last, diff_t<Iterator> num_desired_keys, Compare comp) {
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+diff_t<Iterator> CollectKeys(Iterator first, Iterator last, diff_t<Iterator> num_desired_keys, Compare comp) {
     if (first == last) {
         return 0;
     }
@@ -910,7 +958,10 @@ constexpr SsizeT NthShellSortGap(SsizeT n) {
  * @param comp
  */
 template <typename Iterator, typename Compare>
-constexpr void ShellSort(Iterator data, diff_t<Iterator> len, Compare comp) {
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+void ShellSort(Iterator data, diff_t<Iterator> len, Compare comp) {
     auto [gap, n] = FirstShellSortGap(len);
 
     while (true) {
@@ -1090,7 +1141,10 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
 }
 
 template <typename Iterator, typename Compare>
-static constexpr void Sort(Iterator first, Iterator last, Compare comp) {
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+void Sort(Iterator first, Iterator last, Compare comp) {
     diff_t<Iterator> len = last - first;
     if (len <= 8) {
         return Sort0To8(first, len, comp);
@@ -1150,7 +1204,10 @@ static constexpr void Sort(Iterator first, Iterator last, Compare comp) {
 }  // namespace detail
 
 template <typename RandomAccessIterator, typename Compare>
-constexpr void sort(RandomAccessIterator first, RandomAccessIterator last, Compare comp) {
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+void sort(RandomAccessIterator first, RandomAccessIterator last, Compare comp) {
     return detail::Sort(first, last, comp);
 }
 
