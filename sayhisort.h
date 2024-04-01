@@ -9,6 +9,9 @@ namespace sayhisort {
 namespace detail {
 namespace {
 
+template <typename Iterator>
+using diff_t = typename std::iterator_traits<Iterator>::difference_type;
+
 using std::swap;
 
 //
@@ -54,9 +57,8 @@ template <typename Iterator>
 constexpr void Rotate(Iterator first, Iterator middle, Iterator last) {
     // Helix Rotation
     // description available: https://github.com/scandum/rotate#helix-rotation
-    using SsizeT = typename Iterator::difference_type;
-    SsizeT l_len = middle - first;
-    SsizeT r_len = last - middle;
+    diff_t<Iterator> l_len = middle - first;
+    diff_t<Iterator> r_len = last - middle;
 
     if (!l_len || !r_len) {
         return;
@@ -65,9 +67,9 @@ constexpr void Rotate(Iterator first, Iterator middle, Iterator last) {
     while (true) {
         if (l_len <= r_len) {
 #if 0
-            SsizeT rem = r_len % l_len;
+            diff_t<Iterator> rem = r_len % l_len;
 #else
-            SsizeT rem = r_len & (l_len - 1);
+            diff_t<Iterator> rem = r_len & (l_len - 1);
             if (l_len & (l_len - 1)) {
                 rem = r_len % l_len;
             }
@@ -83,7 +85,7 @@ constexpr void Rotate(Iterator first, Iterator middle, Iterator last) {
             l_len -= rem;
             r_len = rem;
         } else {
-            SsizeT rem = l_len & (r_len - 1);
+            diff_t<Iterator> rem = l_len & (r_len - 1);
             if (r_len & (r_len - 1)) {
                 rem = l_len % r_len;
             }
@@ -112,8 +114,8 @@ constexpr void Rotate(Iterator first, Iterator middle, Iterator last) {
  * @param len
  *   @pre len is positive
  */
-template <typename Iterator, typename SsizeT = typename Iterator::difference_type>
-constexpr void SwapChunk(Iterator xs, Iterator ys, SsizeT len) {
+template <typename Iterator>
+constexpr void SwapChunk(Iterator xs, Iterator ys, diff_t<Iterator> len) {
     if (xs == ys) {
         return;
     }
@@ -145,10 +147,9 @@ constexpr Iterator BinarySearch(Iterator first, Iterator last, Iterator key, Com
         }
     };
 
-    using SsizeT = typename Iterator::difference_type;
     Iterator base = first;
-    SsizeT len = last - first;
-    SsizeT mid;
+    diff_t<Iterator> len = last - first;
+    diff_t<Iterator> mid;
 
     while ((mid = len / 2)) {
         Iterator pivot = base + mid;
@@ -331,8 +332,9 @@ constexpr bool MergeWithoutBuf(Iterator xs, Iterator& ys, Iterator ys_last, Comp
  *   @pre block_len is positive
  * @param comp
  */
-template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
-constexpr Iterator InterleaveBlocks(Iterator imit, Iterator blocks, SsizeT num_blocks, SsizeT block_len, Compare comp) {
+template <typename Iterator, typename Compare>
+constexpr Iterator InterleaveBlocks(Iterator imit, Iterator blocks, diff_t<Iterator> num_blocks,
+                                    diff_t<Iterator> block_len, Compare comp) {
     // Algorithm similar to wikisort's block movement
     // https://github.com/BonzaiThePenguin/WikiSort/blob/master/Chapter%203.%20In-Place.md
     //
@@ -403,8 +405,9 @@ constexpr Iterator InterleaveBlocks(Iterator imit, Iterator blocks, SsizeT num_b
  * @param mid_key
  * @param comp
  */
-template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
-constexpr void DeinterleaveImitation(Iterator imit, SsizeT imit_len, Iterator buf, Iterator mid_key, Compare comp) {
+template <typename Iterator, typename Compare>
+constexpr void DeinterleaveImitation(Iterator imit, diff_t<Iterator> imit_len, Iterator buf, Iterator mid_key,
+                                     Compare comp) {
     // Bin-sort like algorithm based on partitioning.
     // Same algorithm founds in HolyGrailsort.
     // https://github.com/HolyGrailSortProject/Holy-Grailsort/blob/ccfcc4315c6ccafbca5f6a51886710898a06c8a1/Holy%20Grail%20Sort/Java/Summer%20Dragonfly%20et%20al.'s%20Rough%20Draft/src/holygrail/HolyGrailSort.java#L1328-L1330
@@ -435,8 +438,8 @@ constexpr void DeinterleaveImitation(Iterator imit, SsizeT imit_len, Iterator bu
  * @param mid_key
  * @param comp
  */
-template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
-constexpr void DeinterleaveImitation(Iterator imit, SsizeT imit_len, Iterator mid_key, Compare comp) {
+template <typename Iterator, typename Compare>
+constexpr void DeinterleaveImitation(Iterator imit, diff_t<Iterator> imit_len, Iterator mid_key, Compare comp) {
     // We colour each key by whether they are from left or right.
     // Then we can see the imitation buffer as a sequence of runs with alternating colour.
     //
@@ -447,9 +450,9 @@ constexpr void DeinterleaveImitation(Iterator imit, SsizeT imit_len, Iterator mi
     //
     // The idea to rotate pairs of runs of is borrowed from HolyGrailsort's algorithm.
     // https://github.com/HolyGrailSortProject/Holy-Grailsort/blob/ccfcc4315c6ccafbca5f6a51886710898a06c8a1/Holy%20Grail%20Sort/Java/Summer%20Dragonfly%20et%20al.'s%20Rough%20Draft/src/holygrail/HolyGrailSort.java#L1373-L1376
-    SsizeT runlengths[2] = {};
-    SsizeT& l_runlength = runlengths[0];
-    SsizeT& r_runlength = runlengths[1];
+    diff_t<Iterator> runlengths[2] = {};
+    diff_t<Iterator>& l_runlength = runlengths[0];
+    diff_t<Iterator>& r_runlength = runlengths[1];
 
     bool rotated{};
     auto rotate_runs = [&](Iterator cur) {
@@ -502,10 +505,10 @@ struct BlockingParam {
     SsizeT last_block_len;
 };
 
-template <bool has_buf, typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
-constexpr void MergeAdjacentBlocks(Iterator imit, Iterator& buf, Iterator blocks, BlockingParam<SsizeT> p,
+template <bool has_buf, typename Iterator, typename Compare>
+constexpr void MergeAdjacentBlocks(Iterator imit, Iterator& buf, Iterator blocks, BlockingParam<diff_t<Iterator>> p,
                                    Iterator mid_key, Compare comp) {
-    SsizeT num_remained_blocks = p.num_blocks;
+    diff_t<Iterator> num_remained_blocks = p.num_blocks;
 
     enum BlockOrigin {
         kLeft,
@@ -579,10 +582,11 @@ constexpr void MergeAdjacentBlocks(Iterator imit, Iterator& buf, Iterator blocks
     }
 }
 
-template <bool has_buf, typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
-constexpr void MergeBlocking(Iterator imit, Iterator& buf, Iterator blocks, BlockingParam<SsizeT> p, Compare comp) {
+template <bool has_buf, typename Iterator, typename Compare>
+constexpr void MergeBlocking(Iterator imit, Iterator& buf, Iterator blocks, BlockingParam<diff_t<Iterator>> p,
+                             Compare comp) {
     // Skip interleaving the first block and the last one, those may have shorter length.
-    SsizeT imit_len = p.num_blocks - 2;
+    diff_t<Iterator> imit_len = p.num_blocks - 2;
     Iterator mid_key = InterleaveBlocks(imit, blocks + p.first_block_len, imit_len, p.block_len, comp);
 
     MergeAdjacentBlocks<has_buf>(imit, buf, blocks, p, mid_key, comp);
@@ -679,16 +683,15 @@ struct SequenceIterator<false, SsizeT> {
     SsizeT frac_counter;
 };
 
-template <bool has_buf, bool forward, typename Iterator, typename Compare,
-          typename SsizeT = typename Iterator::difference_type>
-constexpr void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, SsizeT data_len, SsizeT log2_num_seqs,
-                             BlockingParam<SsizeT> p, Compare comp) {
-    SsizeT residual_len = p.first_block_len;
-    SequenceIterator<forward, SsizeT> seq_iter{data_len, log2_num_seqs};
+template <bool has_buf, bool forward, typename Iterator, typename Compare>
+constexpr void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, diff_t<Iterator> data_len,
+                             diff_t<Iterator> log2_num_seqs, BlockingParam<diff_t<Iterator>> p, Compare comp) {
+    diff_t<Iterator> residual_len = p.first_block_len;
+    SequenceIterator<forward, diff_t<Iterator>> seq_iter{data_len, log2_num_seqs};
     do {
         auto [lseq_len, lseq_decr] = seq_iter.Next();
         auto [rseq_len, rseq_decr] = seq_iter.Next();
-        SsizeT merging_len = lseq_len + rseq_len;
+        diff_t<Iterator> merging_len = lseq_len + rseq_len;
         p.first_block_len = residual_len - lseq_decr;
         p.last_block_len = residual_len - rseq_decr;
 
@@ -722,10 +725,8 @@ constexpr void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, SsizeT 
  */
 template <int len, typename Iterator, typename Compare>
 constexpr void OddEvenSort(Iterator data, Compare comp) {
-    using SsizeT = typename Iterator::difference_type;
-
-    for (SsizeT i = 0; i < len; i += 2) {
-        for (SsizeT j = 0; j < len - 1; j += 2) {
+    for (diff_t<Iterator> i = 0; i < len; i += 2) {
+        for (diff_t<Iterator> j = 0; j < len - 1; j += 2) {
             if (comp(data[j + 1], data[j])) {
                 swap(data[j + 1], data[j]);
             }
@@ -734,7 +735,7 @@ constexpr void OddEvenSort(Iterator data, Compare comp) {
             break;
         }
 
-        for (SsizeT j = 1; j < len - 1; j += 2) {
+        for (diff_t<Iterator> j = 1; j < len - 1; j += 2) {
             if (comp(data[j + 1], data[j])) {
                 swap(data[j + 1], data[j]);
             }
@@ -750,8 +751,8 @@ constexpr void OddEvenSort(Iterator data, Compare comp) {
  *   @pre 4 <= len <= 8
  * @param comp
  */
-template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
-constexpr void Sort4To8(Iterator data, SsizeT len, Compare comp) {
+template <typename Iterator, typename Compare>
+constexpr void Sort4To8(Iterator data, diff_t<Iterator> len, Compare comp) {
     switch (len) {
     case 4:
         return OddEvenSort<4>(data, comp);
@@ -771,11 +772,11 @@ constexpr void Sort4To8(Iterator data, SsizeT len, Compare comp) {
     }
 }
 
-template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
-constexpr void SortLeaves(Iterator data, SsizeT data_len, SsizeT log2_num_seqs, Compare comp) {
-    SequenceIterator<true, SsizeT> seq_iter{data_len, log2_num_seqs};
+template <typename Iterator, typename Compare>
+constexpr void SortLeaves(Iterator data, diff_t<Iterator> data_len, diff_t<Iterator> log2_num_seqs, Compare comp) {
+    SequenceIterator<true, diff_t<Iterator>> seq_iter{data_len, log2_num_seqs};
     do {
-        SsizeT seq_len = seq_iter.Next().first;
+        diff_t<Iterator> seq_len = seq_iter.Next().first;
         Sort4To8(data, seq_len, comp);
         data += seq_len;
     } while (!seq_iter.IsEnd());
@@ -789,8 +790,8 @@ constexpr void SortLeaves(Iterator data, SsizeT data_len, SsizeT log2_num_seqs, 
  *   @pre 0 <= len <= 8
  * @param comp
  */
-template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
-constexpr void Sort0To8(Iterator data, SsizeT len, Compare comp) {
+template <typename Iterator, typename Compare>
+constexpr void Sort0To8(Iterator data, diff_t<Iterator> len, Compare comp) {
     if (len <= 1) {
         return;
     }
@@ -809,15 +810,15 @@ constexpr void Sort0To8(Iterator data, SsizeT len, Compare comp) {
         }
         return;
     }
-    return SortLeaves(data, len, SsizeT{0}, comp);
+    return SortLeaves(data, len, diff_t<Iterator>{0}, comp);
 }
 
 //
 // Full sorting subroutines
 //
 
-template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
-constexpr SsizeT CollectKeys(Iterator first, Iterator last, SsizeT num_desired_keys, Compare comp) {
+template <typename Iterator, typename Compare>
+constexpr diff_t<Iterator> CollectKeys(Iterator first, Iterator last, diff_t<Iterator> num_desired_keys, Compare comp) {
     if (first == last) {
         return 0;
     }
@@ -908,14 +909,14 @@ constexpr SsizeT NthShellSortGap(SsizeT n) {
  *   @pre len >= 2
  * @param comp
  */
-template <typename Iterator, typename Compare, typename SsizeT = typename Iterator::difference_type>
-constexpr void ShellSort(Iterator data, SsizeT len, Compare comp) {
+template <typename Iterator, typename Compare>
+constexpr void ShellSort(Iterator data, diff_t<Iterator> len, Compare comp) {
     auto [gap, n] = FirstShellSortGap(len);
 
     while (true) {
-        SsizeT i = gap;
+        diff_t<Iterator> i = gap;
         do {
-            for (SsizeT j = i; j >= gap; j -= gap) {
+            for (diff_t<Iterator> j = i; j >= gap; j -= gap) {
                 if (comp(data[j - gap], data[j])) {
                     break;
                 }
@@ -1090,17 +1091,15 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
 
 template <typename Iterator, typename Compare>
 static constexpr void Sort(Iterator first, Iterator last, Compare comp) {
-    using SsizeT = typename Iterator::difference_type;
-
-    SsizeT len = last - first;
+    diff_t<Iterator> len = last - first;
     if (len <= 8) {
         return Sort0To8(first, len, comp);
     }
 
     Iterator imit = first;
-    SsizeT num_keys = 0;
+    diff_t<Iterator> num_keys = 0;
     if (len > 16) {
-        SsizeT num_desired_keys = 2 * OverApproxSqrt(len) - 2;
+        diff_t<Iterator> num_desired_keys = 2 * OverApproxSqrt(len) - 2;
         num_keys = CollectKeys(first, last, num_desired_keys, comp);
         if (num_keys < 8) {
             imit += num_keys;
@@ -1110,7 +1109,7 @@ static constexpr void Sort(Iterator first, Iterator last, Compare comp) {
     }
 
     // If len = 17, num_keys is at most 8; so data_len > 8
-    SsizeT data_len = len - num_keys;
+    diff_t<Iterator> data_len = len - num_keys;
     MergeSortControl ctrl{num_keys, data_len};
 
     Iterator data = imit + num_keys;
@@ -1127,7 +1126,7 @@ static constexpr void Sort(Iterator first, Iterator last, Compare comp) {
             MergeOneLevel<true, false>(imit, last, last - ctrl.buf_len, ctrl.data_len, ctrl.log2_num_seqs, p, comp);
         }
 
-        if (SsizeT old_buf_len = ctrl.Next()) {
+        if (diff_t<Iterator> old_buf_len = ctrl.Next()) {
             Iterator buf = data - old_buf_len;
             if (!ctrl.forward) {
                 Iterator back_buf = last;
