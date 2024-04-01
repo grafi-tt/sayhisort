@@ -72,14 +72,7 @@ void Rotate(Iterator first, Iterator middle, Iterator last) {
 
     while (true) {
         if (l_len <= r_len) {
-#if 0
             diff_t<Iterator> rem = r_len % l_len;
-#else
-            diff_t<Iterator> rem = r_len & (l_len - 1);
-            if (l_len & (l_len - 1)) {
-                rem = r_len % l_len;
-            }
-#endif
             do {
                 swap(*first++, *middle++);
             } while (--r_len);
@@ -91,10 +84,7 @@ void Rotate(Iterator first, Iterator middle, Iterator last) {
             l_len -= rem;
             r_len = rem;
         } else {
-            diff_t<Iterator> rem = l_len & (r_len - 1);
-            if (r_len & (r_len - 1)) {
-                rem = l_len % r_len;
-            }
+            diff_t<Iterator> rem = l_len % r_len;
             do {
                 swap(*--middle, *--last);
             } while (--l_len);
