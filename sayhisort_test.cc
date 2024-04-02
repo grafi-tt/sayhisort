@@ -604,7 +604,7 @@ TEST(SayhiSortTest, MergeOneLevel) {
         std::stable_sort(edata + 299, edata + 599, comp);
         std::fill(expected.end() - buf_len, expected.end(), 42);
 
-        MergeOneLevel<true, true>(ary.begin(), ary.begin() + imit_len, data, SsizeT{599}, SsizeT{2}, p, comp);
+        MergeOneLevel<true, true>(ary.begin(), ary.begin() + imit_len, data, 150, {SsizeT{599}, SsizeT{2}}, p, comp);
         EXPECT_EQ(ary, expected);
     };
 
@@ -630,7 +630,7 @@ TEST(SayhiSortTest, MergeOneLevel) {
         std::stable_sort(edata, edata + 299, comp);
         std::stable_sort(edata + 299, edata + 599, comp);
 
-        MergeOneLevel<true, false>(ary.begin(), ary.end(), ary.end() - buf_len, SsizeT{599}, SsizeT{2}, p, comp);
+        MergeOneLevel<true, false>(ary.begin(), ary.end(), ary.end() - buf_len, 150, {SsizeT{599}, SsizeT{2}}, p, comp);
         EXPECT_EQ(ary, expected);
     };
 
@@ -754,21 +754,6 @@ TEST(SayhiSortTest, ShellSort) {
         std::vector<int> expected(sz);
         std::iota(expected.begin(), expected.end(), 0);
         EXPECT_EQ(data, expected);
-    }
-}
-
-TEST(SayhiSortTest, Sort4To8) {
-    std::vector<int> ary(8);
-    std::vector<int> expected(8);
-    std::iota(expected.begin(), expected.end(), 0);
-
-    auto rng = GetPerTestRNG();
-
-    for (int len = 4; len <= 8; ++len) {
-        std::iota(ary.begin(), ary.end(), 0);
-        std::shuffle(ary.begin(), ary.begin() + len, rng);
-        Sort4To8(ary.begin(), len, Compare{});
-        EXPECT_EQ(ary, expected);
     }
 }
 

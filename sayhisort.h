@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SAYHISORT_H_
+#define SAYHISORT_H_
 
 // just for  __cpp_lib_constexpr_algorithms macro
 #include <algorithm>
@@ -648,56 +649,33 @@ private:
     Compare comp_;
 };
 
-template <bool forward, typename SsizeT>
-struct SequenceIterator;
-
-template <typename SsizeT>
-struct SequenceIterator<true, SsizeT> {
-    constexpr SequenceIterator(SsizeT data_len, SsizeT log2_num_seqs) :
+template <typename SsizeT, bool forward = true>
+struct SequenceDivider {
+    constexpr SequenceDivider(SsizeT data_len, SsizeT log2_num_seqs) :
         log2_num_seqs{log2_num_seqs},
-        num_rest{1 << log2_num_seqs},
-        seq_len{((data_len - 1) / num_rest) + 1},
-        remainder{(data_len - 1) % num_rest + 1},
-        frac_counter{0} {}
+        num_seqs{1 << log2_num_seqs},
+        remainder{(data_len - 1) % num_seqs + 1},
+        frac_counter{0} {
+        if constexpr (!forward) {
+            remainder = num_seqs - remainder;
+        }
+    }
 
-    constexpr std::pair<SsizeT, bool> Next() {
+    constexpr bool Next() {
         frac_counter += remainder;
         bool no_carry = !(frac_counter & (1 << log2_num_seqs));
+        if constexpr (!forward) {
+            no_carry = !no_carry;
+        }
         frac_counter &= ~(1 << log2_num_seqs);
-        --num_rest;
-        return {seq_len - no_carry, no_carry};
+        --num_seqs;
+        return no_carry;
     }
 
-    constexpr SsizeT IsEnd() const { return !num_rest; }
+    constexpr SsizeT IsEnd() const { return !num_seqs; }
 
     SsizeT log2_num_seqs;
-    SsizeT num_rest;
-    SsizeT seq_len;
-    SsizeT remainder;
-    SsizeT frac_counter;
-};
-
-template <typename SsizeT>
-struct SequenceIterator<false, SsizeT> {
-    constexpr SequenceIterator(SsizeT data_len, SsizeT log2_num_seqs) :
-        log2_num_seqs{log2_num_seqs},
-        num_rest{1 << log2_num_seqs},
-        seq_len{((data_len - 1) / num_rest) + 1},
-        remainder{num_rest - ((data_len - 1) % num_rest + 1)},
-        frac_counter{0} {}
-
-    constexpr std::pair<SsizeT, bool> Next() {
-        frac_counter += remainder;
-        bool no_borrow = !!(frac_counter & (1 << log2_num_seqs));
-        frac_counter &= ~(1 << log2_num_seqs);
-        --num_rest;
-        return {seq_len - no_borrow, no_borrow};
-    }
-
-    constexpr SsizeT IsEnd() const { return !num_rest; }
-
-    SsizeT log2_num_seqs;
-    SsizeT num_rest;
+    SsizeT num_seqs;
     SsizeT seq_len;
     SsizeT remainder;
     SsizeT frac_counter;
@@ -707,14 +685,14 @@ template <bool has_buf, bool forward, typename Iterator, typename Compare>
 #if __cpp_lib_constexpr_algorithms >= 201806L
 constexpr
 #endif
-void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, diff_t<Iterator> data_len,
-                             diff_t<Iterator> log2_num_seqs, BlockingParam<diff_t<Iterator>> p, Compare comp) {
+void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, diff_t<Iterator> seq_len,
+                   SequenceDivider<diff_t<Iterator>, forward> seq_div, BlockingParam<diff_t<Iterator>> p,
+                   Compare comp) {
     diff_t<Iterator> residual_len = p.first_block_len;
-    SequenceIterator<forward, diff_t<Iterator>> seq_iter{data_len, log2_num_seqs};
     do {
-        auto [lseq_len, lseq_decr] = seq_iter.Next();
-        auto [rseq_len, rseq_decr] = seq_iter.Next();
-        diff_t<Iterator> merging_len = lseq_len + rseq_len;
+        bool lseq_decr = seq_div.Next();
+        bool rseq_decr = seq_div.Next();
+        diff_t<Iterator> merging_len = (seq_len - lseq_decr) + (seq_len - rseq_decr);
         p.first_block_len = residual_len - lseq_decr;
         p.last_block_len = residual_len - rseq_decr;
 
@@ -729,7 +707,7 @@ void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, diff_t<Iterator> 
             MergeBlocking<has_buf>(imit, buf, data, p, comp);
             data += merging_len;
         }
-    } while (!seq_iter.IsEnd());
+    } while (!seq_div.IsEnd());
 }
 
 //
@@ -769,53 +747,59 @@ void OddEvenSort(Iterator data, Compare comp) {
     }
 }
 
+template <int seq_len, typename Iterator, typename Compare>
+#if __cpp_lib_constexpr_algorithms >= 201806L
+constexpr
+#endif
+void SortLeaves(Iterator data, SequenceDivider<diff_t<Iterator>> seq_div, Compare comp) {
+    do {
+        bool decr = seq_div.Next();
+        if (decr) {
+            OddEvenSort<seq_len - 1>(data, comp);
+            data += seq_len - 1;
+        } else {
+            OddEvenSort<seq_len>(data, comp);
+            data += seq_len;
+        }
+    } while (!seq_div.IsEnd());
+}
+
+
 /**
- * @brief Sort data with its length 4 to 8. Sorting is stable.
+ * @brief Sort leaf sequences divided by bottom-up merge sorting.
+ *
+ * Each sequence must have the length `seq_len` or `seq_len - 1`.
  *
  * @param data
- * @param len
- *   @pre 4 <= len <= 8
+ * @param seq_len
+ *   @pre 5 <= seq_len <= 8
+ * @param seq_div
  * @param comp
  */
 template <typename Iterator, typename Compare>
 #if __cpp_lib_constexpr_algorithms >= 201806L
 constexpr
 #endif
-void Sort4To8(Iterator data, diff_t<Iterator> len, Compare comp) {
-    switch (len) {
-    case 4:
-        return OddEvenSort<4>(data, comp);
+void SortLeaves(Iterator data, diff_t<Iterator> seq_len, SequenceDivider<diff_t<Iterator>> seq_div, Compare comp) {
+    switch (seq_len) {
     case 5:
-        return OddEvenSort<5>(data, comp);
+        return SortLeaves<5>(data, seq_div, comp);
     case 6:
-        return OddEvenSort<6>(data, comp);
+        return SortLeaves<6>(data, seq_div, comp);
     case 7:
-        return OddEvenSort<7>(data, comp);
+        return SortLeaves<7>(data, seq_div, comp);
     case 8:
-        return OddEvenSort<8>(data, comp);
+        return SortLeaves<8>(data, seq_div, comp);
     default:
 #if __GNUC__
         __builtin_unreachable();
 #endif
         return;
-    }
-}
-
-template <typename Iterator, typename Compare>
-#if __cpp_lib_constexpr_algorithms >= 201806L
-constexpr
-#endif
-void SortLeaves(Iterator data, diff_t<Iterator> data_len, diff_t<Iterator> log2_num_seqs, Compare comp) {
-    SequenceIterator<true, diff_t<Iterator>> seq_iter{data_len, log2_num_seqs};
-    do {
-        diff_t<Iterator> seq_len = seq_iter.Next().first;
-        Sort4To8(data, seq_len, comp);
-        data += seq_len;
-    } while (!seq_iter.IsEnd());
+    };
 }
 
 /**
- * @brief Sort data with its length 0 to 16. Sorting is stable.
+ * @brief Sort data with its length 0 to 8. Sorting is stable.
  *
  * @param data
  * @param len
@@ -845,7 +829,13 @@ void Sort0To8(Iterator data, diff_t<Iterator> len, Compare comp) {
         }
         return;
     }
-    return SortLeaves(data, len, diff_t<Iterator>{0}, comp);
+    SequenceDivider seq_div{len, diff_t<Iterator>{0}};
+    if (len == 4) {
+        // twiddle seq_div so that seq_div.Next() returns true
+        seq_div.remainder = 0;
+        len = 5;
+    }
+    return SortLeaves(data, len, seq_div, comp);
 }
 
 //
@@ -1065,7 +1055,7 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
 
     // We need to proof `residual_len >= 2` to assure that all blocks have positive length.
     // (Note that `residual_len` may be decremented once in `MergeOneLevel`.)
-    //
+    // {{{ Proof
     // We first show the following lemma. Let `N` and `m` be positive integers, such that
     // `N >= m ** 2`, `N >= 2` and `m >= 1`.
     //
@@ -1123,6 +1113,7 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
     //
     // As the function requires `seq_len >= 8`, (subprop) is always satisfied. Thus (proposition) is true.
     // Therefore We have proven `residual_len >= 2`.
+    // }}}
 
     SsizeT block_len = (seq_len - 1) / (num_blocks / 2) + 1;
     SsizeT residual_len = seq_len - block_len * (num_blocks / 2 - 1);
@@ -1157,17 +1148,20 @@ void Sort(Iterator first, Iterator last, Compare comp) {
     MergeSortControl ctrl{num_keys, data_len};
 
     Iterator data = imit + num_keys;
-    SortLeaves(data, ctrl.data_len, ctrl.log2_num_seqs, comp);
+    SortLeaves(data, ctrl.seq_len, {ctrl.data_len, ctrl.log2_num_seqs}, comp);
 
     do {
         BlockingParam p = DetermineBlocking(ctrl);
 
         if (!ctrl.buf_len) {
-            MergeOneLevel<false, true>(imit, imit + ctrl.imit_len, data, ctrl.data_len, ctrl.log2_num_seqs, p, comp);
+            MergeOneLevel<false, true>(
+                    imit, imit + ctrl.imit_len, data, ctrl.seq_len, {ctrl.data_len, ctrl.log2_num_seqs}, p, comp);
         } else if (ctrl.forward) {
-            MergeOneLevel<true, true>(imit, imit + ctrl.imit_len, data, ctrl.data_len, ctrl.log2_num_seqs, p, comp);
+            MergeOneLevel<true, true>(
+                    imit, imit + ctrl.imit_len, data, ctrl.seq_len, {ctrl.data_len, ctrl.log2_num_seqs}, p, comp);
         } else {
-            MergeOneLevel<true, false>(imit, last, last - ctrl.buf_len, ctrl.data_len, ctrl.log2_num_seqs, p, comp);
+            MergeOneLevel<true, false>(
+                    imit, last, last - ctrl.buf_len, ctrl.seq_len, {ctrl.data_len, ctrl.log2_num_seqs}, p, comp);
         }
 
         if (diff_t<Iterator> old_buf_len = ctrl.Next()) {
@@ -1202,3 +1196,5 @@ void sort(RandomAccessIterator first, RandomAccessIterator last, Compare comp) {
 }
 
 }  // namespace sayhisort
+
+#endif  // SAYHISORT_H_
