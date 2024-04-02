@@ -131,7 +131,7 @@ void SwapChunk(Iterator xs, Iterator ys, diff_t<Iterator> len) {
  *   @pre first < last
  * @param last
  * @return pos
- *   @post If nonstrict=false: for any x in [first, last), comp(*x, *key) iff x < pos
+ *   @post If nonstrict=false: for any x in [first, last),  comp(*x, *key) iff x < pos
  *   @post If nonstrict=true:  for any x in [first, last), !comp(*key, *x) iff x < pos
  */
 template <bool nonstrict, typename Iterator, typename Compare>
@@ -649,6 +649,14 @@ private:
     Compare comp_;
 };
 
+/**
+ * @brief Helper to evenly divide array those length may not be power of 2
+ *
+ * The algorithm simulates real-number division. That is, when an array with its length `L` is
+ * divided to `n` sequences, `i`-th sequence is the slice of the following range:
+ *   [ floor(i * (L/n)) , floor((i+1) * (L/N)) ) .
+ * Since `N` is power of 2, we can exactly compute the range by tracking the fractional part by an integer.
+ */
 template <typename SsizeT, bool forward = true>
 struct SequenceDivider {
     constexpr SequenceDivider(SsizeT data_len, SsizeT log2_num_seqs) :
@@ -676,7 +684,6 @@ struct SequenceDivider {
 
     SsizeT log2_num_seqs;
     SsizeT num_seqs;
-    SsizeT seq_len;
     SsizeT remainder;
     SsizeT frac_counter;
 };
@@ -750,11 +757,9 @@ void OddEvenSort(Iterator data, Compare comp) {
 /**
  * @brief Sort leaf sequences divided by bottom-up merge sorting.
  *
- * Each sequence must have the length `seq_len` or `seq_len - 1`.
- *
  * @param data
  * @param seq_len
- *   @pre 5 <= seq_len <= 8
+ *   @pre 5 <= seq_len <= 8; or seq_len == 4 and seq_div.Next() never returns true
  * @param seq_div
  * @param comp
  */
@@ -823,13 +828,7 @@ void Sort0To8(Iterator data, diff_t<Iterator> len, Compare comp) {
         }
         return;
     }
-    SequenceDivider seq_div{len, diff_t<Iterator>{0}};
-    if (len == 4) {
-        // twiddle seq_div so that seq_div.Next() returns true
-        seq_div.remainder = 0;
-        len = 5;
-    }
-    return SortLeaves(data, len, seq_div, comp);
+    return SortLeaves(data, len, {len, diff_t<Iterator>{0}}, comp);
 }
 
 //
@@ -901,7 +900,7 @@ constexpr std::pair<SsizeT, SsizeT> FirstShellSortGap(SsizeT len) {
 }
 
 /**
- * @brief Find the n'th gap within `len` from Ciura's gap sequence.
+ * @brief Find the n'th gap from Ciura's gap sequence.
  *
  * @param n
  *   @pre n >= 0
@@ -925,6 +924,10 @@ constexpr SsizeT NthShellSortGap(SsizeT n) {
  * @brief Sort data by Shell sorting with Ciura's gap sequence. Sorting is unstable.
  *
  * The sequence is extended by repeatedly applying `x \mapsto ceil(2.25 * x)` to the last pre-computed element 701.
+ * https://en.wikipedia.org/wiki/Shellsort#Computational_complexity
+ *
+ * Though we also considered Tokuda's sequence for its simplicity, this is abandoned since computing the sequence
+ * without floating-number is very prone to overflow.
  *
  * @param data
  * @param len
