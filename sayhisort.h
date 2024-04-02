@@ -183,9 +183,10 @@ constexpr Iterator BinarySearch(Iterator first, Iterator last, Iterator key, Com
  * The area `rest` contains unmerged subsequence from either `xs` or `ys`.
  *
  * @param buf
- *   @pre buf < xs
- *   @post pre_buf < buf, and [pre_buf, buf) contains merged eleemnts, where pre_buf is buf before merging.
- *   @post ys - buf = buf_len, whwre buf_len is defined before mergin by xs - buf.
+ *   @pre buf < xs.
+ *        Definitions to be used by post conditions: pre_buf = buf, and buf_len = xs - buf.
+ *   @post pre_buf < buf, and [pre_buf, buf) contains merged elements
+ *   @post ys - buf = buf_len, where buf_len is defined by xs - buf before merging.
  * @param xs
  *   @pre xs < ys
  * @param ys
