@@ -157,7 +157,7 @@ constexpr Iterator BinarySearch(Iterator first, Iterator last, Iterator key, Com
             base = pivot;
         }
         len -= mid;
-    } while (mid);
+    }
 
     base += pred(base);
     return base;
