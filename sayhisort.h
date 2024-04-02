@@ -747,24 +747,6 @@ void OddEvenSort(Iterator data, Compare comp) {
     }
 }
 
-template <int seq_len, typename Iterator, typename Compare>
-#if __cpp_lib_constexpr_algorithms >= 201806L
-constexpr
-#endif
-void SortLeaves(Iterator data, SequenceDivider<diff_t<Iterator>> seq_div, Compare comp) {
-    do {
-        bool decr = seq_div.Next();
-        if (decr) {
-            OddEvenSort<seq_len - 1>(data, comp);
-            data += seq_len - 1;
-        } else {
-            OddEvenSort<seq_len>(data, comp);
-            data += seq_len;
-        }
-    } while (!seq_div.IsEnd());
-}
-
-
 /**
  * @brief Sort leaf sequences divided by bottom-up merge sorting.
  *
@@ -781,21 +763,33 @@ template <typename Iterator, typename Compare>
 constexpr
 #endif
 void SortLeaves(Iterator data, diff_t<Iterator> seq_len, SequenceDivider<diff_t<Iterator>> seq_div, Compare comp) {
-    switch (seq_len) {
-    case 5:
-        return SortLeaves<5>(data, seq_div, comp);
-    case 6:
-        return SortLeaves<6>(data, seq_div, comp);
-    case 7:
-        return SortLeaves<7>(data, seq_div, comp);
-    case 8:
-        return SortLeaves<8>(data, seq_div, comp);
-    default:
+    do {
+        bool decr = seq_div.Next();
+        diff_t<Iterator> len = seq_len - decr;
+        switch (len) {
+            case 4:
+                OddEvenSort<4>(data, comp);
+                break;
+            case 5:
+                OddEvenSort<5>(data, comp);
+                break;
+            case 6:
+                OddEvenSort<6>(data, comp);
+                break;
+            case 7:
+                OddEvenSort<7>(data, comp);
+                break;
+            case 8:
+                OddEvenSort<8>(data, comp);
+                break;
+            default:
 #if __GNUC__
-        __builtin_unreachable();
+                __builtin_unreachable();
 #endif
-        return;
-    };
+                break;
+        };
+        data += len;
+    } while (!seq_div.IsEnd());
 }
 
 /**
