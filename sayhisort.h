@@ -801,43 +801,6 @@ SAYHISORT_CONSTEXPR_SWAP void Sort0To8(Iterator data, diff_t<Iterator> len, Comp
     return SortLeaves(data, len, {len, diff_t<Iterator>{0}}, comp);
 }
 
-//
-// Full sorting subroutines
-//
-
-template <typename Iterator, typename Compare>
-SAYHISORT_CONSTEXPR_SWAP diff_t<Iterator> CollectKeys(Iterator first, Iterator last, diff_t<Iterator> num_desired_keys,
-                                                      Compare comp) {
-    if (first == last) {
-        return 0;
-    }
-    if (num_desired_keys <= 1) {
-        return num_desired_keys;
-    }
-
-    Iterator keys = first;
-    Iterator keys_last = first + 1;
-
-    for (Iterator cur = keys_last; cur < last; ++cur) {
-        Iterator inspos = BinarySearch<false>(keys, keys_last, cur, comp);
-        if (inspos == keys_last || comp(*cur, *inspos)) {
-            // Rotate keys forward so that insertion works in O(num_keys)
-            Rotate(keys, keys_last, cur);
-            keys += cur - keys_last;
-            inspos += cur - keys_last;
-            keys_last = cur;
-            // Insert the new key
-            Rotate(inspos, keys_last, cur + 1);
-            if (++keys_last - keys == num_desired_keys) {
-                break;
-            }
-        }
-    }
-
-    Rotate(first, keys, keys_last);
-    return keys_last - keys;
-}
-
 constexpr int kCiuraGaps[8] = {1, 4, 10, 23, 57, 132, 301, 701};
 
 /**
@@ -926,6 +889,39 @@ SAYHISORT_CONSTEXPR_SWAP void ShellSort(Iterator data, diff_t<Iterator> len, Com
 //
 // Full sorting
 //
+
+template <typename Iterator, typename Compare>
+SAYHISORT_CONSTEXPR_SWAP diff_t<Iterator> CollectKeys(Iterator first, Iterator last, diff_t<Iterator> num_desired_keys,
+                                                      Compare comp) {
+    if (first == last) {
+        return 0;
+    }
+    if (num_desired_keys <= 1) {
+        return num_desired_keys;
+    }
+
+    Iterator keys = first;
+    Iterator keys_last = first + 1;
+
+    for (Iterator cur = keys_last; cur < last; ++cur) {
+        Iterator inspos = BinarySearch<false>(keys, keys_last, cur, comp);
+        if (inspos == keys_last || comp(*cur, *inspos)) {
+            // Rotate keys forward so that insertion works in O(num_keys)
+            Rotate(keys, keys_last, cur);
+            keys += cur - keys_last;
+            inspos += cur - keys_last;
+            keys_last = cur;
+            // Insert the new key
+            Rotate(inspos, keys_last, cur + 1);
+            if (++keys_last - keys == num_desired_keys) {
+                break;
+            }
+        }
+    }
+
+    Rotate(first, keys, keys_last);
+    return keys_last - keys;
+}
 
 template <typename SsizeT>
 struct MergeSortControl {
