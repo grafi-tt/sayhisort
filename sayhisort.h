@@ -33,7 +33,7 @@ using std::swap;
  *
  * @param x
  *   @pre x >= 8
- * @returns r
+ * @return r
  *   @post sqrt(x) <= r
  *   @post r < max(sqrt(x) + 2, sqrt(x) * (1.0 + 1.0/256))  (numerically tested)
  */
@@ -167,38 +167,39 @@ constexpr Iterator BinarySearch(Iterator first, Iterator last, Iterator key, Com
 // Basic merge routines
 //
 
+template <typename Iterator>
+struct MergeResult {
+    bool xs_consumed;
+    Iterator rest;
+};
+
 /**
- * @brief Merge sequences xs and ys into the buffer before xs. The buffer moves while merging.
+ * @brief Merge adjacent sequences xs and ys into the buffer before xs. The buffer moves while merging.
  *
- * The sequence ys cannot be longer the the length of the buffer.
+ * When xs or ys becomes empty, the function returns which of xs or ys is fully consumed, as well as
+ * the iterator to the rest data.
  *
- * Illustration:
- *
- *   [ buffer     | left            | right    ]
- *  buf           xs                ys       ys_last
- *   ->
- *   [ merged                | buffer   | rest ]
- *                           buf        ys   ys_last
- *
- * The area `rest` contains unmerged subsequence from either `xs` or `ys`.
+ * The sequence ys cannot be longer the the length of the buffer (because buffer overrun isn't checked.)
  *
  * @param buf
- *   @pre buf < xs.
- *        Definitions to be used by post conditions: pre_buf = buf, and buf_len = xs - buf.
- *   @post pre_buf < buf, and [pre_buf, buf) contains merged elements
- *   @post ys - buf = buf_len, where buf_len is defined by xs - buf before merging.
+ *   @pre buf < xs. We let buf_len = xs - buf.
+ *   @post rest - buf = buf_len.
  * @param xs
  *   @pre xs < ys
  * @param ys
  *   @pre ys < ys_last
- *   @pre ys_last - ys <= xs - buf
- *   @post ys < ys_last
+ *   @pre ys_last - ys <= buf_len
  * @param ys_last
  * @param comp
+ * @return xs_consumed: Whether `rest` contains elements from `ys`.
+ * @return rest: Elements not merged.
+ *   @post xs < rest < ys_last
+ *
  * @note The implementation actually works if xs or ys is empty, but the behaviour shall not be depended on.
  */
 template <bool flipped, typename Iterator, typename Compare>
-SAYHISORT_CONSTEXPR_SWAP bool MergeWithBuf(Iterator& buf, Iterator xs, Iterator& ys, Iterator ys_last, Compare comp) {
+SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Iterator xs, Iterator ys, Iterator ys_last,
+                                                            Compare comp) {
     // So-called cross merge optimization is applied
     // See https://github.com/scandum/quadsort#cross-merge for idea
     auto is_x_selected = [&comp](decltype(xs[0]) x, decltype(ys[0]) y) {
@@ -266,7 +267,7 @@ SAYHISORT_CONSTEXPR_SWAP bool MergeWithBuf(Iterator& buf, Iterator xs, Iterator&
     //    [ merged | buffer | buffer | right ]
     //            buf       xs       ys    ys_last
     if (xs_consumed) {
-        return true;
+        return {true, ys};
     }
 
     // Case: ys == ys_last
@@ -278,11 +279,14 @@ SAYHISORT_CONSTEXPR_SWAP bool MergeWithBuf(Iterator& buf, Iterator xs, Iterator&
     do {
         swap(*--ys, *--xs_last);
     } while (xs_last != xs);
-    return false;
+    return {false, ys};
 }
 
 /**
  * @brief Merge sequences xs and ys in-place.
+ *
+ * When xs or ys becomes empty, the function returns which of xs or ys is fully consumed, as well as
+ * the iterator to the rest data.
  *
  * @param xs
  *   @pre xs < ys
@@ -297,11 +301,12 @@ SAYHISORT_CONSTEXPR_SWAP bool MergeWithBuf(Iterator& buf, Iterator xs, Iterator&
  *       the numbers of unique keys in `xs` and `ys`.
  */
 template <bool flipped, typename Iterator, typename Compare>
-SAYHISORT_CONSTEXPR_SWAP bool MergeWithoutBuf(Iterator xs, Iterator& ys, Iterator ys_last, Compare comp) {
+SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iterator ys, Iterator ys_last,
+                                                               Compare comp) {
     while (true) {
         // Seek xs so that xs[0] > ys[0]
         xs = BinarySearch<!flipped>(xs, ys, ys, comp);
-        if (xs == ys) return true;
+        if (xs == ys) return {true, ys};
         // Insert xs to ys
         Iterator ys_upper = ys + 1;
         if (ys_upper != ys_last) {
@@ -311,8 +316,7 @@ SAYHISORT_CONSTEXPR_SWAP bool MergeWithoutBuf(Iterator xs, Iterator& ys, Iterato
         xs += ys_upper - ys;
         ys = ys_upper;
         if (ys_upper == ys_last) {
-            ys = xs;
-            return false;
+            return {false, xs};
         }
     }
 }
@@ -556,24 +560,25 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
             }
         }
 
-        bool xs_consumed{};
-        if constexpr (has_buf) {
-            if (xs_origin == kLeft) {
-                xs_consumed = MergeWithBuf<false>(buf, xs, cur, cur_last, comp);
+        MergeResult mr = ([&]() {
+            if constexpr (has_buf) {
+                if (xs_origin == kLeft) {
+                    return MergeWithBuf<false>(buf, xs, cur, cur_last, comp);
+                } else {
+                    return MergeWithBuf<true>(buf, xs, cur, cur_last, comp);
+                }
             } else {
-                xs_consumed = MergeWithBuf<true>(buf, xs, cur, cur_last, comp);
+                if (xs_origin == kLeft) {
+                    return MergeWithoutBuf<false>(xs, cur, cur_last, comp);
+                } else {
+                    return MergeWithoutBuf<true>(xs, cur, cur_last, comp);
+                }
             }
-        } else {
-            if (xs_origin == kLeft) {
-                xs_consumed = MergeWithoutBuf<false>(xs, cur, cur_last, comp);
-            } else {
-                xs_consumed = MergeWithoutBuf<true>(xs, cur, cur_last, comp);
-            }
-        }
+        })();
 
-        xs = cur;
+        xs = mr.rest;
         xs_latest_block = xs;
-        xs_origin = static_cast<BlockOrigin>(xs_origin ^ xs_consumed);
+        xs_origin = static_cast<BlockOrigin>(xs_origin ^ mr.xs_consumed);
 
         cur = cur_last;
     } while (num_remained_blocks);
@@ -835,7 +840,7 @@ constexpr std::pair<SsizeT, SsizeT> FirstShellSortGap(SsizeT len) {
  *
  * @param n
  *   @pre n >= 0
- * @returns gap
+ * @return gap
  *   @post gap >= 1
  */
 template <typename SsizeT>

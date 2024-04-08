@@ -144,16 +144,16 @@ TEST(SayhiSortTest, MergeWithBuf) {
         while (ys < ys_last) {
             rest_space[num_rest++] = *ys++;
         }
-        SsizeT ys_offset = len - num_rest;
+        SsizeT rest_offset = len - num_rest;
 
         std::copy(merged_space.begin(), merged_space.begin() + num_merged, expected.begin());
-        std::fill(expected.begin() + num_merged, expected.begin() + ys_offset, 0);
-        std::copy(rest_space.begin(), rest_space.begin() + num_rest, expected.begin() + ys_offset);
+        std::fill(expected.begin() + num_merged, expected.begin() + rest_offset, 0);
+        std::copy(rest_space.begin(), rest_space.begin() + num_rest, expected.begin() + rest_offset);
         std::fill(expected.begin() + len, expected.end(), 42);
 
         Iterator new_buf = buf + num_merged;
-        Iterator new_ys = buf + ys_offset;
-        return std::tuple{new_buf, new_ys, xs_consumed};
+        Iterator rest = buf + rest_offset;
+        return std::tuple{new_buf, xs_consumed, rest};
     };
 
     std::vector<int> ary(ary_len);
@@ -174,12 +174,12 @@ TEST(SayhiSortTest, MergeWithBuf) {
             std::sort(xs, ys, Compare{});
             std::sort(ys, ys_last, Compare{});
 
-            auto [buf_expected, ys_expected, xs_consumed_expected] = naive_impl(buf, xs, ys, ys_last, Compare{});
-            bool xs_consumed = MergeWithBuf<false>(buf, xs, ys, ys_last, Compare{});
+            auto [buf_expected, xs_consumed_expected, rest_expected] = naive_impl(buf, xs, ys, ys_last, Compare{});
+            auto [xs_consumed, rest] = MergeWithBuf<false>(buf, xs, ys, ys_last, Compare{});
 
             EXPECT_EQ(ary, expected) << "xs_len=" << xs_len << " ys_len=" << ys_len;
             EXPECT_EQ(buf, buf_expected);
-            EXPECT_EQ(ys, ys_expected);
+            EXPECT_EQ(rest, rest_expected);
             EXPECT_EQ(xs_consumed, xs_consumed_expected);
         }
     }
@@ -220,8 +220,8 @@ TEST(SayhiSortTest, MergeWithoutBuf) {
         std::copy(rest_space.begin(), rest_space.begin() + num_rest, expected.begin() + num_merged);
         std::fill(expected.begin() + len, expected.end(), 42);
 
-        Iterator new_ys = xs_orig + num_merged;
-        return std::tuple{new_ys, xs_consumed};
+        Iterator rest = xs_orig + num_merged;
+        return std::tuple{xs_consumed, rest};
     };
 
     std::vector<int> ary(ary_len);
@@ -239,12 +239,13 @@ TEST(SayhiSortTest, MergeWithoutBuf) {
             std::sort(xs, ys, Compare{});
             std::sort(ys, ys_last, Compare{});
 
-            auto [ys_expected, xs_consumed_expected] = naive_impl(xs, ys, ys_last, Compare{});
-            bool xs_consumed = MergeWithoutBuf<false>(xs, ys, ys_last, Compare{});
+            auto [xs_consumed_expected, rest_expected] = naive_impl(xs, ys, ys_last, Compare{});
+            auto [xs_consumed, rest] = MergeWithoutBuf<false>(xs, ys, ys_last, Compare{});
 
             EXPECT_EQ(ary, expected) << "xs_len=" << xs_len << " ys_len=" << ys_len;
-            EXPECT_EQ(ys - ary.begin(), ys_expected - ary.begin());
+            EXPECT_EQ(rest, rest_expected);
             EXPECT_EQ(xs_consumed, xs_consumed_expected);
+            EXPECT_EQ(rest, rest_expected);
         }
     }
 }
