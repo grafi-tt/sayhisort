@@ -25,9 +25,7 @@ using Compare = std::less<int>;
 using SsizeT = Iterator::difference_type;
 
 struct CompareDiv4 {
-    bool operator()(int x, int y) const {
-        return (x >> 2) < (y >> 2);
-    }
+    bool operator()(int x, int y) const { return (x >> 2) < (y >> 2); }
 };
 
 std::mt19937_64 GetPerTestRNG() {
@@ -400,7 +398,8 @@ TEST(SayhiSortTest, MergeAdjacentBlocks) {
             std::sort(lseq, rseq, Compare{});
             std::sort(rseq, rseq_last, Compare{});
 
-            Iterator mid_key = InterleaveBlocks(imit, lseq + p.first_block_len, p.num_blocks - 2, p.block_len, Compare{});
+            Iterator mid_key =
+                InterleaveBlocks(imit, lseq + p.first_block_len, p.num_blocks - 2, p.block_len, Compare{});
             if (has_buf) {
                 MergeAdjacentBlocks<true>(imit, buf, lseq, p, mid_key, Compare{});
                 EXPECT_EQ(buf, ary.end() - buf_len);
