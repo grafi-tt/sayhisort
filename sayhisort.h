@@ -686,16 +686,16 @@ SAYHISORT_CONSTEXPR_SWAP void MergeOneLevel(Iterator imit, Iterator buf, Iterato
         p.first_block_len = residual_len - lseq_decr;
         p.last_block_len = residual_len - rseq_decr;
 
-        if constexpr (!forward) {
+        if constexpr (forward) {
+            MergeBlocking<has_buf>(imit, buf, data, p, comp);
+            data += merging_len;
+        } else {
             auto rev_imit = std::make_reverse_iterator(imit + p.num_blocks - 2);
             auto rev_buf = std::make_reverse_iterator(buf);
             auto rev_data = std::make_reverse_iterator(data);
             MergeBlocking<has_buf>(rev_imit, rev_buf, rev_data, p, ReverseCompare{comp});
             buf = rev_buf.base();
             data -= merging_len;
-        } else {
-            MergeBlocking<has_buf>(imit, buf, data, p, comp);
-            data += merging_len;
         }
     } while (!seq_div.IsEnd());
 }
