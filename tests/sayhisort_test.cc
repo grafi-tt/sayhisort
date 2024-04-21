@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <iterator>
 #include <numeric>
 #include <random>
 #include <set>
@@ -39,15 +40,15 @@ std::mt19937_64 GetPerTestRNG() {
 
     int seed = testing::UnitTest::GetInstance()->random_seed();
 
-    std::array<char, sizeof(int) * 2 + 2> seed_hex;
-    if (char* p = std::to_chars(seed_hex.begin(), seed_hex.end(), seed, 16).ptr; p > seed_hex.end() - 2) {
+    char seed_hex[sizeof(int) * 2 + 2];
+    if (char* p = std::to_chars(std::begin(seed_hex), std::end(seed_hex), seed, 16).ptr; p > std::end(seed_hex) - 2) {
         // should be unreachable, but just nul-terminate for safety
         seed_hex[0] = '\0';
     } else {
         p[0] = '/';
         p[1] = '\0';
     }
-    fnv1a(seed_hex.begin());
+    fnv1a(std::begin(seed_hex));
 
     const auto* test_info = testing::UnitTest::GetInstance()->current_test_info();
     const char* suite_name = test_info->test_suite_name();

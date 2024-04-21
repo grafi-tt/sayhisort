@@ -647,7 +647,7 @@ template <typename SsizeT, bool forward = true>
 struct SequenceDivider {
     constexpr SequenceDivider(SsizeT data_len, SsizeT log2_num_seqs)
         : log2_num_seqs{log2_num_seqs},
-          num_seqs{1 << log2_num_seqs},
+          num_seqs{SsizeT{1} << log2_num_seqs},
           remainder{(data_len - 1) % num_seqs + 1},
           frac_counter{0} {
         if constexpr (!forward) {
@@ -657,11 +657,11 @@ struct SequenceDivider {
 
     constexpr bool Next() {
         frac_counter += remainder;
-        bool no_carry = !(frac_counter & (1 << log2_num_seqs));
+        bool no_carry = !(frac_counter & (SsizeT{1} << log2_num_seqs));
         if constexpr (!forward) {
             no_carry = !no_carry;
         }
-        frac_counter &= ~(1 << log2_num_seqs);
+        frac_counter &= ~(SsizeT{1} << log2_num_seqs);
         --num_seqs;
         return no_carry;
     }
