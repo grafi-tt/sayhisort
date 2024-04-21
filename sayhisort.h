@@ -578,7 +578,7 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
 
         xs = mr.rest;
         xs_latest_block = xs;
-        xs_origin = static_cast<BlockOrigin>(xs_origin ^ mr.xs_consumed);
+        xs_origin = static_cast<BlockOrigin>(static_cast<bool>(xs_origin) ^ mr.xs_consumed);
 
         cur = cur_last;
     } while (num_remained_blocks);
