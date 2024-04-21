@@ -46,7 +46,7 @@ constexpr SsizeT OverApproxSqrt(SsizeT x) {
         ++n;
     }
     // `r = ceil((0.5 + 0.5 * a) * 2^n)`, which is an over-approx of `sqrt(x)`
-    SsizeT r = ((x - 1) >> (n + 1)) + (1 << (n - 1)) + 1;
+    SsizeT r = ((x - 1) >> (n + 1)) + (SsizeT{1} << (n - 1)) + 1;
 
     // Apply Newton's method (also known as Heron's method) and take ceil.
     // https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Heron's_method
