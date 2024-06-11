@@ -90,14 +90,6 @@ TEST(SayhiSortTest, Rotate) {
     }
 }
 
-TEST(SayhiSortTest, SwapChunk) {
-    std::vector<int> data = {0, 1, 2, 3, 4, 5, 6, 7};
-    std::vector<int> expected = {4, 5, 6, 3, 0, 1, 2, 7};
-
-    SwapChunk(data.begin(), data.begin() + 4, 3);
-    EXPECT_EQ(data, expected);
-}
-
 TEST(SayhiSortTest, BinarySearch) {
     std::vector<int> data(17);
     std::iota(data.begin(), data.end() - 1, 0);

@@ -90,7 +90,7 @@ SAYHISORT_CONSTEXPR_SWAP void Rotate(Iterator first, Iterator middle, Iterator l
         } else {
             diff_t<Iterator> rem = l_len % r_len;
             do {
-                swap(*--middle, *--last);
+                swap(*--last, *--middle);
             } while (--l_len);
             if (!rem) {
                 return;
@@ -100,27 +100,6 @@ SAYHISORT_CONSTEXPR_SWAP void Rotate(Iterator first, Iterator middle, Iterator l
             r_len -= rem;
             l_len = rem;
         }
-    }
-}
-
-/**
- * @brief Swap two chunks with the same length.
- *
- * If the two chunks are same, it does nothing. Two chunks cannot partially overlap.
- *
- * @param xs
- * @param ys
- *   @pre [xs, xs + len) and [ys, ys + len) don't overlap, expect the case xs = ys
- * @param len
- *   @pre len is positive
- */
-template <typename Iterator>
-SAYHISORT_CONSTEXPR_SWAP void SwapChunk(Iterator xs, Iterator ys, diff_t<Iterator> len) {
-    if (xs == ys) {
-        return;
-    }
-    while (len--) {
-        swap(*xs++, *ys++);
     }
 }
 
@@ -348,6 +327,16 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
     // We pick the least block `least_left` from `left_permuted` by linear search.
     // Then we compare `least_left` with `right[0]`, and swap the selected block for
     // `left_permuted[0]`.
+    auto swapBlock = [block_len](Iterator a, Iterator b) {
+        if (a == b) {
+            return;
+        }
+        diff_t<Iterator> i = block_len;
+        do {
+            swap(*a++, *b++);
+        } while (--i);
+    };
+
     Iterator left_keys = imit;
     Iterator right_keys = imit + num_blocks / 2;
     Iterator left_blocks = blocks;
@@ -362,7 +351,7 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
     while (left_keys < right_keys) {
         if (right_keys == last_right_key || !comp(*right_blocks, *least_left_block)) {
             swap(*left_keys, *least_left_key);
-            SwapChunk(left_blocks, least_left_block, block_len);
+            swapBlock(left_blocks, least_left_block);
 
             ++left_keys;
             left_blocks += block_len;
@@ -380,7 +369,7 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
 
         } else {
             swap(*left_keys, *right_keys);
-            SwapChunk(left_blocks, right_blocks, block_len);
+            swapBlock(left_blocks, right_blocks);
 
             if (left_keys == least_left_key) {
                 least_left_key = right_keys;
@@ -404,7 +393,7 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
  *
  * @param imit
  * @param imit_len
- *   @pre imit_len is a multiple of 2
+ *   @pre imit_len is a positive multiple of 2
  * @param buf
  *   @pre [imit, imit + imit_len) and [buf, buf + imit_len / 2) are non-overlapping
  * @param mid_key
@@ -424,14 +413,16 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
 
     while (cur != imit + imit_len) {
         if (comp(*cur, *mid_key)) {
-            swap(*cur++, *left_cur++);
+            swap(*left_cur++, *cur++);
         } else {
-            swap(*cur++, *right_cur++);
+            swap(*right_cur++, *cur++);
         }
     }
 
-    // now `left_cur` points to the start of right keys
-    SwapChunk(buf, left_cur, imit_len / 2);
+    // Append right keys in `buf` to `left_cur`
+    do {
+        swap(*left_cur++, *buf++);
+    } while (buf != right_cur);
 }
 
 /**
@@ -439,7 +430,7 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
  *
  * @param imit
  * @param imit_len
- *   @pre imit_len is a multiple of 2
+ *   @pre imit_len is a positive multiple of 2
  * @param mid_key
  * @param comp
  */
@@ -719,7 +710,7 @@ SAYHISORT_CONSTEXPR_SWAP void OddEvenSort(Iterator data, Compare comp) {
     for (diff_t<Iterator> i = 0; i < len; i += 2) {
         for (diff_t<Iterator> j = 0; j < len - 1; j += 2) {
             if (comp(data[j + 1], data[j])) {
-                swap(data[j + 1], data[j]);
+                swap(data[j], data[j + 1]);
             }
         }
         if (i + 1 == len) {
@@ -728,7 +719,7 @@ SAYHISORT_CONSTEXPR_SWAP void OddEvenSort(Iterator data, Compare comp) {
 
         for (diff_t<Iterator> j = 1; j < len - 1; j += 2) {
             if (comp(data[j + 1], data[j])) {
-                swap(data[j + 1], data[j]);
+                swap(data[j], data[j + 1]);
             }
         }
     }
@@ -790,16 +781,16 @@ SAYHISORT_CONSTEXPR_SWAP void Sort0To8(Iterator data, diff_t<Iterator> len, Comp
     }
     if (len <= 3) {
         if (comp(data[1], data[0])) {
-            swap(data[1], data[0]);
+            swap(data[0], data[1]);
         }
         if (len == 2) {
             return;
         }
         if (comp(data[2], data[1])) {
-            swap(data[2], data[1]);
+            swap(data[1], data[2]);
         }
         if (comp(data[1], data[0])) {
-            swap(data[1], data[0]);
+            swap(data[0], data[1]);
         }
         return;
     }
@@ -862,8 +853,8 @@ constexpr SsizeT NthShellSortGap(SsizeT n) {
  * The sequence is extended by repeatedly applying `x \mapsto ceil(2.25 * x)` to the last pre-computed element 701.
  * https://en.wikipedia.org/wiki/Shellsort#Computational_complexity
  *
- * Though we also considered Tokuda's sequence for its simplicity, this is abandoned since computing the sequence
- * without floating-number is very prone to overflow.
+ * Though we also considered Tokuda's sequence, this is abandoned since computing the sequence without floating-number
+ * is prone to overflow.
  *
  * @param data
  * @param len
@@ -878,7 +869,7 @@ SAYHISORT_CONSTEXPR_SWAP void ShellSort(Iterator data, diff_t<Iterator> len, Com
         diff_t<Iterator> i = gap;
         do {
             for (diff_t<Iterator> j = i; j >= gap; j -= gap) {
-                if (comp(data[j - gap], data[j])) {
+                if (!comp(data[j], data[j - gap])) {
                     break;
                 }
                 swap(data[j - gap], data[j]);
@@ -935,7 +926,7 @@ struct MergeSortControl {
      *   @pre num_keys == 0 or num_keys >= 8
      * @param data_len
      *   @pre data_len > 8
-     * @post 5 < seq_spec.seq_len <= 8
+     * @post 5 <= this->seq_len <= 8
      */
     constexpr MergeSortControl(SsizeT num_keys, SsizeT data_len) : data_len{data_len} {
         if (num_keys) {
@@ -980,10 +971,9 @@ struct MergeSortControl {
     /**
      * buf_len is non-negative.
      * If buf_len > 0
-     *   - seq_spec.seq_len <= bufferable_len
+     *   - seq_len <= bufferable_len
      *   - imit_len + 2 <= buf_len
      */
-    //! buf_len is non-negative, and  if buf_len > 0
     SsizeT buf_len = 0;
     //! bufferable_len = ((imit_len + 2) / 2) * buf_len
     SsizeT bufferable_len = 0;
