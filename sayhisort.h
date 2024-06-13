@@ -10,6 +10,7 @@
 #define SAYHISORT_CONSTEXPR_SWAP
 #endif
 
+#include <functional>
 #include <iterator>
 #include <type_traits>
 #include <utility>
@@ -1139,7 +1140,7 @@ SAYHISORT_CONSTEXPR_SWAP void Sort(Iterator first, Iterator last, Compare comp) 
 
 template <typename RandomAccessIterator>
 SAYHISORT_CONSTEXPR_SWAP void sort(RandomAccessIterator first, RandomAccessIterator last) {
-    return detail::Sort(first, last, [](auto&& x, auto&& y) { return x < y; });
+    return detail::Sort(first, last, std::less<>{});
 }
 
 template <typename RandomAccessIterator, typename Compare>
