@@ -609,7 +609,7 @@ struct ReverseCompare : Compare {
 
     template <typename T>
     constexpr bool operator()(T&& lhs, T&& rhs) {
-        return (*static_cast<Compare*>(this))(std::forward<T>(rhs), std::forward<T>(lhs));
+        return Compare::operator()(std::forward<T>(rhs), std::forward<T>(lhs));
     }
 };
 
