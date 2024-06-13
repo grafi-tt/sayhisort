@@ -1143,19 +1143,8 @@ SAYHISORT_CONSTEXPR_SWAP void sort(RandomAccessIterator first, RandomAccessItera
     return detail::Sort(first, last, std::less<>{});
 }
 
-template <typename ExecutionPolicy, typename RandomAccessIterator>
-SAYHISORT_CONSTEXPR_SWAP void sort(ExecutionPolicy&&, RandomAccessIterator first, RandomAccessIterator last) {
-    return detail::Sort(first, last, std::less<>{});
-}
-
 template <typename RandomAccessIterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP void sort(RandomAccessIterator first, RandomAccessIterator last, Compare comp) {
-    return detail::Sort(first, last, comp);
-}
-
-template <typename ExecutionPolicy, typename RandomAccessIterator, typename Compare>
-SAYHISORT_CONSTEXPR_SWAP void sort(ExecutionPolicy&&, RandomAccessIterator first, RandomAccessIterator last,
-                                   Compare comp) {
     return detail::Sort(first, last, comp);
 }
 
