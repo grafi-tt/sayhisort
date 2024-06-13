@@ -619,7 +619,7 @@ struct ReverseCompare<Compare, false> {
 
     template <typename T>
     constexpr bool operator()(T&& lhs, T&& rhs) {
-        return comp_(std::forward(rhs), std::forward(lhs));
+        return comp_(std::forward<T>(rhs), std::forward<T>(lhs));
     }
 
 private:
