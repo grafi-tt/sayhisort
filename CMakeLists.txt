@@ -53,6 +53,7 @@ if(SAYHISORT_ENABLE_TEST)
         sayhisort
         GTest::gtest_main
         )
+    add_test(NAME sayhisort_test COMMAND $<TARGET_FILE:sayhisort_test>)
 
     add_executable(
         sayhisort_cpp20_test
@@ -66,8 +67,12 @@ if(SAYHISORT_ENABLE_TEST)
         sayhisort_cpp20_test PRIVATE
         cxx_std_20
         )
+    add_test(NAME sayhisort_cpp20_test COMMAND $<TARGET_FILE:sayhisort_cpp20_test>)
 
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         target_compile_options(sayhisort_test PRIVATE -std=c++17 -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(sayhisort_cpp20_test PRIVATE -std=c++20 -Wall -Wextra -Wpedantic -Werror)
     endif()
 endif()

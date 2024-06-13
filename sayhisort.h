@@ -605,11 +605,11 @@ SAYHISORT_CONSTEXPR_SWAP void MergeBlocking(Iterator imit, Iterator& buf, Iterat
 
 template <typename Compare, bool = std::is_empty_v<Compare> && !std::is_final_v<Compare>>
 struct ReverseCompare : Compare {
-    constexpr ReverseCompare(Compare) {}
+    constexpr ReverseCompare(Compare comp) : Compare(comp) {}
 
     template <typename T>
     constexpr bool operator()(T&& lhs, T&& rhs) {
-        return Compare{}(std::forward<T>(rhs), std::forward<T>(lhs));
+        return (*static_cast<Compare*>(this))(std::forward<T>(rhs), std::forward<T>(lhs));
     }
 };
 
@@ -1136,6 +1136,11 @@ SAYHISORT_CONSTEXPR_SWAP void Sort(Iterator first, Iterator last, Compare comp) 
 
 }  // namespace
 }  // namespace detail
+
+template <typename RandomAccessIterator>
+SAYHISORT_CONSTEXPR_SWAP void sort(RandomAccessIterator first, RandomAccessIterator last) {
+    return detail::Sort(first, last, [](auto&& x, auto&& y) { return x < y; });
+}
 
 template <typename RandomAccessIterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP void sort(RandomAccessIterator first, RandomAccessIterator last, Compare comp) {

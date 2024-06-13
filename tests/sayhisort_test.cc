@@ -789,6 +789,21 @@ TEST(SayhiSortTest, Sort) {
     }
 }
 
+TEST(SayhiSortTest, SortAPI) {
+    SsizeT ary_len = 100;
+    std::vector<int> ary(ary_len);
+    std::vector<int> expected(ary_len);
+
+    auto rng = GetPerTestRNG();
+
+    std::iota(ary.begin(), ary.end(), 0);
+    std::shuffle(ary.begin(), ary.end(), rng);
+    std::copy(ary.begin(), ary.end(), expected.begin());
+    sayhisort::sort(ary.begin(), ary.end());
+    std::stable_sort(expected.begin(), expected.end());
+    EXPECT_EQ(ary, expected);
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {

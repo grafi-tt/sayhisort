@@ -3,7 +3,7 @@
 #include <array>
 #include <functional>
 
-int main(int argc, char** argv) {
+int main() {
     constexpr std::array<int, 9> a = ([]() {
         std::array pi{3, 1, 4, 1, 5, 9, 2, 6, 5};
         sayhisort::sort(pi.begin(), pi.end(), std::less<int>{});
