@@ -40,12 +40,12 @@ std::mt19937_64 GetPerTestRNG() {
     int seed = testing::UnitTest::GetInstance()->random_seed();
 
     char seed_hex[sizeof(int) * 2 + 2];
-    if (char* p = std::to_chars(std::begin(seed_hex), std::end(seed_hex), seed, 16).ptr; p > std::end(seed_hex) - 2) {
-        // should be unreachable, but just nul-terminate for safety
-        seed_hex[0] = '\0';
-    } else {
+    if (char* p = std::to_chars(std::begin(seed_hex), std::end(seed_hex), seed, 16).ptr; p <= std::end(seed_hex) - 2) {
         p[0] = '/';
         p[1] = '\0';
+    } else {
+        // should be unreachable, but just nul-terminate for safety
+        seed_hex[0] = '\0';
     }
     fnv1a(std::begin(seed_hex));
 
