@@ -808,9 +808,10 @@ constexpr int kCiuraGaps[8] = {1, 4, 10, 23, 57, 132, 301, 701};
  */
 template <typename SsizeT>
 constexpr std::pair<SsizeT, SsizeT> FirstShellSortGap(SsizeT len) {
-    SsizeT n = 4 * (kCiuraGaps[4] < len);
-    n += 2 * (kCiuraGaps[static_cast<ptrdiff_t>(n + 2)] < len);
-    n += kCiuraGaps[static_cast<ptrdiff_t>(n + 1)] < len;
+    SsizeT n = 0;
+    for (int j = 1; j < 8; ++j) {
+        n += kCiuraGaps[j] < len;
+    }
     SsizeT gap = kCiuraGaps[static_cast<ptrdiff_t>(n)];
     if (n == 7) {
         // floor(2.25 * gap) < len
