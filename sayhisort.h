@@ -927,18 +927,29 @@ struct MergeSortControl {
      */
     constexpr MergeSortControl(SsizeT num_keys, SsizeT data_len) : data_len{data_len} {
         if (num_keys) {
-            // imit_len >= 2
+            /*
+             * When num_keys = 8, bufferable_len = 12.
+             * Due to monotonicity, bufferable_len >= 12 holds.
+             *
+             * Futhermore, since imit_len + 2 <= (num_keys + 2) / 2,
+             *
+             *   buf_len = num_keys - imit_len
+             *           = (num_keys + 2) - (imit_len + 2)
+             *           >= (num_keys + 2) / 2
+             *           >= imit_len + 2
+             *
+             * holds.
+             */
             imit_len = (num_keys + 2) / 4 * 2 - 2;
-            // buf_len >= 6
             buf_len = num_keys - imit_len;
-            // bufferable_len >= 12
             bufferable_len = (imit_len + 2) / 2 * buf_len;
         }
 
         while ((data_len - 1) >> (log2_num_seqs + 3)) {
             ++log2_num_seqs;
         }
-        // seq_len <= 8, so seq_len < bufferable_len holds if num_keys != 0
+        // When num_keys != 0 we don't need to check whether the initial sequences can be buffered, since
+        // seq_len <= 8 and bufferable_len >= 12 are assured.
         seq_len = ((data_len - 1) >> log2_num_seqs) + 1;
     }
 
