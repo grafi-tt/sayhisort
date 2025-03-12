@@ -1013,8 +1013,8 @@ struct CheckedIterator {
         return CheckedInt{d};
     }
 
-    T& operator*() { return *ptr; }
-    T& operator[](CheckedInt i) { return *(*this + i); }
+    T& operator*() const { return *ptr; }
+    T& operator[](CheckedInt i) const { return *(*this + i); }
 
     friend bool operator==(CheckedIterator lhs, CheckedIterator rhs) { return lhs.ptr == rhs.ptr; }
     friend bool operator!=(CheckedIterator lhs, CheckedIterator rhs) { return lhs.ptr != rhs.ptr; }
