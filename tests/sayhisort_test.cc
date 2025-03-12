@@ -803,6 +803,249 @@ TEST(SayhiSortTest, SortAPI) {
     EXPECT_EQ(ary, expected);
 }
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+#endif
+struct CheckedInt {
+    CheckedInt() : CheckedInt{0} {}
+
+    CheckedInt(int64_t v) {
+        CheckedInt::CheckRange(v);
+        val = static_cast<int32_t>(v);
+    }
+
+    explicit operator ptrdiff_t() const { return val; }
+    explicit operator bool() const { return !!val; }
+
+    friend CheckedInt& operator+=(CheckedInt& lhs, CheckedInt rhs) {
+        int64_t v = int64_t{lhs.val} + int64_t{rhs.val};
+        CheckedInt::CheckRange(v);
+        lhs.val = static_cast<int32_t>(v);
+        return lhs;
+    }
+
+    friend CheckedInt& operator-=(CheckedInt& lhs, CheckedInt rhs) {
+        int64_t v = int64_t{lhs.val} - int64_t{rhs.val};
+        CheckedInt::CheckRange(v);
+        lhs.val = static_cast<int32_t>(v);
+        return lhs;
+    }
+
+    friend CheckedInt& operator*=(CheckedInt& lhs, CheckedInt rhs) {
+        int64_t v = int64_t{lhs.val} * int64_t{rhs.val};
+        CheckedInt::CheckRange(v);
+        lhs.val = static_cast<int32_t>(v);
+        return lhs;
+    }
+
+    friend CheckedInt& operator/=(CheckedInt& lhs, CheckedInt rhs) {
+        if (rhs.val == 0) {
+            CheckedInt::err = true;
+        }
+        lhs.val /= rhs.val;
+        return lhs;
+    }
+
+    friend CheckedInt& operator%=(CheckedInt& lhs, CheckedInt rhs) {
+        if (rhs.val == 0) {
+            CheckedInt::err = true;
+        }
+        lhs.val %= rhs.val;
+        return lhs;
+    }
+
+    friend CheckedInt& operator&=(CheckedInt& lhs, CheckedInt rhs) {
+        lhs.val &= rhs.val;
+        CheckedInt::CheckRange(lhs.val);
+        return lhs;
+    }
+
+    friend CheckedInt& operator|=(CheckedInt& lhs, CheckedInt rhs) {
+        lhs.val |= rhs.val;
+        CheckedInt::CheckRange(lhs.val);
+        return lhs;
+    }
+
+    friend CheckedInt& operator^=(CheckedInt& lhs, CheckedInt rhs) {
+        lhs.val ^= rhs.val;
+        CheckedInt::CheckRange(lhs.val);
+        return lhs;
+    }
+
+    friend CheckedInt& operator>>=(CheckedInt& lhs, CheckedInt rhs) {
+        lhs.val >>= rhs.val;
+        CheckedInt::CheckRange(lhs.val);
+        return lhs;
+    }
+
+    friend CheckedInt& operator<<=(CheckedInt& lhs, CheckedInt rhs) {
+        if (rhs.val >= 32) {
+            CheckedInt::err = true;
+        }
+        int64_t v = int64_t{lhs.val} << rhs.val;
+        CheckedInt::CheckRange(v);
+        lhs.val = static_cast<int32_t>(v);
+        return lhs;
+    }
+
+    friend CheckedInt operator+(CheckedInt lhs, CheckedInt rhs) { return (lhs += rhs); }
+    friend CheckedInt operator-(CheckedInt lhs, CheckedInt rhs) { return (lhs -= rhs); }
+    friend CheckedInt operator*(CheckedInt lhs, CheckedInt rhs) { return (lhs *= rhs); }
+    friend CheckedInt operator/(CheckedInt lhs, CheckedInt rhs) { return (lhs /= rhs); }
+    friend CheckedInt operator%(CheckedInt lhs, CheckedInt rhs) { return (lhs %= rhs); }
+    friend CheckedInt operator&(CheckedInt lhs, CheckedInt rhs) { return (lhs &= rhs); }
+    friend CheckedInt operator|(CheckedInt lhs, CheckedInt rhs) { return (lhs |= rhs); }
+    friend CheckedInt operator^(CheckedInt lhs, CheckedInt rhs) { return (lhs ^= rhs); }
+    friend CheckedInt operator>>(CheckedInt lhs, CheckedInt rhs) { return (lhs >>= rhs); }
+    friend CheckedInt operator<<(CheckedInt lhs, CheckedInt rhs) { return (lhs <<= rhs); }
+
+    friend CheckedInt& operator++(CheckedInt& obj) { return (obj += 1); }
+    friend CheckedInt operator++(CheckedInt& obj, int) {
+        CheckedInt old = obj;
+        ++obj;
+        return old;
+    }
+
+    friend CheckedInt& operator--(CheckedInt& obj) { return (obj -= 1); }
+    friend CheckedInt operator--(CheckedInt& obj, int) {
+        CheckedInt old = obj;
+        --obj;
+        return old;
+    }
+
+    friend CheckedInt operator-(CheckedInt obj) {
+        if (obj.val != 0) {
+            CheckedInt::err = true;
+        }
+        obj.val = -obj.val;
+        return obj;
+    }
+
+    struct Mask {
+        int32_t val;
+    };
+
+    // Allow the form `a &= ~b` for testing purpose.
+    friend CheckedInt::Mask operator~(CheckedInt obj) { return CheckedInt::Mask{~obj.val}; }
+    friend CheckedInt& operator&=(CheckedInt& lhs, CheckedInt::Mask rhs) {
+        lhs.val &= rhs.val;
+        CheckedInt::CheckRange(lhs.val);
+        return lhs;
+    }
+    friend CheckedInt operator&(CheckedInt lhs, CheckedInt::Mask rhs) { return (lhs &= rhs); }
+
+    friend bool operator==(CheckedInt lhs, CheckedInt rhs) { return lhs.val == rhs.val; }
+    friend bool operator!=(CheckedInt lhs, CheckedInt rhs) { return lhs.val != rhs.val; }
+    friend bool operator<(CheckedInt lhs, CheckedInt rhs) { return lhs.val < rhs.val; }
+    friend bool operator<=(CheckedInt lhs, CheckedInt rhs) { return lhs.val <= rhs.val; }
+    friend bool operator>(CheckedInt lhs, CheckedInt rhs) { return lhs.val > rhs.val; }
+    friend bool operator>=(CheckedInt lhs, CheckedInt rhs) { return lhs.val >= rhs.val; }
+
+    friend bool operator==(CheckedInt lhs, int rhs) { return lhs.val == rhs; }
+    friend bool operator!=(CheckedInt lhs, int rhs) { return lhs.val != rhs; }
+    friend bool operator<(CheckedInt lhs, int rhs) { return lhs.val < rhs; }
+    friend bool operator<=(CheckedInt lhs, int rhs) { return lhs.val <= rhs; }
+    friend bool operator>(CheckedInt lhs, int rhs) { return lhs.val > rhs; }
+    friend bool operator>=(CheckedInt lhs, int rhs) { return lhs.val >= rhs; }
+
+    friend bool operator==(int lhs, CheckedInt rhs) { return lhs == rhs.val; }
+    friend bool operator!=(int lhs, CheckedInt rhs) { return lhs != rhs.val; }
+    friend bool operator<(int lhs, CheckedInt rhs) { return lhs < rhs.val; }
+    friend bool operator<=(int lhs, CheckedInt rhs) { return lhs <= rhs.val; }
+    friend bool operator>(int lhs, CheckedInt rhs) { return lhs > rhs.val; }
+    friend bool operator>=(int lhs, CheckedInt rhs) { return lhs >= rhs.val; }
+
+    static inline thread_local int32_t max = std::numeric_limits<int32_t>::max();
+    static inline thread_local bool err = false;
+
+private:
+    static void CheckRange(int64_t v) {
+        if (!(0 <= v && v <= CheckedInt::max)) {
+            CheckedInt::err = true;
+        }
+    }
+
+    int32_t val;
+};
+
+template <typename T>
+struct CheckedIterator {
+    CheckedIterator(T* p) : ptr{p} {}
+
+    using difference_type = CheckedInt;
+    using value_type = T;
+    using pointer = T*;
+    using reference = T&;
+    using iterator_category = std::random_access_iterator_tag;
+
+    friend CheckedIterator& operator+=(CheckedIterator& it, CheckedInt d) {
+        it.ptr += static_cast<ptrdiff_t>(d);
+        return it;
+    }
+
+    friend CheckedIterator& operator-=(CheckedIterator& it, CheckedInt d) {
+        it.ptr -= static_cast<ptrdiff_t>(d);
+        return it;
+    }
+
+    friend CheckedIterator operator+(CheckedIterator it, CheckedInt d) { return (it += d); }
+    friend CheckedIterator operator+(CheckedInt d, CheckedIterator it) { return (it += d); }
+    friend CheckedIterator operator-(CheckedIterator it, CheckedInt d) { return (it -= d); }
+    friend CheckedIterator operator-(CheckedInt d, CheckedIterator it) { return (it -= d); }
+
+    friend CheckedIterator& operator++(CheckedIterator& it) { return (it += 1); }
+    friend CheckedIterator operator++(CheckedIterator& it, int) {
+        CheckedIterator old = it;
+        ++it;
+        return old;
+    }
+
+    friend CheckedIterator& operator--(CheckedIterator& it) { return (it -= 1); }
+    friend CheckedIterator operator--(CheckedIterator& it, int) {
+        CheckedIterator old = it;
+        --it;
+        return old;
+    }
+
+    friend CheckedInt operator-(CheckedIterator lhs, CheckedIterator rhs) {
+        int64_t d = lhs.ptr - rhs.ptr;
+        return CheckedInt{d};
+    }
+
+    T& operator*() { return *ptr; }
+    T& operator[](CheckedInt i) { return *(*this + i); }
+
+    friend bool operator==(CheckedIterator lhs, CheckedIterator rhs) { return lhs.ptr == rhs.ptr; }
+    friend bool operator!=(CheckedIterator lhs, CheckedIterator rhs) { return lhs.ptr != rhs.ptr; }
+    friend bool operator<(CheckedIterator lhs, CheckedIterator rhs) { return lhs.ptr < rhs.ptr; }
+    friend bool operator<=(CheckedIterator lhs, CheckedIterator rhs) { return lhs.ptr <= rhs.ptr; }
+    friend bool operator>(CheckedIterator lhs, CheckedIterator rhs) { return lhs.ptr > rhs.ptr; }
+    friend bool operator>=(CheckedIterator lhs, CheckedIterator rhs) { return lhs.ptr >= rhs.ptr; }
+
+private:
+    T* ptr;
+};
+
+TEST(SayhiSortTest, NoOverflow) {
+    int32_t ary_len = 1024;
+    std::vector<int> ary(ary_len);
+
+    auto rng = GetPerTestRNG();
+
+    for (int32_t i = 0; i < ary_len; ++i) {
+        std::iota(ary.begin(), ary.begin() + i, 0);
+        std::fill(ary.begin() + i, ary.end(), ary_len);
+        std::shuffle(ary.begin(), ary.begin() + i, rng);
+        CheckedInt::max = std::max<int32_t>(i, 16);
+        sayhisort::sort(CheckedIterator{ary.data()}, CheckedIterator{ary.data() + i});
+        EXPECT_FALSE(CheckedInt::err);
+    }
+}
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+
 }  // namespace
 
 int main(int argc, char** argv) {
