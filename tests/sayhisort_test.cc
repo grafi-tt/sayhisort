@@ -1026,6 +1026,9 @@ struct CheckedIterator {
 private:
     T* ptr;
 };
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 TEST(SayhiSortTest, NoOverflow) {
     int32_t ary_len = 1024;
@@ -1042,9 +1045,6 @@ TEST(SayhiSortTest, NoOverflow) {
         EXPECT_FALSE(CheckedInt::err);
     }
 }
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
 
 }  // namespace
 
