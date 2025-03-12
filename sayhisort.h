@@ -1005,7 +1005,8 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
 
     // We need to proof `residual_len >= 2` to assure that all blocks have positive length.
     // (Note that `residual_len` may be decremented once in `MergeOneLevel`.)
-    // {{{ Proof
+    //
+    // Proof:
     // We first show the following lemma. Let `N` and `m` be positive integers, such that
     // `N >= m ** 2`, `N >= 2` and `m >= 1`.
     //
@@ -1014,19 +1015,25 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
     // There are three cases.
     //
     //   (1):  m = 1 .
-    //   (2):  N = m ** 2, and m >= 2 .
-    //   (3):  N >= (m ** 2) + 1, and m >= 2 .
+    //   (2):  m >= 2, and N is a multiple of m .
+    //   (3):  m >= 2, and N isn't a multiple of m .
     //
     // If case (1) and (2), it's trivial to check that (lemma) holds.
     // For case (3), we can use the following property:
     //
     //   ceil(N / m) <= (N / m) + ((m - 1) / m) .
     //
-    // By multiplying `m - 1` to left and right hand sides, we have
+    // By multiplying `m` to left and right hand sides, we have
+    //
+    //   ceil(N / m) * m <= N + (m - 1) .
+    //
+    // So
     //
     //   ceil(N / m) * (m - 1) <= N + (m - 1) - ceil(N / m) .
     //
-    // Since `N >= (m ** 2) + 1` from (3), `ceil(N / m) >= m + 1` holds. Therefore
+    // holds.
+    //
+    // Since `N >= (m ** 2) + 1` from (3), `ceil(N / m) >= m + 1` holds. Thus we have
     //
     //   ceil(N / m) * (m - 1) <= N + (m - 1) - (m + 1)
     //                         =  N - 2 ,
@@ -1044,8 +1051,8 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
     // When `buf_len = 0`, the definition of `max_num_blocks` ensures that (proposition) is satisfied.
     // For the case `buf_len > 0`, we use the following constraints.
     //
-    //   (a):  imit_len + 2 <= buf_len .                   (by MergeSortControll)
-    //   (b):  seq_len <= (imit_len + 2) / 2 * buf_len .   (by MergeSortControll)
+    //   (a):  imit_len + 2 <= buf_len .                   (by MergeSortControl)
+    //   (b):  seq_len <= (imit_len + 2) / 2 * buf_len .   (by MergeSortControl)
     //   (c):  num_blocks / 2 = ceil(seq_len / buf_len) .  (by definition)
     //
     // From (a) and (b), we have `seq_len <= (buf_len ** 2) / 2`. Therefore
@@ -1057,13 +1064,12 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
     //   (e):  num_blocks / 2 <= ceil(sqrt(seq_len) / sqrt(2)) .
     //                        <= (sqrt(seq_len) / sqrt(2)) + 1
     //
-    // Thanks to (e), it's easy to show that the following (subprop) is enough to prove (proposition).
+    // Thanks to (e), it's easy to see that the following (subprop) is enough to prove (proposition).
     //
     //   (subprop):  sqrt(seq_len) >= (sqrt(seq_len) / sqrt(2)) + 1
     //
     // As the function requires `seq_len >= 8`, (subprop) is always satisfied. Thus (proposition) is true.
     // Therefore We have proven `residual_len >= 2`.
-    // }}}
 
     SsizeT block_len = (seq_len - 1) / (num_blocks / 2) + 1;
     SsizeT residual_len = seq_len - block_len * (num_blocks / 2 - 1);
