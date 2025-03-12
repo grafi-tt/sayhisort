@@ -1,5 +1,7 @@
 #include "sayhisort.h"
 
+#include <iostream>
+
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -962,6 +964,7 @@ struct CheckedInt {
 private:
     static void CheckRange(int64_t v) {
         if (!(0 <= v && v <= CheckedInt::max)) {
+            std::cout << v << std::endl;
             CheckedInt::err = true;
         }
     }
@@ -1042,7 +1045,8 @@ TEST(SayhiSortTest, NoOverflow) {
         std::shuffle(ary.begin(), ary.begin() + i, rng);
         CheckedInt::max = std::max<int32_t>(i, 16);
         sayhisort::sort(CheckedIterator{ary.data()}, CheckedIterator{ary.data() + i});
-        EXPECT_FALSE(CheckedInt::err);
+        EXPECT_FALSE(CheckedInt::err) << i;
+        CheckedInt::err = false;
     }
 }
 
