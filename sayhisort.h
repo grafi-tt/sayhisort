@@ -10,6 +10,7 @@
 #define SAYHISORT_CONSTEXPR_SWAP
 #endif
 
+#include <cstddef>
 #include <functional>
 #include <iterator>
 #include <type_traits>
@@ -741,28 +742,22 @@ SAYHISORT_CONSTEXPR_SWAP void SortLeaves(Iterator data, diff_t<Iterator> seq_len
     do {
         bool decr = seq_div.Next();
         diff_t<Iterator> len = seq_len - decr;
-        switch (len) {
-            case 4:
-                OddEvenSort<4>(data, comp);
-                break;
-            case 5:
-                OddEvenSort<5>(data, comp);
-                break;
-            case 6:
-                OddEvenSort<6>(data, comp);
-                break;
-            case 7:
-                OddEvenSort<7>(data, comp);
-                break;
-            case 8:
-                OddEvenSort<8>(data, comp);
-                break;
-            default:
+        if (len == 4) {
+            OddEvenSort<4>(data, comp);
+        } else if (len == 5) {
+            OddEvenSort<5>(data, comp);
+        } else if (len == 6) {
+            OddEvenSort<6>(data, comp);
+        } else if (len == 7) {
+            OddEvenSort<7>(data, comp);
+        } else if (len == 8) {
+            OddEvenSort<8>(data, comp);
+        }
 #if __GNUC__
-                __builtin_unreachable();
+        else {
+            __builtin_unreachable();
+        }
 #endif
-                break;
-        };
         data += len;
     } while (!seq_div.IsEnd());
 }
@@ -814,9 +809,9 @@ constexpr int kCiuraGaps[8] = {1, 4, 10, 23, 57, 132, 301, 701};
 template <typename SsizeT>
 constexpr std::pair<SsizeT, SsizeT> FirstShellSortGap(SsizeT len) {
     SsizeT n = 4 * (kCiuraGaps[4] < len);
-    n += 2 * (kCiuraGaps[n + 2] < len);
-    n += kCiuraGaps[n + 1] < len;
-    SsizeT gap = kCiuraGaps[n];
+    n += 2 * (kCiuraGaps[static_cast<ptrdiff_t>(n + 2)] < len);
+    n += kCiuraGaps[static_cast<ptrdiff_t>(n + 1)] < len;
+    SsizeT gap = kCiuraGaps[static_cast<ptrdiff_t>(n)];
     if (n == 7) {
         // floor(2.25 * gap) < len
         while (gap < (len - gap / 4 + 1) / 2) {
@@ -838,10 +833,10 @@ constexpr std::pair<SsizeT, SsizeT> FirstShellSortGap(SsizeT len) {
 template <typename SsizeT>
 constexpr SsizeT NthShellSortGap(SsizeT n) {
     if (n < 8) {
-        return kCiuraGaps[n];
+        return kCiuraGaps[static_cast<ptrdiff_t>(n)];
     }
     SsizeT i = 7;
-    SsizeT gap = kCiuraGaps[i];
+    SsizeT gap = kCiuraGaps[static_cast<ptrdiff_t>(i)];
     do {
         gap = gap * 2 + gap / 4;
     } while (++i < n);
