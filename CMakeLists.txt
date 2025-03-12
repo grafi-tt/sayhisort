@@ -43,7 +43,6 @@ if(SAYHISORT_ENABLE_TEST)
         find_package(GTest REQUIRED)
     endif()
 
-
     add_executable(
         sayhisort_test
         tests/sayhisort_test.cc
