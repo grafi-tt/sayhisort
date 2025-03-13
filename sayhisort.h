@@ -1099,7 +1099,7 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
     //
     //   (subprop):  sqrt(seq_len) >= (sqrt(seq_len) / sqrt(2)) + 1
     //
-    // As the function requires `seq_len >= 8`, (subprop) is always satisfied. Thus (proposition) is true.
+    // As the function requires `seq_len >= 5`, (subprop) is always satisfied. Thus (proposition) is true.
     // Therefore We have proven `residual_len >= 2`.
 
     SsizeT block_len = (seq_len - 1) / (num_blocks / 2) + 1;
