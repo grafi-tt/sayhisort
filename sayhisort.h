@@ -935,19 +935,37 @@ struct MergeSortControl {
      */
     constexpr MergeSortControl(SsizeT num_keys, SsizeT data_len) : data_len{data_len} {
         if (num_keys) {
-            /*
-             * When num_keys = 8, bufferable_len = 12.
-             * Due to monotonicity, bufferable_len >= 12 holds.
-             *
-             * Futhermore, since imit_len + 2 <= (num_keys + 2) / 2,
-             *
-             *   buf_len = num_keys - imit_len
-             *           = (num_keys + 2) - (imit_len + 2)
-             *           >= (num_keys + 2) / 2
-             *           >= imit_len + 2
-             *
-             * holds.
-             */
+            // The space of unique keys are divided by imitation buffer (recording block permutation) and
+            // merge buffer (holding merged block elements). So `num_keys = imit_len + buf_len` will holds.
+            //
+            // We don't record the leftmost and rightmost block into the imitation buffer (due to remainder handling).
+            // Therefore the number of blocks is at most `imit_len + 2`.
+            //
+            // The value `bufferable_len` is the maximum length of a sequence, that can be merged with buffering.
+            // Imitation buffer holds permutation of the two sequences which will be merged, so it's defined by
+            //
+            //   bufferable_len = `(imit_len + 2) / 2 * buf_len` .
+            //
+            // Furthermore
+            //
+            //   (1) buf_len >= imit_len + 2
+            //   (2) bufferable_len >= 8
+            //
+            // are assured.
+            //
+            // To prove (1), we use `imit_len + 2 <= (num_keys + 2) / 2`, which is immediate from definition. Now we
+            // have
+            //
+            //   buf_len = num_keys - imit_len
+            //           = (num_keys + 2) - (imit_len + 2)
+            //           >= (num_keys + 2) / 2
+            //           >= imit_len + 2 .
+            //
+            // (2) is simpler. We require that `key_len >= 8`, so it's easy to show `imit_len >= 2`. Using (1), we have
+            //
+            //     bufferable_len = (imit_len + 2) / 2 * buf_len
+            //                    >= (imit_len + 2) * (imit_len + 2) / 2
+            //                    >= 8 .
             imit_len = (num_keys + 2) / 4 * 2 - 2;
             buf_len = num_keys - imit_len;
             bufferable_len = (imit_len + 2) / 2 * buf_len;
@@ -957,7 +975,7 @@ struct MergeSortControl {
             ++log2_num_seqs;
         }
         // When num_keys != 0 we don't need to check whether the initial sequences can be buffered, since
-        // seq_len <= 8 and bufferable_len >= 12 are assured.
+        // seq_len <= 8 and bufferable_len >= 8 are assured.
         seq_len = ((data_len - 1) >> log2_num_seqs) + 1;
     }
 
@@ -1007,12 +1025,6 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
     SsizeT seq_len = ctrl.seq_len;
 
     if (ctrl.buf_len) {
-        // We don't need to perform runtime-checking so that computed `num_blocks` fits in imitation buffer.
-        // Since
-        //   seq_len <= (imit_len + 2) / 2 * buf_len
-        // is assured,
-        //   ceil(seq_len / buf_len) * 2 <= imit_len + 2
-        // always holds.
         num_blocks = ((seq_len - 1) / ctrl.buf_len + 1) * 2;
     } else {
         // max_num_blocks must be a multple of 2 and under-approx of sqrt(2 * seq_len)
