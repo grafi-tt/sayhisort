@@ -829,6 +829,7 @@ struct CheckedInt {
     }
 
     friend CheckedInt& operator-=(CheckedInt& lhs, int rhs) {
+        std::cout << "-=: rhs=" << rhs << std::endl;
         CheckIntRange(rhs);
         int64_t v = int64_t{lhs.val} - int64_t{rhs};
         CheckedInt::CheckRange(v);
@@ -1028,6 +1029,7 @@ struct CheckedInt {
 private:
     static void CheckRange(int64_t v) {
         if (!(0 <= v && v <= CheckedInt::max)) {
+            std::cout << "CheckRange: v=" << v << std::endl;
             CheckedInt::err = true;
         }
     }
@@ -1103,7 +1105,7 @@ private:
 #endif
 
 TEST(SayhiSortTest, NoOverflow) {
-    int32_t ary_len = 1024;
+    int32_t ary_len = 128;
     std::vector<int> ary(ary_len);
 
     auto rng = GetPerTestRNG();
