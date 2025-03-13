@@ -820,76 +820,151 @@ struct CheckedInt {
     explicit operator ptrdiff_t() const { return val; }
     explicit operator bool() const { return !!val; }
 
-    friend CheckedInt& operator+=(CheckedInt& lhs, CheckedInt rhs) {
-        int64_t v = int64_t{lhs.val} + int64_t{rhs.val};
+    friend CheckedInt& operator+=(CheckedInt& lhs, int rhs) {
+        CheckIntRange(rhs);
+        int64_t v = int64_t{lhs.val} + int64_t{rhs};
         CheckedInt::CheckRange(v);
         lhs.val = static_cast<int32_t>(v);
         return lhs;
     }
 
-    friend CheckedInt& operator-=(CheckedInt& lhs, CheckedInt rhs) {
-        int64_t v = int64_t{lhs.val} - int64_t{rhs.val};
+    friend CheckedInt& operator-=(CheckedInt& lhs, int rhs) {
+        CheckIntRange(rhs);
+        int64_t v = int64_t{lhs.val} - int64_t{rhs};
         CheckedInt::CheckRange(v);
         lhs.val = static_cast<int32_t>(v);
         return lhs;
     }
 
-    friend CheckedInt& operator*=(CheckedInt& lhs, CheckedInt rhs) {
-        int64_t v = int64_t{lhs.val} * int64_t{rhs.val};
+    friend CheckedInt& operator*=(CheckedInt& lhs, int rhs) {
+        CheckIntRange(rhs);
+        int64_t v = int64_t{lhs.val} * int64_t{rhs};
         CheckedInt::CheckRange(v);
         lhs.val = static_cast<int32_t>(v);
         return lhs;
     }
 
-    friend CheckedInt& operator/=(CheckedInt& lhs, CheckedInt rhs) {
-        if (rhs.val == 0) {
+    friend CheckedInt& operator/=(CheckedInt& lhs, int rhs) {
+        if (rhs <= 0) {
             CheckedInt::err = true;
         }
-        lhs.val /= rhs.val;
+        lhs.val /= rhs;
         return lhs;
     }
 
-    friend CheckedInt& operator%=(CheckedInt& lhs, CheckedInt rhs) {
-        if (rhs.val == 0) {
+    friend CheckedInt& operator%=(CheckedInt& lhs, int rhs) {
+        if (rhs <= 0) {
             CheckedInt::err = true;
         }
-        lhs.val %= rhs.val;
+        lhs.val %= rhs;
         return lhs;
     }
 
-    friend CheckedInt& operator&=(CheckedInt& lhs, CheckedInt rhs) {
-        lhs.val &= rhs.val;
+    friend CheckedInt& operator&=(CheckedInt& lhs, int rhs) {
+        lhs.val &= rhs;
         CheckedInt::CheckRange(lhs.val);
         return lhs;
     }
 
-    friend CheckedInt& operator|=(CheckedInt& lhs, CheckedInt rhs) {
-        lhs.val |= rhs.val;
+    friend CheckedInt& operator|=(CheckedInt& lhs, int rhs) {
+        lhs.val |= rhs;
         CheckedInt::CheckRange(lhs.val);
         return lhs;
     }
 
-    friend CheckedInt& operator^=(CheckedInt& lhs, CheckedInt rhs) {
-        lhs.val ^= rhs.val;
+    friend CheckedInt& operator^=(CheckedInt& lhs, int rhs) {
+        lhs.val ^= rhs;
         CheckedInt::CheckRange(lhs.val);
         return lhs;
     }
 
-    friend CheckedInt& operator>>=(CheckedInt& lhs, CheckedInt rhs) {
-        lhs.val >>= rhs.val;
-        CheckedInt::CheckRange(lhs.val);
-        return lhs;
-    }
-
-    friend CheckedInt& operator<<=(CheckedInt& lhs, CheckedInt rhs) {
-        if (rhs.val >= 32) {
+    friend CheckedInt& operator>>=(CheckedInt& lhs, int rhs) {
+        if (!(0 <= rhs && rhs < 32)) {
             CheckedInt::err = true;
         }
-        int64_t v = int64_t{lhs.val} << rhs.val;
+        lhs.val >>= rhs;
+        return lhs;
+    }
+
+    friend CheckedInt& operator<<=(CheckedInt& lhs, int rhs) {
+        if (!(0 <= rhs && rhs < 32)) {
+            CheckedInt::err = true;
+        }
+        int64_t v = int64_t{lhs.val} << rhs;
         CheckedInt::CheckRange(v);
         lhs.val = static_cast<int32_t>(v);
         return lhs;
     }
+
+    friend CheckedInt operator-(int lhs, CheckedInt rhs) {
+        CheckIntRange(lhs);
+        int64_t v = int64_t{lhs} - int64_t{rhs.val};
+        return CheckedInt{v};
+    }
+
+    friend CheckedInt operator/(int lhs, CheckedInt rhs) {
+        CheckIntRange(lhs);
+        if (rhs.val <= 0) {
+            CheckedInt::err = true;
+        }
+        int v = lhs / rhs.val;
+        return CheckedInt{v};
+    }
+
+    friend CheckedInt operator%(int lhs, CheckedInt rhs) {
+        CheckIntRange(lhs);
+        if (rhs.val <= 0) {
+            CheckedInt::err = true;
+        }
+        int v = lhs % rhs.val;
+        return CheckedInt{v};
+    }
+
+    friend CheckedInt operator>>(int lhs, CheckedInt rhs) {
+        CheckIntRange(lhs);
+        if (!(0 <= rhs.val && rhs.val < 16)) {
+            CheckedInt::err = true;
+        }
+        int v = lhs >> rhs.val;
+        return CheckedInt{v};
+    }
+
+    friend CheckedInt operator<<(int lhs, CheckedInt rhs) {
+        CheckIntRange(lhs);
+        if (!(0 <= rhs.val && rhs.val < 16)) {
+            CheckedInt::err = true;
+        }
+        int64_t v = int64_t{lhs} << rhs.val;
+        return CheckedInt{v};
+    }
+
+    friend CheckedInt operator+(CheckedInt lhs, int rhs) { return (lhs += rhs); }
+    friend CheckedInt operator-(CheckedInt lhs, int rhs) { return (lhs -= rhs); }
+    friend CheckedInt operator*(CheckedInt lhs, int rhs) { return (lhs *= rhs); }
+    friend CheckedInt operator/(CheckedInt lhs, int rhs) { return (lhs /= rhs); }
+    friend CheckedInt operator%(CheckedInt lhs, int rhs) { return (lhs %= rhs); }
+    friend CheckedInt operator&(CheckedInt lhs, int rhs) { return (lhs &= rhs); }
+    friend CheckedInt operator|(CheckedInt lhs, int rhs) { return (lhs |= rhs); }
+    friend CheckedInt operator^(CheckedInt lhs, int rhs) { return (lhs ^= rhs); }
+    friend CheckedInt operator>>(CheckedInt lhs, int rhs) { return (lhs >>= rhs); }
+    friend CheckedInt operator<<(CheckedInt lhs, int rhs) { return (lhs <<= rhs); }
+
+    friend CheckedInt operator+(int lhs, CheckedInt rhs) { return rhs + lhs; }
+    friend CheckedInt operator*(int lhs, CheckedInt rhs) { return rhs * lhs; }
+    friend CheckedInt operator&(int lhs, CheckedInt rhs) { return rhs & lhs; }
+    friend CheckedInt operator|(int lhs, CheckedInt rhs) { return rhs | lhs; }
+    friend CheckedInt operator^(int lhs, CheckedInt rhs) { return rhs ^ lhs; }
+
+    friend CheckedInt& operator+=(CheckedInt& lhs, CheckedInt rhs) { return (lhs += rhs.val); }
+    friend CheckedInt& operator-=(CheckedInt& lhs, CheckedInt rhs) { return (lhs -= rhs.val); }
+    friend CheckedInt& operator*=(CheckedInt& lhs, CheckedInt rhs) { return (lhs *= rhs.val); }
+    friend CheckedInt& operator/=(CheckedInt& lhs, CheckedInt rhs) { return (lhs /= rhs.val); }
+    friend CheckedInt& operator%=(CheckedInt& lhs, CheckedInt rhs) { return (lhs %= rhs.val); }
+    friend CheckedInt& operator&=(CheckedInt& lhs, CheckedInt rhs) { return (lhs &= rhs.val); }
+    friend CheckedInt& operator|=(CheckedInt& lhs, CheckedInt rhs) { return (lhs |= rhs.val); }
+    friend CheckedInt& operator^=(CheckedInt& lhs, CheckedInt rhs) { return (lhs ^= rhs.val); }
+    friend CheckedInt& operator>>=(CheckedInt& lhs, CheckedInt rhs) { return (lhs >>= rhs.val); }
+    friend CheckedInt& operator<<=(CheckedInt& lhs, CheckedInt rhs) { return (lhs <<= rhs.val); }
 
     friend CheckedInt operator+(CheckedInt lhs, CheckedInt rhs) { return (lhs += rhs); }
     friend CheckedInt operator-(CheckedInt lhs, CheckedInt rhs) { return (lhs -= rhs); }
@@ -920,22 +995,11 @@ struct CheckedInt {
         if (obj.val != 0) {
             CheckedInt::err = true;
         }
-        obj.val = -obj.val;
         return obj;
     }
 
-    struct Mask {
-        int32_t val;
-    };
-
-    // Allow the form `a &= ~b` for testing purpose.
-    friend CheckedInt::Mask operator~(CheckedInt obj) { return CheckedInt::Mask{~obj.val}; }
-    friend CheckedInt& operator&=(CheckedInt& lhs, CheckedInt::Mask rhs) {
-        lhs.val &= rhs.val;
-        CheckedInt::CheckRange(lhs.val);
-        return lhs;
-    }
-    friend CheckedInt operator&(CheckedInt lhs, CheckedInt::Mask rhs) { return (lhs &= rhs); }
+    // Allow the form `a & ~b`, where `~b` is out of range
+    friend int operator~(CheckedInt obj) { return ~obj.val; }
 
     friend bool operator==(CheckedInt lhs, CheckedInt rhs) { return lhs.val == rhs.val; }
     friend bool operator!=(CheckedInt lhs, CheckedInt rhs) { return lhs.val != rhs.val; }
@@ -964,7 +1028,12 @@ struct CheckedInt {
 private:
     static void CheckRange(int64_t v) {
         if (!(0 <= v && v <= CheckedInt::max)) {
-            std::cout << v << std::endl;
+            CheckedInt::err = true;
+        }
+    }
+
+    static void CheckIntRange(int v) {
+        if (!(0 <= v && v <= 65535)) {
             CheckedInt::err = true;
         }
     }
