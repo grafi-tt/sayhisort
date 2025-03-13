@@ -329,6 +329,10 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
     // We pick the least block `least_left` from `left_permuted` by linear search.
     // Then we compare `least_left` with `right[0]`, and swap the selected block for
     // `left_permuted[0]`.
+    if (num_blocks == 0) {
+        return imit;
+    }
+
     auto swapBlock = [block_len](Iterator a, Iterator b) {
         if (a == b) {
             return;
@@ -350,16 +354,20 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
     Iterator least_right_key = right_keys;
     Iterator last_right_key = right_keys + num_blocks / 2;
 
-    while (left_keys < right_keys) {
+    while (true) {
         if (right_keys == last_right_key || !comp(*right_blocks, *least_left_block)) {
             swap(*left_keys, *least_left_key);
             swapBlock(left_blocks, least_left_block);
 
             ++left_keys;
             left_blocks += block_len;
+            if (left_keys == right_keys) {
+                break;
+            }
 
             least_left_key = left_keys;
             least_left_block = left_blocks;
+
             if (right_keys != least_right_key) {  // skip searching if left keys aren't permuted
                 for (Iterator key = left_keys + 1; key < right_keys; ++key) {
                     if (comp(*key, *least_left_key)) {
