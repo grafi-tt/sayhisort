@@ -829,7 +829,6 @@ struct CheckedInt {
     }
 
     friend CheckedInt& operator-=(CheckedInt& lhs, int rhs) {
-        std::cout << "-=: rhs=" << rhs << std::endl;
         CheckIntRange(rhs);
         int64_t v = int64_t{lhs.val} - int64_t{rhs};
         CheckedInt::CheckRange(v);
@@ -993,9 +992,7 @@ struct CheckedInt {
     }
 
     friend CheckedInt operator-(CheckedInt obj) {
-        if (obj.val != 0) {
-            CheckedInt::err = true;
-        }
+        obj.val = -obj.val;
         return obj;
     }
 
@@ -1028,14 +1025,13 @@ struct CheckedInt {
 
 private:
     static void CheckRange(int64_t v) {
-        if (!(0 <= v && v <= CheckedInt::max)) {
-            std::cout << "CheckRange: v=" << v << std::endl;
+        if (!(-CheckedInt::max <= v && v <= CheckedInt::max)) {
             CheckedInt::err = true;
         }
     }
 
     static void CheckIntRange(int v) {
-        if (!(0 <= v && v <= 65535)) {
+        if (!(-65536 <= v && v <= 65535)) {
             CheckedInt::err = true;
         }
     }
