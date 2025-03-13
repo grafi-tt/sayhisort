@@ -66,13 +66,15 @@ TEST(SayhiSortTest, OverApproxSqrt) {
         SsizeT ar = OverApproxSqrt(x);
         double r = std::sqrt(static_cast<double>(x));
         EXPECT_GE(ar, r);
-        EXPECT_LT(ar, std::max(r + 2, r * (1.0 + 1.0 / 256)));
+        EXPECT_LE(ar, x / 2);
+        EXPECT_LE(ar, std::max(std::ceil(r) + 1, r * (1.0 + 1.0 / 256)));
     }
     for (int x = 8192; x < 2000000; x += 123) {
         SsizeT ar = OverApproxSqrt(x);
         double r = std::sqrt(static_cast<double>(x));
         EXPECT_GE(ar, r);
-        EXPECT_LT(ar, std::max(r + 2, r * (1.0 + 1.0 / 256)));
+        EXPECT_LE(ar, x / 2);
+        EXPECT_LE(ar, std::max(std::ceil(r) + 1, r * (1.0 + 1.0 / 256)));
     }
 }
 

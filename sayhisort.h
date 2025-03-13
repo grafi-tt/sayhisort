@@ -36,7 +36,7 @@ using std::swap;
  * @param x
  *   @pre x >= 8
  * @return r
- *   @post sqrt(x) <= r
+ *   @post sqrt(x) <= r <= x / 2
  *   @post r < max(sqrt(x) + 2, sqrt(x) * (1.0 + 1.0/256))  (numerically tested)
  */
 template <typename SsizeT>
@@ -1028,7 +1028,7 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
         num_blocks = ((seq_len - 1) / ctrl.buf_len + 1) * 2;
     } else {
         // max_num_blocks must be a multple of 2 and under-approx of sqrt(2 * seq_len)
-        SsizeT max_num_blocks = seq_len < 12 ? 2 : seq_len / OverApproxSqrt(seq_len * 2) * 2;
+        SsizeT max_num_blocks = seq_len / OverApproxSqrt(seq_len * 2) * 2;
         if (num_blocks > max_num_blocks) {
             num_blocks = max_num_blocks;
         }
