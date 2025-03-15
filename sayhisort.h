@@ -523,39 +523,39 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
     };
 
     Iterator xs = blocks;
-    Iterator xs_latest_block = xs;
+    Iterator latest_block_in_xs = xs;
     BlockOrigin xs_origin = kLeft;
     --num_remained_blocks;
 
-    Iterator cur = xs + p.first_block_len;
+    Iterator ys = xs + p.first_block_len;
 
     do {
-        Iterator cur_last = cur + (--num_remained_blocks ? p.block_len : p.last_block_len);
-        BlockOrigin cur_origin = (num_remained_blocks && comp(*imit++, *mid_key)) ? kLeft : kRight;
+        Iterator ys_last = ys + (--num_remained_blocks ? p.block_len : p.last_block_len);
+        BlockOrigin ys_origin = (num_remained_blocks && comp(*imit++, *mid_key)) ? kLeft : kRight;
 
-        if (cur_origin == xs_origin) {
-            xs_latest_block = cur;
-            cur = cur_last;
+        if (ys_origin == xs_origin) {
+            latest_block_in_xs = ys;
+            ys = ys_last;
             continue;
         }
 
         // Optimization to safely skip continuing blocks those have the same origin.
         // In particular, it's crucial when `has_buf = false`. In this case, time complexity isn't assured
         // without the optimization, due to implementation detail of `MergeWithoutBuf`.
-        if (xs != xs_latest_block) {
+        if (xs != latest_block_in_xs) {
             if constexpr (has_buf) {
                 if (num_remained_blocks) {
                     do {
                         swap(*buf++, *xs++);
-                    } while (xs != xs_latest_block);
+                    } while (xs != latest_block_in_xs);
                 }
             } else {
                 if (num_remained_blocks) {
-                    xs = xs_latest_block;
-                } else if (cur - xs > p.last_block_len) {
+                    xs = latest_block_in_xs;
+                } else if (ys - xs > p.last_block_len) {
                     // Ensure that length of xs is at most block_len
-                    Rotate(xs, cur, cur_last);
-                    cur = xs + p.last_block_len;
+                    Rotate(xs, ys, ys_last);
+                    ys = xs + p.last_block_len;
                     xs_origin = kRight;
                 }
             }
@@ -564,29 +564,29 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
         MergeResult mr = ([&]() {
             if constexpr (has_buf) {
                 if (xs_origin == kLeft) {
-                    return MergeWithBuf<false>(buf, xs, cur, cur_last, comp);
+                    return MergeWithBuf<false>(buf, xs, ys, ys_last, comp);
                 } else {
-                    return MergeWithBuf<true>(buf, xs, cur, cur_last, comp);
+                    return MergeWithBuf<true>(buf, xs, ys, ys_last, comp);
                 }
             } else {
                 if (xs_origin == kLeft) {
-                    return MergeWithoutBuf<false>(xs, cur, cur_last, comp);
+                    return MergeWithoutBuf<false>(xs, ys, ys_last, comp);
                 } else {
-                    return MergeWithoutBuf<true>(xs, cur, cur_last, comp);
+                    return MergeWithoutBuf<true>(xs, ys, ys_last, comp);
                 }
             }
         })();
 
         xs = mr.rest;
-        xs_latest_block = xs;
+        latest_block_in_xs = xs;
         xs_origin = static_cast<BlockOrigin>(static_cast<bool>(xs_origin) ^ mr.xs_consumed);
 
-        cur = cur_last;
+        ys = ys_last;
     } while (num_remained_blocks);
 
     if constexpr (has_buf) {
-        Rotate(buf, xs, cur);
-        buf += cur - xs;
+        Rotate(buf, xs, ys);
+        buf += ys - xs;
     }
 }
 
