@@ -539,24 +539,26 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
             continue;
         }
 
-        // Optimization to safely skip continuing blocks those have the same origin.
-        // In particular, it's crucial when `has_buf = false`. In this case, time complexity isn't assured
-        // without the optimization, due to implementation detail of `MergeWithoutBuf`.
         if (xs != latest_block_in_xs) {
             if constexpr (has_buf) {
                 if (num_remained_blocks) {
+                    // Safely skip continuing blocks those have the same origin.
+                    // Blocks are sorted by the first elements, we can safely seek to the position `latest_block_in_xs + 1`.
                     do {
                         swap(*buf++, *xs++);
-                    } while (xs != latest_block_in_xs);
+                    } while (xs != latest_block_in_xs + 1);
                 }
             } else {
                 if (num_remained_blocks) {
-                    xs = latest_block_in_xs;
+                    // Safely skip continuing blocks as done in `has_buf` case.
+                    xs = latest_block_in_xs + 1;
                 } else if (ys - xs > p.last_block_len) {
-                    // Ensure that length of xs is at most block_len
+                    // Ensure that length of `xs` is at most `block_len` This is crucial to ensure time complexity
+                    // due to implementation detail of `MergeWithoutBuf`.
                     Rotate(xs, ys, ys_last);
                     ys = xs + p.last_block_len;
                     xs_origin = kRight;
+                    ys_origin = kLeft;
                 }
             }
         }
