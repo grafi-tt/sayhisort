@@ -523,7 +523,7 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
     };
 
     Iterator xs = blocks;
-    Iterator latest_block_in_xs = xs;
+    Iterator last_block_before_ys = xs;
     BlockOrigin xs_origin = kLeft;
     --num_remained_blocks;
 
@@ -534,24 +534,25 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
         BlockOrigin ys_origin = (num_remained_blocks && comp(*imit++, *mid_key)) ? kLeft : kRight;
 
         if (ys_origin == xs_origin) {
-            latest_block_in_xs = ys;
+            last_block_before_ys = ys;
             ys = ys_last;
             continue;
         }
 
-        if (xs != latest_block_in_xs) {
+        if (xs != last_block_before_ys) {
             if constexpr (has_buf) {
                 if (num_remained_blocks) {
                     // Safely skip continuing blocks those have the same origin.
-                    // Blocks are sorted by the first elements, we can safely seek to the position `latest_block_in_xs + 1`.
+                    // Blocks are sorted by the first elements, so we can safely seek to
+                    // the position `last_block_before_ys + 1`.
                     do {
                         swap(*buf++, *xs++);
-                    } while (xs != latest_block_in_xs + 1);
+                    } while (xs != last_block_before_ys + 1);
                 }
             } else {
                 if (num_remained_blocks) {
                     // Safely skip continuing blocks as done in `has_buf` case.
-                    xs = latest_block_in_xs + 1;
+                    xs = last_block_before_ys + 1;
                 } else if (ys - xs > p.last_block_len) {
                     // Ensure that length of `xs` is at most `block_len` This is crucial to ensure time complexity
                     // due to implementation detail of `MergeWithoutBuf`.
@@ -580,7 +581,7 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
         })();
 
         xs = mr.rest;
-        latest_block_in_xs = xs;
+        last_block_before_ys = xs;
         xs_origin = static_cast<BlockOrigin>(static_cast<bool>(xs_origin) ^ mr.xs_consumed);
 
         ys = ys_last;
