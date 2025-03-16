@@ -982,7 +982,6 @@ struct MergeSortControl {
             bufferable_len = (imit_len + 2) / 2 * buf_len;
         }
 
-        // Obtain `log2_num_seqs` such that `4 <= ((data_len - 1) >> log2_num_seqs) < 8`
         while ((data_len - 1) >> (log2_num_seqs + 3)) {
             ++log2_num_seqs;
         }
