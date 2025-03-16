@@ -182,13 +182,13 @@ struct MergeResult {
  *
  * @note The implementation actually works if xs or ys is empty, but the behaviour shall not be depended on.
  */
-template <bool flipped, typename Iterator, typename Compare>
+template <bool is_xs_from_right, typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Iterator xs, Iterator ys, Iterator ys_last,
                                                             Compare comp) {
     // So-called cross merge optimization is applied
     // See https://github.com/scandum/quadsort#cross-merge for idea
     auto is_x_selected = [&comp](decltype(xs[0]) x, decltype(ys[0]) y) {
-        if constexpr (flipped) {
+        if constexpr (is_xs_from_right) {
             return comp(x, y);
         } else {
             return !comp(y, x);
@@ -285,17 +285,17 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Itera
  *       `m` and `n` are the lengthes of `xs` and `ys`, whereas `j` and `k` are
  *       the numbers of unique keys in `xs` and `ys`.
  */
-template <bool flipped, typename Iterator, typename Compare>
+template <bool is_xs_from_right, typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iterator ys, Iterator ys_last,
                                                                Compare comp) {
     while (true) {
         // Seek xs so that xs[0] > ys[0]
-        xs = BinarySearch<!flipped>(xs, ys, ys, comp);
+        xs = BinarySearch<!is_xs_from_right>(xs, ys, ys, comp);
         if (xs == ys) return {true, ys};
         // Insert xs to ys
         Iterator ys_upper = ys + 1;
         if (ys_upper != ys_last) {
-            ys_upper = BinarySearch<flipped>(ys_upper, ys_last, xs, comp);
+            ys_upper = BinarySearch<is_xs_from_right>(ys_upper, ys_last, xs, comp);
         }
         Rotate(xs, ys, ys_upper);
         xs += ys_upper - ys;
