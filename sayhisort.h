@@ -549,6 +549,7 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
                     // Safely skip continuing blocks those have the same origin.
                     // Blocks are sorted by the first elements, so we can safely seek to
                     // the position `last_block_before_ys + 1`.
+                    // The sequence `xs` won't be empty, since `block_len >= 3`.
                     do {
                         swap(*buf++, *xs++);
                     } while (xs != last_block_before_ys + 1);
@@ -955,12 +956,15 @@ struct MergeSortControl {
             //
             // Furthermore
             //
-            //   (1) buf_len >= imit_len + 2
-            //   (2) bufferable_len >= 8
+            //   (1) imit_len >= 2
+            //   (2) buf_len >= imit_len + 2
+            //   (3) bufferable_len >= 8
             //
             // are assured.
             //
-            // To prove (1), we use `imit_len + 2 <= (num_keys + 2) / 2`, which is immediate from definition. Now we
+            // (1) is straightforward, because we require `num_keys >= 8`.
+            //
+            // To prove (2), we use `imit_len + 2 <= (num_keys + 2) / 2`, which is immediate from definition. Now we
             // have
             //
             //   buf_len = num_keys - imit_len
@@ -968,7 +972,7 @@ struct MergeSortControl {
             //           >= (num_keys + 2) / 2
             //           >= imit_len + 2 .
             //
-            // (2) is simpler. We require that `key_len >= 8`, so it's easy to show `imit_len >= 2`. Using (1), we have
+            // Proving (3) is simple, using (1) and (2) as folows:
             //
             //     bufferable_len = (imit_len + 2) / 2 * buf_len
             //                    >= (imit_len + 2) * (imit_len + 2) / 2
@@ -978,11 +982,13 @@ struct MergeSortControl {
             bufferable_len = (imit_len + 2) / 2 * buf_len;
         }
 
+        // Obtain `log2_num_seqs` such that `4 <= ((data_len - 1) >> log2_num_seqs) < 8`
         while ((data_len - 1) >> (log2_num_seqs + 3)) {
             ++log2_num_seqs;
         }
-        // When num_keys != 0 we don't need to check whether the initial sequences can be buffered, since
-        // seq_len <= 8 and bufferable_len >= 8 are assured.
+        // Here `5 <= seq_len <= 8` holds.
+        // If `num_keys != 0`, we can safely adopt buffered merge logic at the first level.
+        // Since `bufferable_len >= 8` is assured, `seq_len <= bufferable_len` is always satisfied here.
         seq_len = ((data_len - 1) >> log2_num_seqs) + 1;
     }
 
@@ -995,7 +1001,8 @@ struct MergeSortControl {
         }
         forward = !forward;
 
-        if (!log2_num_seqs || seq_len > bufferable_len) {
+        if (!(log2_num_seqs && seq_len <= bufferable_len)) {
+            // No more buffered merge will be done. Need to clean up the buffer here.
             SsizeT old_buf_len = buf_len;
             imit_len += buf_len;
             buf_len = 0;
@@ -1040,6 +1047,33 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
             num_blocks = max_num_blocks;
         }
     }
+
+    // Proof that `block_len >= 3`.
+    // (NOTE: probably tighter bound is possible. For the sake of algorithm correctness `block_len >= 2` is enough.)
+    //
+    // If `buf_len = 0`, it's easy to see `block_len` is over-approx of `seq_len / sqrt(2)` from
+    // the property of `max_num_blocks`. As `seq_len >= 5`, we have `block_len >= 3`.
+    //
+    // Otherwise, we first note that
+    //
+    //    ceil(seq_len / buf_len) <= seq_len / buf_len + 1
+    //                            = seq_len * (1 / buf_len + 1 / seq_len) .
+    //
+    // Because `buf_len >= imit_len + 2 >= 4` and `seq_len >= 5`,
+    //
+    //    ceil(seq_len / buf_len) <= seq_len * 0.45
+    //
+    // holds.
+    //
+    // From the definition of `block_len`, we have
+    //
+    //   block_len = ceil(seq_len / ceil(seq_len / buf_len))
+    //             >= seq_len / ceil(seq_len / buf_len)
+    //             >= 1 / 0.45 .
+    //
+    // Thus `block_len >= 3` follows, as `block_len` is an integer.
+
+    SsizeT block_len = (seq_len - 1) / (num_blocks / 2) + 1;
 
     // We need to proof `residual_len >= 2` to assure that all blocks have positive length.
     // (Note that `residual_len` may be decremented once in `MergeOneLevel`.)
@@ -1109,7 +1143,6 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
     // As the function requires `seq_len >= 5`, (subprop) is always satisfied. Thus (proposition) is true.
     // Therefore We have proven `residual_len >= 2`.
 
-    SsizeT block_len = (seq_len - 1) / (num_blocks / 2) + 1;
     SsizeT residual_len = seq_len - block_len * (num_blocks / 2 - 1);
 
     return {num_blocks, block_len, residual_len, residual_len};
