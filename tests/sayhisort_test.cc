@@ -62,19 +62,31 @@ std::mt19937_64 GetPerTestRNG() {
 }
 
 TEST(SayhiSortTest, OverApproxSqrt) {
-    for (int x = 8; x < 8192; ++x) {
+    for (int x = 8; x < 9; ++x) {
         SsizeT ar = OverApproxSqrt(x);
-        double r = std::sqrt(static_cast<double>(x));
-        EXPECT_GE(ar, r);
-        EXPECT_LE(ar, x / 2);
-        EXPECT_LE(ar, std::max(std::ceil(r) + 1, r * (1.0 + 1.0 / 256)));
+        EXPECT_EQ(ar, 3);
     }
-    for (int x = 8192; x < 2000000; x += 123) {
+    for (int x = 9; x < 17; ++x) {
+        SsizeT ar = OverApproxSqrt(x);
+        EXPECT_EQ(ar, 4);
+    }
+    for (int x = 17; x < 1000; ++x) {
         SsizeT ar = OverApproxSqrt(x);
         double r = std::sqrt(static_cast<double>(x));
         EXPECT_GE(ar, r);
-        EXPECT_LE(ar, x / 2);
-        EXPECT_LE(ar, std::max(std::ceil(r) + 1, r * (1.0 + 1.0 / 256)));
+        EXPECT_LT(ar, r * 1.25);
+    }
+    for (int x = 1000; x < 200000; ++x) {
+        SsizeT ar = OverApproxSqrt(x);
+        double r = std::sqrt(static_cast<double>(x));
+        EXPECT_GE(ar, r);
+        EXPECT_LT(ar, r * (1.0 + 1.0 / 32));
+    }
+    for (int x = 200000; x < 1500000; ++x) {
+        SsizeT ar = OverApproxSqrt(x);
+        double r = std::sqrt(static_cast<double>(x));
+        EXPECT_GE(ar, r);
+        EXPECT_LT(ar, r * (1.0 + 1.0 / 256));
     }
 }
 

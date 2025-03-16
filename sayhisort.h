@@ -36,8 +36,12 @@ using std::swap;
  * @param x
  *   @pre x >= 8
  * @return r
- *   @post sqrt(x) <= r <= x / 2
- *   @post r < max(sqrt(x) + 2, sqrt(x) * (1.0 + 1.0/256))  (numerically tested)
+ *   @post sqrt(x) <= r < x / 2
+ *   @post r = 3, if x = 8
+ *   @post r = 4, if 9 <= x < 17
+ *   @post r < sqrt(x) * 1.25         if x >= 17
+ *   @post r < sqrt(x) * (1 + 1/32)   if x >= 1000
+ *   @post r < sqrt(x) * (1 + 1/256)  if x >= 200000
  */
 template <typename SsizeT>
 constexpr SsizeT OverApproxSqrt(SsizeT x) {
@@ -1121,6 +1125,13 @@ SAYHISORT_CONSTEXPR_SWAP void Sort(Iterator first, Iterator last, Compare comp) 
     Iterator imit = first;
     diff_t<Iterator> num_keys = 0;
     if (len > 16) {
+        // When `len > 16`, `OverApproxSqrt(len) < sqrt(len) * 1.25` is assured. So we have
+        //
+        //   len - num_desired_keys = len - 2 * OverApproxSqrt(len) + 2
+        //                          > len - 2 * sqrt(len) * 1.25 + 2
+        //                          = (sqrt(len) - 2.5) * sqrt(len) + 2 .
+        //
+        // As `sqrt(len) > 4`, therefore, `len - num_desired_keys > 8` holds
         diff_t<Iterator> num_desired_keys = 2 * OverApproxSqrt(len) - 2;
         num_keys = CollectKeys(first, last, num_desired_keys, comp);
         if (num_keys < 8) {
@@ -1130,7 +1141,9 @@ SAYHISORT_CONSTEXPR_SWAP void Sort(Iterator first, Iterator last, Compare comp) 
         }
     }
 
-    // If len = 17, num_keys is at most 8; so data_len > 8
+    // `data_len > 8`, because
+    //   * if `8 < len <= 16`: `num_keys = 0`, and
+    //   * if `len > 16`:      `len - num_desired_keys > 8` whereas `num_keys <= num_desired_keys`.
     diff_t<Iterator> data_len = len - num_keys;
     MergeSortControl ctrl{num_keys, data_len};
 
