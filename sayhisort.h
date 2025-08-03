@@ -38,10 +38,8 @@ using std::swap;
  * @return r
  *   @post sqrt(x) <= r < x / 2
  *   @post r = 3, if x = 8
- *   @post r = 4, if 9 <= x < 17
- *   @post r < sqrt(x) * 1.25         if x >= 17
- *   @post r < sqrt(x) * (1 + 1/32)   if x >= 1000
- *   @post r < sqrt(x) * (1 + 1/256)  if x >= 200000
+ *   @post r = 4, if 9 <= x <= 16 (exhaustively checked)
+ *   @post r < sqrt(x) * 1.25, if x > 17 (exhaustively checked for x < 28, and mathematically proven for x >= 28)
  */
 template <typename SsizeT>
 constexpr SsizeT OverApproxSqrt(SsizeT x) {
@@ -51,13 +49,27 @@ constexpr SsizeT OverApproxSqrt(SsizeT x) {
     for (SsizeT p = x; p >= 8; p /= 4) {
         ++n;
     }
-    // `r = ceil((0.5 + 0.5 * a) * 2^n)`, which is an over-approx of `sqrt(x)`
-    SsizeT r = ((x - 1) >> (n + 1)) + (SsizeT{1} << (n - 1)) + 1;
+
+    // `r0 = ceil((0.5 + 0.5 * a) * 2^n) = 2^{n-1} + ceil(x * 2^{-(n+1)})`, which is an over-approx of `sqrt(x)` .
+    //
+    // We can bound `r0` using the well-known formula:
+    //
+    //   sqrt(x) <= (0.5 + 0.5 * a) * 2^n <= (1.5/sqrt(2)) * sqrt(x) .
+    //
+    // The bound of `r0` is
+    //
+    //   r0 <= (0.5 + 0.5 * a) * 2^n + 1
+    //      <= (1.5 / sqrt(2)) * sqrt(x) + 1
+    //      = (1.5 / sqrt(2) + 1 / sqrt(x)) * sqrt(x) .
+    //
+    // For `x >= 28`, it's easy to check that `r0 < 1.25 * sqrt(x)`.
+    SsizeT r0 = (SsizeT{1} << (n - 1)) + ((x - 1) >> (n + 1)) + 1;
 
     // Apply Newton's method (also known as Heron's method) and take ceil.
     // https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Heron's_method
-    // If `r` is an over-aprrox, the method computes a refined over-approx.
-    return (r + (x - 1) / r) / 2 + 1;
+    // As `r0` is an over-aprrox, the method returns refiend over-approx value `r`,
+    // which satisifies `sqrt(x) <= r <= r0`.
+    return (r0 + (x - 1) / r0) / 2 + 1;
 }
 
 /**
@@ -1037,28 +1049,23 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
     SsizeT num_blocks = ctrl.imit_len + 2;
     SsizeT seq_len = ctrl.seq_len;
 
-    if (ctrl.buf_len) {
-        num_blocks = ((seq_len - 1) / ctrl.buf_len + 1) * 2;
-    } else {
-        // max_num_blocks must be a multple of 2 and under-approx of sqrt(2 * seq_len)
-        SsizeT max_num_blocks = seq_len / OverApproxSqrt(seq_len * 2) * 2;
-        if (num_blocks > max_num_blocks) {
-            num_blocks = max_num_blocks;
-        }
-    }
-
     // Proof that `block_len >= 3`.
     // (NOTE: probably tighter bound is possible. For the sake of algorithm correctness `block_len >= 2` is enough.)
     //
-    // If `buf_len = 0`, it's easy to see `block_len` is over-approx of `seq_len / sqrt(2)` from
-    // the property of `max_num_blocks`. As `seq_len >= 5`, we have `block_len >= 3`.
+    // If `buf_len = 0`, it's easy to see `block_len` is over-approx of `seq_len / sqrt(2)`, since `max_num_blocks`
+    // must be a multple of 2 and under-approx of `sqrt(2 * seq_len)`. As `seq_len >= 5`, we have `block_len >= 3`.
     //
     // Otherwise, we first note that
     //
     //    ceil(seq_len / buf_len) <= seq_len / buf_len + 1
     //                            = seq_len * (1 / buf_len + 1 / seq_len) .
     //
-    // Because `buf_len >= imit_len + 2 >= 4` and `seq_len >= 5`,
+    // Using `buf_len >= imit_len + 2 >= 4` and `seq_len >= 5`, we also have
+    //
+    //    1 / buf_len + 1 / seq_len <= 1/4 + 1/5
+    //                              = 0.45 .
+    //
+    // Therefore
     //
     //    ceil(seq_len / buf_len) <= seq_len * 0.45
     //
@@ -1071,7 +1078,14 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
     //             >= 1 / 0.45 .
     //
     // Thus `block_len >= 3` follows, as `block_len` is an integer.
-
+    if (ctrl.buf_len) {
+        num_blocks = ((seq_len - 1) / ctrl.buf_len + 1) * 2;
+    } else {
+        SsizeT max_num_blocks = seq_len / OverApproxSqrt(seq_len * 2) * 2;
+        if (num_blocks > max_num_blocks) {
+            num_blocks = max_num_blocks;
+        }
+    }
     SsizeT block_len = (seq_len - 1) / (num_blocks / 2) + 1;
 
     // We need to proof `residual_len >= 2` to assure that all blocks have positive length.
