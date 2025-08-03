@@ -1,0 +1,74 @@
+#include "sayhisort_bench_data.h"
+
+#include <algorithm>
+
+namespace sayhisort::test {
+
+void Random(uint64_t* p, uint64_t n, std::mt19937_64& gen) {
+    for (uint64_t i = 0; i < n; ++i) {
+        p[i] = gen();
+    }
+}
+
+void RandomFew(uint64_t* p, uint64_t n, std::mt19937_64& gen) {
+    std::uniform_int_distribution dist{0, 99};
+    for (uint64_t i = 0; i < n; ++i) {
+        p[i] = dist(gen);
+    }
+}
+
+void MostlyDescending(uint64_t* p, uint64_t n, std::mt19937_64& gen) {
+    std::uniform_real_distribution dist{-2.5, 2.5};
+    for (uint64_t i = 0; i < n; ++i) {
+        p[i] = static_cast<uint64_t>(std::max(n - i + dist(gen), 0.0));
+    }
+}
+
+void MostlyAscending(uint64_t* p, uint64_t n, std::mt19937_64& gen) {
+    std::uniform_real_distribution dist{-2.5, 2.5};
+    for (uint64_t i = 0; i < n; ++i) {
+        p[i] = static_cast<uint64_t>(std::max(i + dist(gen), 0.0));
+    }
+}
+
+void Ascending(uint64_t* p, uint64_t n, std::mt19937_64&) {
+    for (uint64_t i = 0; i < n; ++i) {
+        p[i] = i;
+    }
+}
+
+void Descending(uint64_t* p, uint64_t n, std::mt19937_64&) {
+    for (uint64_t i = 0; i < n; ++i) {
+        p[i] = n - i;
+    }
+}
+
+void Equal(uint64_t* p, uint64_t n, std::mt19937_64&) {
+    for (uint64_t i = 0; i < n; ++i) {
+        p[i] = 1000;
+    }
+}
+
+void Jittered(uint64_t* p, uint64_t n, std::mt19937_64& gen) {
+    std::bernoulli_distribution dist{0.9};
+    for (uint64_t i = 0; i < n; ++i) {
+        p[i] = dist(gen) ? i : (i - 2);
+    }
+}
+
+void MostlyEqual(uint64_t* p, uint64_t n, std::mt19937_64& gen) {
+    std::uniform_int_distribution dist{0, 3};
+    for (uint64_t i = 0; i < n; ++i) {
+        p[i] = 1000 + dist(gen);
+    }
+}
+
+// the last 1/5 of the data is random
+void Append(uint64_t* p, uint64_t n, std::mt19937_64& gen) {
+    std::uniform_int_distribution<uint64_t> dist{0, n};
+    for (uint64_t i = 0; i < n; ++i) {
+        p[i] = i > n - n / 5 ? dist(gen) : i;
+    }
+}
+
+}  // namespace sayhisort::test

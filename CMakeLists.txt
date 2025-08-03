@@ -71,8 +71,23 @@ if(SAYHISORT_ENABLE_TEST)
         )
     add_test(NAME sayhisort_cpp20_test COMMAND $<TARGET_FILE:sayhisort_cpp20_test>)
 
+    add_executable(
+        sayhisort_bench
+        tests/sayhisort_bench.cc
+        tests/sayhisort_bench_data.cc
+        tests/sayhisort_bench_data.h
+        tests/sayhisort_test_util.cc
+        tests/sayhisort_test_util.h
+        )
+    target_link_libraries(
+        sayhisort_bench PRIVATE
+        sayhisort
+        )
+    add_test(NAME sayhisort_bench COMMAND $<TARGET_FILE:sayhisort_bench>)
+
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         target_compile_options(sayhisort_test PRIVATE -std=c++17 -Wall -Wextra -Wpedantic -Werror)
+        target_compile_options(sayhisort_bench PRIVATE -std=c++17 -Wall -Wextra -Wpedantic -Werror -O3 -march=native)
     endif()
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         target_compile_options(sayhisort_cpp20_test PRIVATE -std=c++20 -Wall -Wextra -Wpedantic -Werror)
