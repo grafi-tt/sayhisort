@@ -473,11 +473,10 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
     //
     // The idea to rotate pairs of runs of is borrowed from HolyGrailsort's algorithm.
     // https://github.com/HolyGrailSortProject/Holy-Grailsort/blob/ccfcc4315c6ccafbca5f6a51886710898a06c8a1/Holy%20Grail%20Sort/Java/Summer%20Dragonfly%20et%20al.'s%20Rough%20Draft/src/holygrail/HolyGrailSort.java#L1373-L1376
-    diff_t<Iterator> runlengths[2] = {};
-    diff_t<Iterator>& l_runlength = runlengths[0];
-    diff_t<Iterator>& r_runlength = runlengths[1];
-
+    diff_t<Iterator> l_runlength{};
+    diff_t<Iterator> r_runlength{};
     bool rotated{};
+
     auto rotate_runs = [&](Iterator cur) {
         if (!r_runlength) {
             l_runlength = 0;
@@ -502,12 +501,13 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
         bool was_left = false;
         Iterator cur = imit;
         do {
-            bool is_right = !comp(*cur, *mid_key);
-            if (was_left && is_right) {
+            bool is_left = comp(*cur, *mid_key);
+            if (was_left && !is_left) {
                 rotate_runs(cur);
             }
-            ++runlengths[is_right];
-            was_left = !is_right;
+            l_runlength += is_left;
+            r_runlength += !is_left;
+            was_left = is_left;
         } while (++cur != imit + imit_len);
 
         if (was_left) {
