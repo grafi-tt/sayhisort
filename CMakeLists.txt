@@ -47,6 +47,8 @@ if(SAYHISORT_ENABLE_TEST)
     add_executable(
         sayhisort_test
         tests/sayhisort_test.cc
+        tests/sayhisort_test_util.cc
+        tests/sayhisort_test_util.h
         )
     target_link_libraries(
         sayhisort_test PRIVATE

@@ -1,16 +1,10 @@
 #include "sayhisort.h"
 
-#include <iostream>
-
 #include <algorithm>
-#include <array>
-#include <charconv>
 #include <cmath>
 #include <cstdint>
 #include <functional>
-#include <iterator>
 #include <numeric>
-#include <random>
 #include <set>
 #include <tuple>
 #include <type_traits>
@@ -18,9 +12,12 @@
 
 #include <gtest/gtest.h>
 
+#include "sayhisort_test_util.h"
+
 namespace {
 
 using namespace sayhisort::detail;
+using namespace sayhisort::test;
 
 using Iterator = std::vector<int>::iterator;
 using Compare = std::less<int>;
@@ -31,34 +28,11 @@ struct CompareDiv4 {
 };
 
 std::mt19937_64 GetPerTestRNG() {
-    uint64_t h = 0xcbf29ce484222325;
-    auto fnv1a = [&h](const char* m) {
-        while (*m) {
-            h ^= *m++;
-            h *= 0x00000100000001b3;
-        }
-    };
-
     int seed = testing::UnitTest::GetInstance()->random_seed();
-
-    char seed_hex[sizeof(int) * 2 + 2];
-    if (char* p = std::to_chars(std::begin(seed_hex), std::end(seed_hex), seed, 16).ptr; p <= std::end(seed_hex) - 2) {
-        p[0] = '/';
-        p[1] = '\0';
-    } else {
-        // should be unreachable, but just nul-terminate for safety
-        seed_hex[0] = '\0';
-    }
-    fnv1a(std::begin(seed_hex));
-
     const auto* test_info = testing::UnitTest::GetInstance()->current_test_info();
     const char* suite_name = test_info->test_suite_name();
     const char* test_name = test_info->name();
-    fnv1a(suite_name);
-    fnv1a("::");
-    fnv1a(test_name);
-
-    return std::mt19937_64{h};
+    return GetRNG(seed, {suite_name, "::", test_name});
 }
 
 TEST(SayhiSortTest, OverApproxSqrt) {
