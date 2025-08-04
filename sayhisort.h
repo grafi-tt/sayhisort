@@ -356,6 +356,7 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iter
 template <typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator blocks, diff_t<Iterator> num_blocks,
                                                    diff_t<Iterator> block_len, Compare comp) {
+    SAYHISORT_PERF_TRACE(Interleave);
     // Algorithm similar to wikisort's block movement
     // https://github.com/BonzaiThePenguin/WikiSort/blob/master/Chapter%203.%20In-Place.md
     //
@@ -550,6 +551,7 @@ struct BlockingParam {
 template <bool has_buf, typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, Iterator blocks,
                                                   BlockingParam<diff_t<Iterator>> p, Iterator mid_key, Compare comp) {
+    SAYHISORT_PERF_TRACE(MergeAdj);
     diff_t<Iterator> num_remained_blocks = p.num_blocks;
 
     enum BlockOrigin {
@@ -787,6 +789,7 @@ SAYHISORT_CONSTEXPR_SWAP void OddEvenSort(Iterator data, Compare comp) {
 template <typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP void SortLeaves(Iterator data, diff_t<Iterator> seq_len,
                                          SequenceDivider<diff_t<Iterator>> seq_div, Compare comp) {
+    SAYHISORT_PERF_TRACE(SortLeaves);
     do {
         bool decr = seq_div.Next();
         diff_t<Iterator> len = seq_len - decr;
@@ -934,6 +937,7 @@ SAYHISORT_CONSTEXPR_SWAP void ShellSort(Iterator data, diff_t<Iterator> len, Com
 template <typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP diff_t<Iterator> CollectKeys(Iterator first, Iterator last, diff_t<Iterator> num_desired_keys,
                                                       Compare comp) {
+    SAYHISORT_PERF_TRACE(Collect);
     if (first == last) {
         return 0;
     }
