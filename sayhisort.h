@@ -216,7 +216,6 @@ struct MergeResult {
 template <bool is_xs_from_right, typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Iterator xs, Iterator ys, Iterator ys_last,
                                                             Compare comp) {
-    SAYHISORT_PERF_TRACE(MergeWithBuf);
     // So-called cross merge optimization is applied
     // See https://github.com/scandum/quadsort#cross-merge for idea
     auto is_x_selected = [&comp](decltype(xs[0]) x, decltype(ys[0]) y) {
@@ -320,7 +319,6 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Itera
 template <bool is_xs_from_right, typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iterator ys, Iterator ys_last,
                                                                Compare comp) {
-    SAYHISORT_PERF_TRACE(MergeWithoutBuf);
     while (true) {
         // Seek xs so that xs[0] > ys[0]
         xs = BinarySearch<!is_xs_from_right>(xs, ys, ys, comp);
@@ -577,7 +575,6 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
         }
 
         if (xs != last_block_before_ys) {
-            SAYHISORT_PERF_TRACE(RotateMid);
             if constexpr (has_buf) {
                 if (num_remained_blocks) {
                     // Safely skip continuing blocks those have the same origin.
@@ -627,9 +624,9 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
     } while (num_remained_blocks);
 
     if constexpr (has_buf) {
-        SAYHISORT_PERF_TRACE(RotateLast);
-        Rotate(buf, xs, ys);
-        buf += ys - xs;
+        while (xs != ys) {
+            swap(*buf++, *xs++);
+        }
     }
 }
 

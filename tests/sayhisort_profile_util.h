@@ -55,9 +55,7 @@ void ReportPerfTrace();
 
 }  // namespace sayhisort::test
 
-/*
 #define SAYHISORT_PERF_TRACE(tag) \
     ::sayhisort::test::PerfTrace<::sayhisort::test::detail::CompileTimeString{#tag}> _perf_trace_##tag
-*/
 
 #endif  // SAYHISORT_PROFILE_UTIL_H
