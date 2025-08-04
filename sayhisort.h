@@ -83,41 +83,56 @@ constexpr SsizeT OverApproxSqrt(SsizeT x) {
  */
 template <typename Iterator>
 SAYHISORT_CONSTEXPR_SWAP void Rotate(Iterator first, Iterator middle, Iterator last) {
-    // Helix Rotation
-    // description available: https://github.com/scandum/rotate#helix-rotation
     diff_t<Iterator> l_len = middle - first;
     diff_t<Iterator> r_len = last - middle;
+    diff_t<Iterator> len = l_len + r_len;
 
     if (!l_len || !r_len) {
         return;
     }
 
-    while (true) {
+    // Helix Rotation
+    // description available: https://github.com/scandum/rotate#helix-rotation
+    while (len > 64) {
         if (l_len <= r_len) {
             diff_t<Iterator> rem = r_len % l_len;
             do {
                 swap(*first++, *middle++);
-            } while (--r_len);
+            } while (middle != last);
             if (!rem) {
                 return;
             }
-            first = last - l_len;
             middle = last - rem;
+            len = l_len;
             l_len -= rem;
             r_len = rem;
         } else {
             diff_t<Iterator> rem = l_len % r_len;
             do {
                 swap(*--last, *--middle);
-            } while (--l_len);
+            } while (middle != first);
             if (!rem) {
                 return;
             }
-            last = first + r_len;
             middle = first + rem;
+            len = r_len;
             r_len -= rem;
             l_len = rem;
         }
+    }
+
+    // Triple reversal for small data to avoid integer division
+    Iterator f = first;
+    Iterator m = middle;
+    Iterator l = last;
+    while (f < --m) {
+        swap(*f++, *m);
+    }
+    while (middle < --l) {
+        swap(*middle++, *l);
+    }
+    while (first < --last) {
+        swap(*first++, *last);
     }
 }
 
