@@ -1,3 +1,4 @@
+#include "sayhisort_profile_util.h"
 #include "sayhisort.h"
 
 #include <algorithm>
@@ -53,6 +54,7 @@ int main() {
                   << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() / 1000.0 << "ms" << std::endl;
         std::cout << "sayhisort::sort "
                   << std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3).count() / 1000.0 << "ms" << std::endl;
+        ReportPerfTrace();
     }
 
     return 0;
