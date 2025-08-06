@@ -490,7 +490,7 @@ TEST(SayhiSortTest, MergeOneLevel) {
         std::stable_sort(data + 449, data + 599, comp);
 
         Iterator edata = expected.begin() + imit_len;
-        for (SsizeT i = 0; i < imit_len; ++i) {
+        for (int i = 0; i < imit_len; ++i) {
             expected[i] = i * 4;
         }
         std::copy(data, data + 599, edata);
@@ -516,7 +516,7 @@ TEST(SayhiSortTest, MergeOneLevel) {
         std::fill(ary.end() - buf_len, ary.end(), 42);
 
         Iterator edata = expected.begin() + imit_len + buf_len;
-        for (SsizeT i = 0; i < imit_len; ++i) {
+        for (int i = 0; i < imit_len; ++i) {
             expected[i] = i * 4;
         }
         std::fill(expected.begin() + imit_len, edata, 42);
