@@ -1,6 +1,7 @@
 #ifndef SAYHISORT_PROFILE_UTIL_H
 #define SAYHISORT_PROFILE_UTIL_H
 
+// Requires C++23.
 // Generalized code isn't directly related to sayhisort logic.
 // Just playing to create handy micro profiling utility.
 
@@ -11,6 +12,7 @@
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 #include <chrono>
@@ -82,52 +84,77 @@ private:
  * Public low-level API
  */
 
-template <typename StatT, StaticString K, typename ActionT>
-void Record(ActionT&& a) {
-    static_assert(!K.view().empty());
-    StatStore<StatT, K>::value().update(std::forward<ActionT&&>(a));
-}
+template <typename StatT, StaticString K = "">
+class Recorder {
+public:
+    template <typename ActionT>
+    constexpr Recorder(ActionT&& a) {
+        if !consteval {
+            StatStore<StatT, K>::value().update(std::forward<ActionT&&>(a));
+        }
+    }
+};
 
-template <typename StatT, typename ActionT>
-void Record(std::string_view key, ActionT&& a) {
-    StatStore<StatT>::value(key).update(std::forward<ActionT&&>(a));
-}
+template <typename StatT>
+class Recorder<StatT, ""> {
+public:
+    template <typename ActionT>
+    constexpr Recorder(std::string_view key, ActionT&& a) {
+        if !consteval {
+            StatStore<StatT>::value(key).update(std::forward<ActionT&&>(a));
+        }
+    }
+};
 
 template <typename StatT, typename TraceActionT, StaticString K = "">
 class ScopedRecorder {
 public:
-    ScopedRecorder(bool enabled = true) {
-        if (enabled) {
-            tr_act_.begin();
+    constexpr ScopedRecorder(bool enabled) {
+        if !consteval {
+            new (&tr_act_) TraceActionT{};
+            if (enabled) {
+                tr_act_.begin();
+            }
         }
     }
-    ~ScopedRecorder() {
-        if (tr_act_.active()) {
-            Record<StatT, K>(tr_act_.end());
+    constexpr ~ScopedRecorder() {
+        if !consteval {
+            if (tr_act_.active()) {
+                Recorder<StatT, K>{tr_act_.end()};
+            }
+            tr_act_.~TraceActionT();
         }
     }
 
 private:
-    TraceActionT tr_act_{};
+    union {
+        TraceActionT tr_act_{};
+    };
 };
 
 template <typename StatT, typename TraceActionT>
 class ScopedRecorder<StatT, TraceActionT, ""> {
 public:
-    ScopedRecorder(std::string_view key, bool enabled = true) : key_{key} {
-        if (enabled) {
-            tr_act_.begin();
+    constexpr ScopedRecorder(std::string key, bool enabled) : key_{std::move(key)} {
+        if !consteval {
+            new (&tr_act_) TraceActionT{};
+            if (enabled) {
+                tr_act_.begin();
+            }
         }
     }
-    ~ScopedRecorder() {
-        if (tr_act_.active()) {
-            Record<StatT>(key_, tr_act_.end());
+    constexpr ~ScopedRecorder() {
+        if !consteval {
+            if (tr_act_.active()) {
+                Recorder<StatT>{key_, tr_act_.end()};
+            }
+            tr_act_.~TraceActionT();
         }
     }
 
 private:
     TraceActionT tr_act_{};
-    std::string_view key_;
+    std::string key_;
 };
 
 void PushReport(std::string_view key, std::ostream&);
@@ -135,14 +162,18 @@ void PopReport();
 
 void Report(std::ostream&);
 
-#define SAYHISORT_SCOPED_RECORDER(key, stat, tr_act, ...)                                    \
-    ::sayhisort::test::ScopedRecorder<stat, tr_act, key> SAYHISORT_GENSYM(scoped_recorder) { \
-        __VA_ARGS__                                                                          \
+#define SAYHISORT_SCOPED_RECORDER(key, stat, tr_act, ...) \
+    SAYHISORT_SCOPED_RECORDER_HELPER(key, stat, tr_act, __VA_ARGS__ __VA_OPT__(, ) true)
+#define SAYHISORT_SCOPED_RECORDER_HELPER(key, stat, tr_act, pred, ...)                                        \
+    [[maybe_unused]] ::sayhisort::test::ScopedRecorder<stat, tr_act, key> SAYHISORT_GENSYM(scoped_recorder) { \
+        std::is_constant_evaluated() ? false : (pred)                                                         \
     }
 
-#define SAYHISORT_DYN_SCOPED_RECORDER(key, stat, tr_act, ...)                           \
-    ::sayhisort::test::ScopedRecorder<stat, tr_act> SAYHISORT_GENSYM(scoped_recorder) { \
-        key, __VA_ARGS__                                                                \
+#define SAYHISORT_DYN_SCOPED_RECORDER(key, stat, tr_act, ...) \
+    SAYHISORT_DYN_SCOPED_RECORDER_HELPER(key, stat, tr_act, __VA_ARGS__ __VA_OPT__(, ) true)
+#define SAYHISORT_DYN_SCOPED_RECORDER_HELPER(key, stat, tr_act, pred, ...)                               \
+    [[maybe_unused]] ::sayhisort::test::ScopedRecorder<stat, tr_act> SAYHISORT_GENSYM(scoped_recorder) { \
+        std::is_constant_evaluated() ? "" : (key), std::is_constant_evaluated() ? false : (pred)         \
     }
 
 /**
