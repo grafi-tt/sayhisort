@@ -86,7 +86,7 @@ if(SAYHISORT_ENABLE_TEST)
         sayhisort
         )
     target_compile_features(
-        sayhisort_cpp20_test PRIVATE
+        sayhisort_bench PRIVATE
         cxx_std_20
         )
     add_test(NAME sayhisort_bench COMMAND $<TARGET_FILE:sayhisort_bench>)

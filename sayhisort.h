@@ -17,7 +17,13 @@
 #include <utility>
 
 #ifndef SAYHISORT_PERF_TRACE
-#define SAYHISORT_PERF_TRACE(tag)
+#define SAYHISORT_PERF_TRACE(...)
+#define SAYHISORT_H_PERF_TRACE_STUB
+#endif
+
+#ifndef SAYHISORT_DYN_PERF_TRACE
+#define SAYHISORT_DYN_PERF_TRACE(...)
+#define SAYHISORT_H_DYN_PERF_TRACE_STUB
 #endif
 
 namespace sayhisort {
@@ -356,7 +362,7 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iter
 template <typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator blocks, diff_t<Iterator> num_blocks,
                                                    diff_t<Iterator> block_len, Compare comp) {
-    SAYHISORT_PERF_TRACE(Interleave);
+    SAYHISORT_PERF_TRACE("Interleave");
     // Algorithm similar to wikisort's block movement
     // https://github.com/BonzaiThePenguin/WikiSort/blob/master/Chapter%203.%20In-Place.md
     //
@@ -551,7 +557,7 @@ struct BlockingParam {
 template <bool has_buf, typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, Iterator blocks,
                                                   BlockingParam<diff_t<Iterator>> p, Iterator mid_key, Compare comp) {
-    SAYHISORT_PERF_TRACE(MergeAdj);
+    SAYHISORT_PERF_TRACE("MergeAdj");
     diff_t<Iterator> num_remained_blocks = p.num_blocks;
 
     enum BlockOrigin {
@@ -789,7 +795,7 @@ SAYHISORT_CONSTEXPR_SWAP void OddEvenSort(Iterator data, Compare comp) {
 template <typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP void SortLeaves(Iterator data, diff_t<Iterator> seq_len,
                                          SequenceDivider<diff_t<Iterator>> seq_div, Compare comp) {
-    SAYHISORT_PERF_TRACE(SortLeaves);
+    SAYHISORT_PERF_TRACE("SortLeaves");
     do {
         bool decr = seq_div.Next();
         diff_t<Iterator> len = seq_len - decr;
@@ -937,7 +943,7 @@ SAYHISORT_CONSTEXPR_SWAP void ShellSort(Iterator data, diff_t<Iterator> len, Com
 template <typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP diff_t<Iterator> CollectKeys(Iterator first, Iterator last, diff_t<Iterator> num_desired_keys,
                                                       Compare comp) {
-    SAYHISORT_PERF_TRACE(Collect);
+    SAYHISORT_PERF_TRACE("Collect");
     if (first == last) {
         return 0;
     }
@@ -1221,6 +1227,7 @@ SAYHISORT_CONSTEXPR_SWAP void Sort(Iterator first, Iterator last, Compare comp) 
     SortLeaves(data, ctrl.seq_len, {ctrl.data_len, ctrl.log2_num_seqs}, comp);
 
     do {
+        SAYHISORT_DYN_PERF_TRACE("MergeLevel" + std::to_string(ctrl.log2_num_seqs));
         BlockingParam p = DetermineBlocking(ctrl);
 
         if (!ctrl.buf_len) {
@@ -1268,5 +1275,13 @@ SAYHISORT_CONSTEXPR_SWAP void sort(RandomAccessIterator first, RandomAccessItera
 }
 
 }  // namespace sayhisort
+
+#ifdef SAYHISORT_H_PERF_TRACE_STUB
+#undef SAYHISORT_PERF_TRACE
+#endif
+
+#ifdef SAYHISORT_H_DYN_PERF_TRACE_STUB
+#undef SAYHISORT_DYN_PERF_TRACE
+#endif
 
 #endif  // SAYHISORT_H

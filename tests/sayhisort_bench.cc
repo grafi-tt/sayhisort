@@ -34,27 +34,27 @@ int main() {
 
         std::mt19937_64 tmpgen = gen;
         fn(data.data(), kSize, tmpgen);
-        auto t1 = std::chrono::steady_clock::now();
-        std::stable_sort(data.begin(), data.end());
-        auto t2 = std::chrono::steady_clock::now();
+        {
+            SAYHISORT_PERF_TRACE("std::stable_sort");
+            std::stable_sort(data.begin(), data.end());
+        }
         std::copy(data.begin(), data.end(), expected.begin());
 
         tmpgen = gen;
         fn(data.data(), kSize, tmpgen);
-        auto t3 = std::chrono::steady_clock::now();
-        sayhisort::sort(data.begin(), data.end());
-        auto t4 = std::chrono::steady_clock::now();
+        {
+            SAYHISORT_PERF_TRACE("sayhisort::sort");
+            sayhisort::sort(data.begin(), data.end());
+        }
 
-        std::cout << name << std::endl;
         if (data != expected) {
             std::cout << "Result check failed!";
             return 1;
         }
-        std::cout << "std::stable_sort "
-                  << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() / 1000.0 << "ms" << std::endl;
-        std::cout << "sayhisort::sort "
-                  << std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3).count() / 1000.0 << "ms" << std::endl;
-        ReportPerfTrace();
+
+        PushReport(name, std::cout);
+        Report(std::cout);
+        PopReport();
     }
 
     return 0;
