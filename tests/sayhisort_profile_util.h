@@ -162,18 +162,16 @@ void PopReport();
 
 void Report(std::ostream&);
 
-#define SAYHISORT_SCOPED_RECORDER(key, stat, tr_act, ...) \
-    SAYHISORT_SCOPED_RECORDER_HELPER(key, stat, tr_act, __VA_ARGS__ __VA_OPT__(, ) true)
-#define SAYHISORT_SCOPED_RECORDER_HELPER(key, stat, tr_act, pred, ...)                                        \
+#define SAYHISORT_SCOPED_RECORDER(...) SAYHISORT_SCOPED_RECORDER_HELPER(__VA_ARGS__, true)
+#define SAYHISORT_SCOPED_RECORDER_HELPER(stat, tr_act, key, pred, ...)                                        \
     [[maybe_unused]] ::sayhisort::test::ScopedRecorder<stat, tr_act, key> SAYHISORT_GENSYM(scoped_recorder) { \
-        std::is_constant_evaluated() ? false : (pred)                                                         \
+        !std::is_constant_evaluated() && (pred)                                                               \
     }
 
-#define SAYHISORT_DYN_SCOPED_RECORDER(key, stat, tr_act, ...) \
-    SAYHISORT_DYN_SCOPED_RECORDER_HELPER(key, stat, tr_act, __VA_ARGS__ __VA_OPT__(, ) true)
-#define SAYHISORT_DYN_SCOPED_RECORDER_HELPER(key, stat, tr_act, pred, ...)                               \
+#define SAYHISORT_DYN_SCOPED_RECORDER(...) SAYHISORT_DYN_SCOPED_RECORDER_HELPER(__VA_ARGS__, true)
+#define SAYHISORT_DYN_SCOPED_RECORDER_HELPER(stat, tr_act, key, pred, ...)                               \
     [[maybe_unused]] ::sayhisort::test::ScopedRecorder<stat, tr_act> SAYHISORT_GENSYM(scoped_recorder) { \
-        std::is_constant_evaluated() ? "" : (key), std::is_constant_evaluated() ? false : (pred)         \
+        std::is_constant_evaluated() ? "" : (key), !std::is_constant_evaluated() && (pred)               \
     }
 
 /**
@@ -201,11 +199,11 @@ private:
     std::chrono::steady_clock::time_point start_{};
 };
 
-#define SAYHISORT_PERF_TRACE(key, ...) \
-    SAYHISORT_SCOPED_RECORDER(key, ::sayhisort::test::SumTime, ::sayhisort::test::PerfTracer, __VA_ARGS__)
+#define SAYHISORT_PERF_TRACE(...) \
+    SAYHISORT_SCOPED_RECORDER(::sayhisort::test::SumTime, ::sayhisort::test::PerfTracer, __VA_ARGS__)
 
-#define SAYHISORT_DYN_PERF_TRACE(key, ...) \
-    SAYHISORT_DYN_SCOPED_RECORDER(key, ::sayhisort::test::SumTime, ::sayhisort::test::PerfTracer, __VA_ARGS__)
+#define SAYHISORT_DYN_PERF_TRACE(...) \
+    SAYHISORT_DYN_SCOPED_RECORDER(::sayhisort::test::SumTime, ::sayhisort::test::PerfTracer, __VA_ARGS__)
 
 }  // namespace sayhisort::test
 
