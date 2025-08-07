@@ -52,10 +52,10 @@ struct StaticString {
 template <typename StatT, StaticString K, bool = K.invalid>
 class StatStore {
 public:
-    StatT& value() { return value_; }
+    StatT& value(std::string_view) { return value_; }
 
 private:
-    template <typename, StaticString, bool>
+    template <typename, StaticString>
     friend class Recorder;
 
     StatStore() { RegisterReporter<StatT>(K.view(), &value_); }
@@ -75,7 +75,7 @@ public:
     }
 
 private:
-    template <typename, StaticString, bool>
+    template <typename, StaticString>
     friend class Recorder;
 
     StatStore() {}
@@ -90,22 +90,8 @@ private:
  * Public low-level API
  */
 
-template <typename StatT, StaticString K, bool = K.invalid>
-class Recorder {
-public:
-    template <typename ActionT>
-    constexpr Recorder(ActionT&& a) {
-        if !consteval {
-            store_.value().update(std::forward<ActionT&&>(a));
-        }
-    }
-
-private:
-    static inline StatStore<StatT, K> store_;
-};
-
 template <typename StatT, StaticString K>
-class Recorder<StatT, K, true> {
+class Recorder {
 public:
     template <typename ActionT>
     constexpr Recorder(std::string_view key, ActionT&& a) {
@@ -132,7 +118,7 @@ public:
     constexpr ~ScopedRecorder() {
         if !consteval {
             if (tr_act_.active()) {
-                Recorder<StatT, K>{tr_act_.end()};
+                Recorder<StatT, K>{std::string_view{}, tr_act_.end()};
             }
             tr_act_.~TraceActionT();
         }
