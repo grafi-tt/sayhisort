@@ -478,7 +478,7 @@ TEST(SayhiSortTest, MergeOneLevel) {
 
     auto test_fwd = [&](auto comp) {
         Iterator data = ary.begin() + imit_len + buf_len;
-        for (SsizeT i = 0; i < imit_len; ++i) {
+        for (int i = 0; i < imit_len; ++i) {
             ary[i] = i * 4;
         }
         std::fill(ary.begin() + imit_len, data, 42);
@@ -504,7 +504,7 @@ TEST(SayhiSortTest, MergeOneLevel) {
 
     auto test_bwd = [&](auto comp) {
         Iterator data = ary.begin() + imit_len;
-        for (SsizeT i = 0; i < imit_len; ++i) {
+        for (int i = 0; i < imit_len; ++i) {
             ary[i] = i * 4;
         }
         std::iota(data, data + 599, 100);

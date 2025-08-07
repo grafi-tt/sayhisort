@@ -57,7 +57,7 @@ public:
 private:
     StatStore() { RegisterReporter<StatT>(K.view(), &value_); }
     StatT value_;
-    static inline StatStore instance_;
+    static inline StatStore instance_{};
 };
 
 template <typename StatT>
@@ -168,7 +168,7 @@ void Report(std::ostream&);
         !std::is_constant_evaluated() && (pred)                                                               \
     }
 
-#define SAYHISORT_DYN_SCOPED_RECORDER(...) SAYHISORT_DYN_SCOPED_RECORDER_HELPER(__VA_ARGS__, true, extra_for_msvc)
+#define SAYHISORT_DYN_SCOPED_RECORDER(...) SAYHISORT_DYN_SCOPED_RECORDER_HELPER(__VA_ARGS__, true)
 #define SAYHISORT_DYN_SCOPED_RECORDER_HELPER(stat, tr_act, key, pred, ...)                               \
     [[maybe_unused]] ::sayhisort::test::ScopedRecorder<stat, tr_act> SAYHISORT_GENSYM(scoped_recorder) { \
         std::is_constant_evaluated() ? "" : (key), !std::is_constant_evaluated() && (pred)               \
