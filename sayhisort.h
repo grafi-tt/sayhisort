@@ -21,11 +21,6 @@
 #define SAYHISORT_H_PERF_TRACE_STUB
 #endif
 
-#ifndef SAYHISORT_DYN_PERF_TRACE
-#define SAYHISORT_DYN_PERF_TRACE(...)
-#define SAYHISORT_H_DYN_PERF_TRACE_STUB
-#endif
-
 namespace sayhisort {
 
 namespace detail {
@@ -1227,7 +1222,7 @@ SAYHISORT_CONSTEXPR_SWAP void Sort(Iterator first, Iterator last, Compare comp) 
     SortLeaves(data, ctrl.seq_len, {ctrl.data_len, ctrl.log2_num_seqs}, comp);
 
     do {
-        SAYHISORT_DYN_PERF_TRACE("MergeLevel" + std::to_string(ctrl.log2_num_seqs));
+        SAYHISORT_PERF_TRACE("MergeLevel" + std::to_string(ctrl.log2_num_seqs));
         BlockingParam p = DetermineBlocking(ctrl);
 
         if (!ctrl.buf_len) {
@@ -1278,10 +1273,6 @@ SAYHISORT_CONSTEXPR_SWAP void sort(RandomAccessIterator first, RandomAccessItera
 
 #ifdef SAYHISORT_H_PERF_TRACE_STUB
 #undef SAYHISORT_PERF_TRACE
-#endif
-
-#ifdef SAYHISORT_H_DYN_PERF_TRACE_STUB
-#undef SAYHISORT_DYN_PERF_TRACE
 #endif
 
 #endif  // SAYHISORT_H
