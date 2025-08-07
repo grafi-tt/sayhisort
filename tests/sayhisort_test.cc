@@ -761,7 +761,7 @@ TEST(SayhiSortTest, Sort) {
 
     auto rng = GetPerTestRNG();
 
-    for (SsizeT i = 0; i < ary_len; ++i) {
+    for (int i = 0; i < ary_len; ++i) {
         std::iota(ary.begin(), ary.begin() + i, 0);
         std::fill(ary.begin() + i, ary.end(), ary_len);
         std::shuffle(ary.begin(), ary.begin() + i, rng);
