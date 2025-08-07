@@ -86,10 +86,6 @@ private:
 #define SAYHISORT_GENSYM_HELPER1(name, line) SAYHISORT_GENSYM_HELPER2(name, line)
 #define SAYHISORT_GENSYM_HELPER2(name, line) _sayhisort_macro_##name##_##line
 
-/**
- * Public low-level API
- */
-
 template <typename StatT, StaticString K>
 class Recorder {
 public:
@@ -104,10 +100,21 @@ private:
     static inline StatStore<StatT, K> store_;
 };
 
-template <typename StatT, typename TraceActionT, StaticString K, bool = K.invalid>
+template <typename KeyT, StaticString K, bool = K.invalid>
+struct KeyString {
+    constexpr KeyString(KeyT&&) {}
+    static inline constexpr KeyT value = K.data;
+};
+
+template <typename KeyT, StaticString K>
+struct KeyString<KeyT, K, true> {
+    KeyT value;
+};
+
+template <typename StatT, typename TraceActionT, typename KeyT, StaticString K>
 class ScopedRecorder {
 public:
-    constexpr ScopedRecorder(const char*, bool enabled) {
+    constexpr ScopedRecorder(KeyT&& key, bool enabled) : key_{std::forward<KeyT>(key)} {
         if !consteval {
             new (&tr_act_) TraceActionT{};
             if (enabled) {
@@ -118,7 +125,7 @@ public:
     constexpr ~ScopedRecorder() {
         if !consteval {
             if (tr_act_.active()) {
-                Recorder<StatT, K>{std::string_view{}, tr_act_.end()};
+                Recorder<StatT, K>{key_.value, tr_act_.end()};
             }
             tr_act_.~TraceActionT();
         }
@@ -128,34 +135,12 @@ private:
     union {
         TraceActionT tr_act_;
     };
+    [[no_unique_address]] KeyString<KeyT, K> key_;
 };
 
-template <typename StatT, typename TraceActionT, StaticString K>
-class ScopedRecorder<StatT, TraceActionT, K, true> {
-public:
-    constexpr ScopedRecorder(std::string key, bool enabled) : key_{std::move(key)} {
-        if !consteval {
-            new (&tr_act_) TraceActionT{};
-            if (enabled) {
-                tr_act_.begin();
-            }
-        }
-    }
-    constexpr ~ScopedRecorder() {
-        if !consteval {
-            if (tr_act_.active()) {
-                Recorder<StatT, K>{key_, tr_act_.end()};
-            }
-            tr_act_.~TraceActionT();
-        }
-    }
-
-private:
-    union {
-        TraceActionT tr_act_;
-    };
-    std::string key_;
-};
+/**
+ * Public API
+ */
 
 void PushReport(std::string_view key, std::ostream&);
 void PopReport();
@@ -165,7 +150,7 @@ void Report(std::ostream&);
 #define SAYHISORT_SCOPED_RECORDER(...) SAYHISORT_SCOPED_RECORDER_HELPER(__VA_ARGS__, true)
 #define SAYHISORT_SCOPED_RECORDER_HELPER(stat, tr_act, key, pred, ...)                                          \
     [[maybe_unused]] ::sayhisort::test::ScopedRecorder<                                                         \
-        stat, tr_act,                                                                                           \
+        stat, tr_act, std::decay_t<decltype(key)>,                                                              \
         std::is_same_v<decltype(key), const char (&)[sizeof(key)]>&& requires {                                 \
             std::type_identity_t<char[sizeof(key) + 1]>{};                                                      \
         } ? ::sayhisort::test::StaticString<sizeof(key)>{key} : ::sayhisort::test::StaticString<sizeof(key)>{}> \
