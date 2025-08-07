@@ -143,13 +143,13 @@ private:
 };
 
 template <typename KeyT, StaticString K, bool = K.invalid>
-struct KeyString {
-    constexpr KeyString(KeyT&&) {}
+struct KeyWrapper {
+    constexpr KeyWrapper(KeyT&&) {}
     static inline constexpr KeyT value = K.data;
 };
 
 template <typename KeyT, StaticString K>
-struct KeyString<KeyT, K, true> {
+struct KeyWrapper<KeyT, K, true> {
     KeyT value;
 };
 
@@ -177,7 +177,7 @@ private:
     union {
         TraceActionT tr_act_;
     };
-    [[no_unique_address]] KeyString<KeyT, K> key_;
+    [[no_unique_address]] KeyWrapper<KeyT, K> key_;
 };
 
 #define SAYHISORT_GENSYM(name) SAYHISORT_GENSYM_HELPER1(name, __LINE__)
