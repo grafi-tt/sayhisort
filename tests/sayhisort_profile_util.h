@@ -52,12 +52,11 @@ StaticString(const char (&s)[N]) -> StaticString<N>;
 template <typename StatT, StaticString K = "">
 class StatStore {
 public:
-    static StatT& value() { return instance_.value_; }
+    StatStore() { RegisterReporter<StatT>(K.view(), &value_); }
+    StatT& value() { return value_; }
 
 private:
-    StatStore() { RegisterReporter<StatT>(K.view(), &value_); }
     StatT value_;
-    static inline StatStore instance_{};
 };
 
 template <typename StatT>
@@ -90,9 +89,12 @@ public:
     template <typename ActionT>
     constexpr Recorder(ActionT&& a) {
         if !consteval {
-            StatStore<StatT, K>::value().update(std::forward<ActionT&&>(a));
+            store_.value().update(std::forward<ActionT&&>(a));
         }
     }
+
+private:
+    static inline StatStore<StatT, K> store_;
 };
 
 template <typename StatT>
