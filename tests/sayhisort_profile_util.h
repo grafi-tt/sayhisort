@@ -52,17 +52,20 @@ struct StaticString {
 template <typename StatT, StaticString K, bool = K.invalid>
 class StatStore {
 public:
-    StatStore() { RegisterReporter<StatT>(K.view(), &value_); }
     StatT& value() { return value_; }
 
 private:
+    template <typename, StaticString, bool>
+    friend class Recorder;
+
+    StatStore() { RegisterReporter<StatT>(K.view(), &value_); }
     StatT value_;
 };
 
 template <typename StatT, StaticString K>
 class StatStore<StatT, K, true> {
 public:
-    static StatT& value(std::string_view key) {
+    StatT& value(std::string_view key) {
         auto it = stat_map_.find(key);
         if (it == stat_map_.end()) {
             it = stat_map_.emplace(std::piecewise_construct, std::tuple{key}, std::tuple{}).first;
@@ -72,7 +75,11 @@ public:
     }
 
 private:
-    static inline std::map<std::string, StatT, std::less<>> stat_map_;
+    template <typename, StaticString, bool>
+    friend class Recorder;
+
+    StatStore() {}
+    std::map<std::string, StatT, std::less<>> stat_map_;
 };
 
 #define SAYHISORT_GENSYM(name) SAYHISORT_GENSYM_HELPER1(name, __LINE__)
@@ -103,9 +110,12 @@ public:
     template <typename ActionT>
     constexpr Recorder(std::string_view key, ActionT&& a) {
         if !consteval {
-            StatStore<StatT, K>::value(key).update(std::forward<ActionT&&>(a));
+            store_.value(key).update(std::forward<ActionT&&>(a));
         }
     }
+
+private:
+    static inline StatStore<StatT, K> store_;
 };
 
 template <typename StatT, typename TraceActionT, StaticString K, bool = K.invalid>
