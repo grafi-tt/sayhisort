@@ -76,7 +76,6 @@ if(SAYHISORT_ENABLE_TEST)
         tests/sayhisort_bench.cc
         tests/sayhisort_bench_data.cc
         tests/sayhisort_bench_data.h
-        tests/sayhisort_profile_util.cc
         tests/sayhisort_profile_util.h
         tests/sayhisort_test_util.cc
         tests/sayhisort_test_util.h

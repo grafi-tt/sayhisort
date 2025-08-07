@@ -7,8 +7,8 @@
 
 #include <cstddef>
 #include <functional>
-#include <iosfwd>
 #include <map>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -19,21 +19,60 @@
 #include <cstdint>
 
 namespace sayhisort::test {
+namespace {
 
 /**
  * Internal core to record and report stats
  */
 
-void RegisterReporterImpl(std::string_view key, void* p,
-                          void (*reporter)(std::ostream&, void*, void (*)(std::ostream&)), bool (*is_empty)(const void*));
+std::size_t g_report_indent;
+
+std::ostream& WriteReportIndent(std::ostream& os, std::size_t offset = 0) {
+    for (std::size_t i = 0; i < g_report_indent + offset; ++i) {
+        os << "  ";
+    }
+    return os;
+}
+
+class ReportEntity {
+public:
+    ReportEntity(std::ostream& os) : os_{os} {}
+    template <typename... NameT, typename... ValueT>
+    void operator()(std::tuple<NameT...> name, std::tuple<ValueT...> value) {
+        WriteReportIndent(os_, 1);
+        std::apply([this](const auto&... args) { (os_ << ... << args); }, name);
+        os_ << ": ";
+        std::apply([this](const auto&... args) { (os_ << ... << args); }, value);
+        os_ << "\n";
+    }
+    template <typename NameT, typename ValueT>
+    void operator()(const NameT& name, const ValueT& value) {
+        this->operator()(std::forward_as_tuple(name), std::forward_as_tuple(value));
+    }
+
+private:
+    std::ostream& os_;
+};
+
+auto& GetRegistry() {
+    static std::multimap<std::string, std::tuple<void*, void (*)(void*, ReportEntity), bool (*)(const void*)>,
+                         std::less<>>
+        registry;
+    return registry;
+}
+
+void RegisterReporterImpl(std::string_view key, void* p, void (*reporter)(void*, ReportEntity),
+                          bool (*is_empty)(const void*)) {
+    GetRegistry().emplace(key, std::tuple{p, reporter, is_empty});
+}
 
 template <typename StatT>
 void RegisterReporter(std::string_view key, StatT& stat) {
     RegisterReporterImpl(
         key, &stat,
-        [](std::ostream& os, void* p, void (*yield)(std::ostream&)) {
+        [](void* p, ReportEntity report_entity) {
             StatT& s = *static_cast<StatT*>(p);
-            s.Report(os, yield);
+            s.report(report_entity);
             s = StatT{};
         },
         [](const void* p) {
@@ -89,10 +128,6 @@ private:
     std::map<std::string, StatT, std::less<>> stat_map_;
 };
 
-#define SAYHISORT_GENSYM(name) SAYHISORT_GENSYM_HELPER1(name, __LINE__)
-#define SAYHISORT_GENSYM_HELPER1(name, line) SAYHISORT_GENSYM_HELPER2(name, line)
-#define SAYHISORT_GENSYM_HELPER2(name, line) _sayhisort_macro_##name##_##line
-
 template <typename StatT, StaticString K>
 class Recorder {
 public:
@@ -145,13 +180,46 @@ private:
     [[no_unique_address]] KeyString<KeyT, K> key_;
 };
 
+#define SAYHISORT_GENSYM(name) SAYHISORT_GENSYM_HELPER1(name, __LINE__)
+#define SAYHISORT_GENSYM_HELPER1(name, line) SAYHISORT_GENSYM_HELPER2(name, line)
+#define SAYHISORT_GENSYM_HELPER2(name, line) _sayhisort_macro_##name##_##line
+
 /**
  * Public API
  */
 
-void Report(std::ostream& os);
-void Report(std::ostream& os, std::string_view key, bool push_indent = false);
-void PopReportIndent();
+void Report(std::ostream& os) {
+    ReportEntity report_entity{os};
+    const std::string* old_key = nullptr;
+    for (const auto& [key, data] : GetRegistry()) {
+        const auto& [p, reporter, is_empty] = data;
+        if (!is_empty(p)) {
+            if (!old_key || *old_key != key) {
+                WriteReportIndent(os) << key << ":\n";
+                old_key = &key;
+            }
+            reporter(p, report_entity);
+        }
+    }
+    os.flush();
+}
+
+void Report(std::ostream& os, std::string_view key, bool push_indent = false) {
+    ReportEntity report_entity{os};
+    WriteReportIndent(os) << key << ":\n";
+    auto& registry = GetRegistry();
+    auto [it0, it1] = registry.equal_range(key);
+    while (it0 != it1) {
+        const auto& data = it0++->second;
+        const auto& [p, reporter, _] = data;
+        reporter(p, report_entity);
+    }
+    g_report_indent += push_indent;
+}
+
+void PopReportIndent() {
+    --g_report_indent;
+}
 
 #define SAYHISORT_SCOPED_RECORDER(...) SAYHISORT_SCOPED_RECORDER_HELPER(__VA_ARGS__, true)
 #define SAYHISORT_SCOPED_RECORDER_HELPER(stat, tr_act, key, pred, ...)                     \
@@ -172,7 +240,9 @@ void PopReportIndent();
 class SumTime {
 public:
     void update(uint64_t ns) { sum_ += ns; }
-    void Report(std::ostream& os, void (*yield)(std::ostream&)) const;
+    void report(ReportEntity report_entity) const {
+        report_entity("elapsed_time_ms", sum_ / (1000.0 * 1000.0));
+    }
     friend auto operator<=>(SumTime, SumTime) = default;
 
 private:
@@ -194,6 +264,7 @@ private:
 #define SAYHISORT_PERF_TRACE(...) \
     SAYHISORT_SCOPED_RECORDER(::sayhisort::test::SumTime, ::sayhisort::test::PerfTracer, __VA_ARGS__)
 
+}  // namespace
 }  // namespace sayhisort::test
 
 #endif  // SAYHISORT_PROFILE_UTIL_H
