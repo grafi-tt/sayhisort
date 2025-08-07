@@ -162,8 +162,7 @@ void PopReport();
 
 void Report(std::ostream&);
 
-#define SAYHISORT_SCOPED_RECORDER(...) \
-    SAYHISORT_SCOPED_RECORDER_HELPER(__VA_ARGS__, true, /* MSVC workaround */ nullptr)
+#define SAYHISORT_SCOPED_RECORDER(...) SAYHISORT_SCOPED_RECORDER_HELPER(__VA_ARGS__, true)
 #define SAYHISORT_SCOPED_RECORDER_HELPER(stat, tr_act, key, pred, ...)                                        \
     [[maybe_unused]] ::sayhisort::test::ScopedRecorder<stat, tr_act, key> SAYHISORT_GENSYM(scoped_recorder) { \
         !std::is_constant_evaluated() && (pred)                                                               \
