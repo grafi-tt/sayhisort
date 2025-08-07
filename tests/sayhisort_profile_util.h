@@ -173,7 +173,7 @@ class SumTime {
 public:
     void update(uint64_t ns) { sum_ += ns; }
     void Report(std::ostream& os, void (*yield)(std::ostream&)) const;
-    friend bool operator<=>(SumTime, SumTime) = default;
+    friend auto operator<=>(SumTime, SumTime) = default;
 
 private:
     uint64_t sum_ = 0;
