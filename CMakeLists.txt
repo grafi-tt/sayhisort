@@ -11,7 +11,6 @@ option(SAYHISORT_USE_SYSTEM_GTEST "Use system GTest" OFF)
 add_library(sayhisort INTERFACE sayhisort.h)
 install(
     TARGETS sayhisort
-    EXPORT sayhisort-config
     INCLUDES DESTINATION include
     )
 install(
@@ -33,9 +32,10 @@ if(SAYHISORT_ENABLE_TEST)
     if(NOT SAYHISORT_USE_SYSTEM_GTEST)
         include(FetchContent)
         FetchContent_Declare(
-          googletest
-          URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
-          URL_HASH SHA256=1f357c27ca988c3f7c6b4bf68a9395005ac6761f034046e9dde0896e3aba00e4
+            googletest
+            URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+            URL_HASH SHA256=1f357c27ca988c3f7c6b4bf68a9395005ac6761f034046e9dde0896e3aba00e4
+            EXCLUDE_FROM_ALL
         )
         # For Windows: Prevent overriding the parent project's compiler/linker settings
         set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
