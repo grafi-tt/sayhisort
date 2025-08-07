@@ -30,6 +30,7 @@ int main() {
     std::vector<uint64_t> data(kSize);
     std::vector<uint64_t> expected(kSize);
     for (auto [name, fn] : kBenchData) {
+        Report(std::cout, name, true);
         const std::mt19937_64 gen = GetRNG(seed, {"SayhiSortBench", "::", name});
 
         std::mt19937_64 tmpgen = gen;
@@ -39,6 +40,7 @@ int main() {
             std::stable_sort(data.begin(), data.end());
         }
         std::copy(data.begin(), data.end(), expected.begin());
+        Report(std::cout, "std::stable_sort");
 
         tmpgen = gen;
         fn(data.data(), kSize, tmpgen);
@@ -46,15 +48,15 @@ int main() {
             SAYHISORT_PERF_TRACE("sayhisort::sort");
             sayhisort::sort(data.begin(), data.end());
         }
+        Report(std::cout, "sayhisort::sort", true);
+        Report(std::cout);
+        PopReportIndent();
+        PopReportIndent();
 
         if (data != expected) {
             std::cout << "Result check failed!";
             return 1;
         }
-
-        PushReport(name, std::cout);
-        Report(std::cout);
-        PopReport();
     }
 
     return 0;

@@ -6,7 +6,9 @@ namespace sayhisort::test {
 namespace {
 
 auto& GetRegistry() {
-    static std::multimap<std::string, std::tuple<void*, void (*)(std::ostream&, void*, void (*)(std::ostream&))>>
+    static std::multimap<
+        std::string, std::tuple<void*, void (*)(std::ostream&, void*, void (*)(std::ostream&)), bool (*)(const void*)>,
+        std::less<>>
         registry;
     return registry;
 }
@@ -38,26 +40,39 @@ void YieldReport(std::ostream& os) {
 
 }  // namespace
 
-void RegisterReporter(std::string_view key, void* p, void (*reporter)(std::ostream&, void*, void (*)(std::ostream&))) {
-    GetRegistry().emplace(key, std::tuple{p, reporter});
-}
-
-void PushReport(std::string_view key, std::ostream& os) {
-    PutIndent(os) << key << ":\n";
-    ++g_indent;
-}
-
-void PopReport() {
-    --g_indent;
+void RegisterReporterImpl(std::string_view key, void* p,
+                          void (*reporter)(std::ostream&, void*, void (*)(std::ostream&)),
+                          bool (*is_empty)(const void*)) {
+    GetRegistry().emplace(key, std::tuple{p, reporter, is_empty});
 }
 
 void Report(std::ostream& os) {
+    const std::string* old_key = nullptr;
     for (const auto& [key, data] : GetRegistry()) {
-        const auto& [p, reporter] = data;
-        PutIndent(os) << key << ":\n";
+        const auto& [p, reporter, is_empty] = data;
+        if ((!old_key || *old_key != key) && !is_empty(p)) {
+            PutIndent(os) << key << ":\n";
+            old_key = &key;
+        }
         reporter(os, p, YieldReport);
     }
     os.flush();
+}
+
+void Report(std::ostream& os, std::string_view key, bool push_indent) {
+    PutIndent(os) << key << ":\n";
+    auto& registry = GetRegistry();
+    auto [it0, it1] = registry.equal_range(key);
+    while (it0 != it1) {
+        const auto& data = it0++->second;
+        const auto& [p, reporter, _] = data;
+        reporter(os, p, YieldReport);
+    }
+    g_indent += push_indent;
+}
+
+void PopReportIndent() {
+    --g_indent;
 }
 
 void SumTime::Report(std::ostream& os, void (*yield)(std::ostream&)) const {

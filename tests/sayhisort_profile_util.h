@@ -24,15 +24,22 @@ namespace sayhisort::test {
  * Internal core to record and report stats
  */
 
-void RegisterReporter(std::string_view key, void* p, void (*reporter)(std::ostream&, void*, void (*)(std::ostream&)));
+void RegisterReporterImpl(std::string_view key, void* p,
+                          void (*reporter)(std::ostream&, void*, void (*)(std::ostream&)), bool (*is_empty)(const void*));
 
 template <typename StatT>
-void RegisterReporter(std::string_view key, void* p) {
-    RegisterReporter(key, p, [](std::ostream& os, void* p, void (*yield)(std::ostream&)) {
-        StatT& stat = *static_cast<StatT*>(p);
-        stat.Report(os, yield);
-        stat = StatT{};
-    });
+void RegisterReporter(std::string_view key, StatT& stat) {
+    RegisterReporterImpl(
+        key, &stat,
+        [](std::ostream& os, void* p, void (*yield)(std::ostream&)) {
+            StatT& s = *static_cast<StatT*>(p);
+            s.Report(os, yield);
+            s = StatT{};
+        },
+        [](const void* p) {
+            const StatT& s = *static_cast<const StatT*>(p);
+            return s == StatT{};
+        });
 }
 
 template <std::size_t N>
@@ -44,7 +51,7 @@ struct StaticString {
             data[i] = s[i];
         }
     }
-    constexpr std::string_view view() const { return std::string_view{data, N}; }
+    constexpr std::string_view view() const { return std::string_view{data, N - 1}; }
     bool invalid;
     char data[N] = {};
 };
@@ -58,7 +65,7 @@ private:
     template <typename, StaticString>
     friend class Recorder;
 
-    StatStore() { RegisterReporter<StatT>(K.view(), &value_); }
+    StatStore() { RegisterReporter<StatT>(K.view(), value_); }
     StatT value_;
 };
 
@@ -69,7 +76,7 @@ public:
         auto it = stat_map_.find(key);
         if (it == stat_map_.end()) {
             it = stat_map_.emplace(std::piecewise_construct, std::tuple{key}, std::tuple{}).first;
-            RegisterReporter<StatT>(key, &it->second);
+            RegisterReporter<StatT>(key, it->second);
         }
         return it->second;
     }
@@ -142,20 +149,20 @@ private:
  * Public API
  */
 
-void PushReport(std::string_view key, std::ostream&);
-void PopReport();
-
-void Report(std::ostream&);
+void Report(std::ostream& os);
+void Report(std::ostream& os, std::string_view key, bool push_indent = false);
+void PopReportIndent();
 
 #define SAYHISORT_SCOPED_RECORDER(...) SAYHISORT_SCOPED_RECORDER_HELPER(__VA_ARGS__, true)
-#define SAYHISORT_SCOPED_RECORDER_HELPER(stat, tr_act, key, pred, ...)                                          \
-    [[maybe_unused]] ::sayhisort::test::ScopedRecorder<                                                         \
-        stat, tr_act, std::decay_t<decltype(key)>,                                                              \
-        std::is_same_v<decltype(key), const char (&)[sizeof(key)]>&& requires {                                 \
-            std::type_identity_t<char[sizeof(key) + 1]>{};                                                      \
-        } ? ::sayhisort::test::StaticString<sizeof(key)>{key} : ::sayhisort::test::StaticString<sizeof(key)>{}> \
-    SAYHISORT_GENSYM(scoped_recorder) {                                                                         \
-        std::is_constant_evaluated() ? "" : (key), !std::is_constant_evaluated() && (pred)                      \
+#define SAYHISORT_SCOPED_RECORDER_HELPER(stat, tr_act, key, pred, ...)                     \
+    [[maybe_unused]] ::sayhisort::test::ScopedRecorder<                                    \
+        stat, tr_act, std::decay_t<decltype(key)>,                                         \
+        std::is_same_v<decltype(key), const char (&)[sizeof(key)]>&& requires {            \
+            std::type_identity_t<char[sizeof(key) + std::size_t{1}]>{};                    \
+        } ? ::sayhisort::test::StaticString<sizeof(key) + !sizeof(key)>{key}               \
+          : ::sayhisort::test::StaticString<sizeof(key) + !sizeof(key)>{}>                 \
+    SAYHISORT_GENSYM(scoped_recorder) {                                                    \
+        std::is_constant_evaluated() ? "" : (key), !std::is_constant_evaluated() && (pred) \
     }
 
 /**
@@ -166,6 +173,7 @@ class SumTime {
 public:
     void update(uint64_t ns) { sum_ += ns; }
     void Report(std::ostream& os, void (*yield)(std::ostream&)) const;
+    friend bool operator<=>(SumTime, SumTime) = default;
 
 private:
     uint64_t sum_ = 0;
