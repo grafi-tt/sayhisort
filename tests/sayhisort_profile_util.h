@@ -22,7 +22,7 @@ namespace sayhisort::test {
 namespace {
 
 /**
- * Internal core to record and report stats
+ * Internal core to report stats
  */
 
 std::size_t g_report_indent;
@@ -34,9 +34,9 @@ std::ostream& WriteReportIndent(std::ostream& os, std::size_t offset = 0) {
     return os;
 }
 
-class ReportEntity {
+class EntityWriter {
 public:
-    ReportEntity(std::ostream& os) : os_{os} {}
+    EntityWriter(std::ostream& os) : os_{os} {}
     template <typename... NameT, typename... ValueT>
     void operator()(std::tuple<NameT...> name, std::tuple<ValueT...> value) {
         WriteReportIndent(os_, 1);
@@ -54,14 +54,18 @@ private:
     std::ostream& os_;
 };
 
+/**
+ * Internal core to record stats
+ */
+
 auto& GetRegistry() {
-    static std::multimap<std::string, std::tuple<void*, void (*)(void*, ReportEntity), bool (*)(const void*)>,
+    static std::multimap<std::string, std::tuple<void*, void (*)(void*, EntityWriter), bool (*)(const void*)>,
                          std::less<>>
         registry;
     return registry;
 }
 
-void RegisterReporterImpl(std::string_view key, void* p, void (*reporter)(void*, ReportEntity),
+void RegisterReporterImpl(std::string_view key, void* p, void (*reporter)(void*, EntityWriter),
                           bool (*is_empty)(const void*)) {
     GetRegistry().emplace(key, std::tuple{p, reporter, is_empty});
 }
@@ -70,9 +74,9 @@ template <typename StatT>
 void RegisterReporter(std::string_view key, StatT& stat) {
     RegisterReporterImpl(
         key, &stat,
-        [](void* p, ReportEntity report_entity) {
+        [](void* p, EntityWriter write_entity) {
             StatT& s = *static_cast<StatT*>(p);
-            s.report(report_entity);
+            s.report(write_entity);
             s = StatT{};
         },
         [](const void* p) {
@@ -80,6 +84,10 @@ void RegisterReporter(std::string_view key, StatT& stat) {
             return s == StatT{};
         });
 }
+
+/**
+ * Internal core to store stats with zero-overhead access for constexpr key
+ */
 
 template <std::size_t N>
 struct StaticString {
@@ -143,6 +151,26 @@ private:
     static inline StatStore<StatT, K> store_;
 };
 
+/*
+ * Helper macro definitions
+ */
+
+#define SAYHISORT_GENSYM(name) SAYHISORT_GENSYM_HELPER1(name, __LINE__)
+#define SAYHISORT_GENSYM_HELPER1(name, line) SAYHISORT_GENSYM_HELPER2(name, line)
+#define SAYHISORT_GENSYM_HELPER2(name, line) _sayhisort_macro_##name##_##line
+
+#define SAYHISORT_GET_STAT(stat, key)                                                                       \
+    ::sayhisort::test::StatAccessor<stat,                                                                   \
+                                    std::is_same_v<decltype(key), const char (&)[sizeof(key)]>&& requires { \
+                                        std::type_identity_t<char[sizeof(key) + std::size_t{1}]>{key};      \
+                                    } ? ::sayhisort::test::StaticString<sizeof(key) + !sizeof(key)>{key}    \
+                                      : ::sayhisort::test::StaticString<sizeof(key) + !sizeof(key)>{}>{}    \
+        .get(std::is_constant_evaluated() ? "" : (key))
+
+/*
+ * Helper for RAII style tracing
+ */
+
 template <typename StatT, typename TraceActionT>
 class ScopedRecorder {
 public:
@@ -166,16 +194,12 @@ private:
     StatT* stat_;
 };
 
-#define SAYHISORT_GENSYM(name) SAYHISORT_GENSYM_HELPER1(name, __LINE__)
-#define SAYHISORT_GENSYM_HELPER1(name, line) SAYHISORT_GENSYM_HELPER2(name, line)
-#define SAYHISORT_GENSYM_HELPER2(name, line) _sayhisort_macro_##name##_##line
-
 /**
  * Public API
  */
 
 void Report(std::ostream& os) {
-    ReportEntity report_entity{os};
+    EntityWriter write_entity{os};
     const std::string* old_key = nullptr;
     for (const auto& [key, data] : GetRegistry()) {
         const auto& [p, reporter, is_empty] = data;
@@ -184,21 +208,21 @@ void Report(std::ostream& os) {
                 WriteReportIndent(os) << key << ":\n";
                 old_key = &key;
             }
-            reporter(p, report_entity);
+            reporter(p, write_entity);
         }
     }
     os.flush();
 }
 
 void Report(std::ostream& os, std::string_view key, bool push_indent = false) {
-    ReportEntity report_entity{os};
+    EntityWriter write_entity{os};
     WriteReportIndent(os) << key << ":\n";
     auto& registry = GetRegistry();
     auto [it0, it1] = registry.equal_range(key);
     while (it0 != it1) {
         const auto& data = it0++->second;
         const auto& [p, reporter, _] = data;
-        reporter(p, report_entity);
+        reporter(p, write_entity);
     }
     g_report_indent += push_indent;
 }
@@ -206,14 +230,6 @@ void Report(std::ostream& os, std::string_view key, bool push_indent = false) {
 void PopReportIndent() {
     --g_report_indent;
 }
-
-#define SAYHISORT_GET_STAT(stat, key)                                                                       \
-    ::sayhisort::test::StatAccessor<stat,                                                                   \
-                                    std::is_same_v<decltype(key), const char (&)[sizeof(key)]>&& requires { \
-                                        std::type_identity_t<char[sizeof(key) + std::size_t{1}]>{key};      \
-                                    } ? ::sayhisort::test::StaticString<sizeof(key) + !sizeof(key)>{key}    \
-                                      : ::sayhisort::test::StaticString<sizeof(key) + !sizeof(key)>{}>{}    \
-        .get(std::is_constant_evaluated() ? "" : (key))
 
 #define SAYHISORT_SCOPED_RECORDER(stat, tr_act, key)                                                     \
     [[maybe_unused]] ::sayhisort::test::ScopedRecorder<stat, tr_act> SAYHISORT_GENSYM(scoped_recorder) { \
@@ -227,7 +243,7 @@ void PopReportIndent() {
 class SumTime {
 public:
     void update(uint64_t ns) { sum_ += ns; }
-    void report(ReportEntity report_entity) const { report_entity("elapsed_time_ms", sum_ / (1000.0 * 1000.0)); }
+    void report(EntityWriter write_entity) const { write_entity("elapsed_time_ms", sum_ / (1000.0 * 1000.0)); }
     friend auto operator<=>(SumTime, SumTime) = default;
 
 private:
