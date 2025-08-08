@@ -164,17 +164,22 @@ private:
  * Helper macro definitions
  */
 
-#define SAYHISORT_GENSYM(name) SAYHISORT_GENSYM_HELPER1(name, __LINE__)
-#define SAYHISORT_GENSYM_HELPER1(name, line) SAYHISORT_GENSYM_HELPER2(name, line)
-#define SAYHISORT_GENSYM_HELPER2(name, line) _sayhisort_macro_##name##_##line
-
-#define SAYHISORT_GET_STAT(stat, key)                                                                       \
-    ::sayhisort::test::StatAccessor<stat,                                                                   \
+#define SAYHISORT_GET_STAT(key, StatT)                                                                      \
+    ::sayhisort::test::StatAccessor<StatT,                                                                  \
                                     std::is_same_v<decltype(key), const char (&)[sizeof(key)]>&& requires { \
                                         std::type_identity_t<char[sizeof(key) + std::size_t{1}]>{key};      \
                                     } ? ::sayhisort::test::StaticString<sizeof(key)>{key}                   \
                                       : ::sayhisort::test::StaticString<sizeof(key)>{}>{}                   \
         .get(std::is_constant_evaluated() ? "" : (key))
+
+#define SAYHISORT_GENSYM(name) SAYHISORT_GENSYM_HELPER1(name, __LINE__)
+#define SAYHISORT_GENSYM_HELPER1(name, line) SAYHISORT_GENSYM_HELPER2(name, line)
+#define SAYHISORT_GENSYM_HELPER2(name, line) _sayhisort_macro_##name##_##line
+
+#define SAYHISORT_CALL_CONCAT(name1, name2, ...) SAYHISORT_CALL_CONCAT_HELPER1(name1, name2, __VA_ARGS__)
+#define SAYHISORT_CALL_CONCAT_HELPER1(name1, name2, ...) SAYHISORT_CALL_CONCAT_HELPER2(name1, name2, __VA_ARGS__)
+#define SAYHISORT_CALL_CONCAT_HELPER2(name1, name2, ...) SAYHISORT_CALL_CONCAT_HELPER3(name1##name2(__VA_ARGS__))
+#define SAYHISORT_CALL_CONCAT_HELPER3(call) call
 
 /*
  * Helper for RAII style tracing
@@ -207,10 +212,29 @@ private:
  * Public API
  */
 
-#define SAYHISORT_SCOPED_RECORDER(stat, tr_act, key)                                                     \
-    [[maybe_unused]] ::sayhisort::test::ScopedRecorder<stat, tr_act> SAYHISORT_GENSYM(scoped_recorder) { \
-        SAYHISORT_GET_STAT(stat, key)                                                                    \
+// To disable profile:
+//   #define SAYHISORT_DISABLE_PROFILE 1
+// To re-enable profile:
+//   #undef SAYHISORT_DISABLE_PROFILE
+// When 0 is set, profile is still enabled:
+//   #define SAYHISORT_DISABLE_PROFILE 0
+
+#define SAYHISORT_RECORD(...) SAYHISORT_CALL_CONCAT(SAYHISORT_RECORD_, SAYHISORT_DISABLE_PROFILE, __VA_ARGS__)
+#define SAYHISORT_RECORD_0(key, StatT, action)                                                        \
+    for (StatT * SAYHISORT_GENSYM(record) = SAYHISORT_GET_STAT(key, StatT); SAYHISORT_GENSYM(record); \
+         SAYHISORT_GENSYM(record) = nullptr)                                                          \
+    SAYHISORT_GENSYM(record)->update(action)
+#define SAYHISORT_RECORD_1(...)
+#define SAYHISORT_RECORD_SAYHISORT_DISABLE_PROFILE(...) SAYHISORT_RECORD_0(__VA_ARGS__)
+
+#define SAYHISORT_SCOPED_RECORDER(...) \
+    SAYHISORT_CALL_CONCAT(SAYHISORT_SCOPED_RECORDER_, SAYHISORT_DISABLE_PROFILE, __VA_ARGS__)
+#define SAYHISORT_SCOPED_RECORDER_0(key, StatT, TraceActionT)                                                   \
+    [[maybe_unused]] ::sayhisort::test::ScopedRecorder<StatT, TraceActionT> SAYHISORT_GENSYM(scoped_recorder) { \
+        SAYHISORT_GET_STAT(key, StatT)                                                                          \
     }
+#define SAYHISORT_SCOPED_RECORDER_1(...)
+#define SAYHISORT_SCOPED_RECORDER_SAYHISORT_DISABLE_PROFILE(...) SAYHISORT_SCOPED_RECORDER_0(__VA_ARGS__)
 
 inline void EnableRecords(bool enabled = true) {
     for (auto& kv : GetStatRegistry()) {
@@ -292,8 +316,8 @@ private:
     std::chrono::steady_clock::time_point start_{};
 };
 
-#define SAYHISORT_PERF_TRACE(...) \
-    SAYHISORT_SCOPED_RECORDER(::sayhisort::test::SumTime, ::sayhisort::test::PerfTracer, __VA_ARGS__)
+#define SAYHISORT_PERF_TRACE(key) \
+    SAYHISORT_SCOPED_RECORDER(key, ::sayhisort::test::SumTime, ::sayhisort::test::PerfTracer)
 
 }  // namespace
 }  // namespace sayhisort::test
