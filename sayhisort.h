@@ -487,7 +487,7 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
     // We colour each key by whether they are from left or right.
     // Then we can see the imitation buffer as a sequence of runs with alternating colour.
     //
-    // In one iteration, the algorithm rotate every pair of (right, left)-runs.
+    // In one iteration, the algorithm rotate pairs of (right, left)-runs alternately.
     // When no such a pair is found, all keys are properly sorted.
     // Each iteration halves the number of pairs, So the alogirithm works in O(N log N), where
     // N is size of `imit`.
@@ -496,28 +496,32 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
     // https://github.com/HolyGrailSortProject/Holy-Grailsort/blob/ccfcc4315c6ccafbca5f6a51886710898a06c8a1/Holy%20Grail%20Sort/Java/Summer%20Dragonfly%20et%20al.'s%20Rough%20Draft/src/holygrail/HolyGrailSort.java#L1373-L1376
     diff_t<Iterator> l_runlength{};
     diff_t<Iterator> r_runlength{};
-    bool rotated{};
+    diff_t<Iterator> num_rl_pairs{};
 
     auto rotate_runs = [&](Iterator cur) {
         if (!r_runlength) {
             l_runlength = 0;
             return;
         }
+        if (++num_rl_pairs % 2 == 0) {
+            l_runlength = 0;
+            r_runlength = 0;
+            return;
+        }
         Iterator l_run = cur - l_runlength;
         Iterator r_run = l_run - r_runlength;
         Rotate(r_run, l_run, cur);
-        if (!rotated) {
+        if (num_rl_pairs == 1) {
             mid_key = cur - r_runlength;
         }
         l_runlength = 0;
         r_runlength = 0;
-        rotated = true;
     };
 
     do {
         l_runlength = 0;
         r_runlength = 0;
-        rotated = false;
+        num_rl_pairs = 0;
 
         bool was_left = false;
         Iterator cur = imit;
@@ -534,7 +538,7 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
         if (was_left) {
             rotate_runs(cur);
         }
-    } while (rotated);
+    } while (num_rl_pairs > 1);
 }
 
 //
