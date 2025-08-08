@@ -1,5 +1,5 @@
-#include "sayhisort_profile_util.h"
 #include "sayhisort.h"
+#include "sayhisort_profile_util.h"
 
 #include <algorithm>
 #include <array>

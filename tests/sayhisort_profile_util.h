@@ -102,10 +102,10 @@ public:
 
 private:
     template <typename, StaticString>
-    friend class Recorder;
+    friend class StatAccessor;
 
     StatStore() { RegisterReporter<StatT>(K.view(), value_); }
-    StatT value_;
+    StatT value_{};
 };
 
 template <typename StatT, StaticString K>
@@ -122,19 +122,20 @@ public:
 
 private:
     template <typename, StaticString>
-    friend class Recorder;
+    friend class StatAccessor;
 
     StatStore() {}
     std::map<std::string, StatT, std::less<>> stat_map_;
 };
 
 template <typename StatT, StaticString K>
-class Recorder {
+class StatAccessor {
 public:
-    template <typename ActionT>
-    constexpr Recorder(std::string_view key, ActionT&& a) {
-        if !consteval {
-            store_.value(key).update(std::forward<ActionT&&>(a));
+    StatT* get(std::string_view key) {
+        if consteval {
+            return nullptr;
+        } else {
+            return &store_.value(key);
         }
     }
 
@@ -142,33 +143,18 @@ private:
     static inline StatStore<StatT, K> store_;
 };
 
-template <typename KeyT, StaticString K, bool = K.invalid>
-struct KeyWrapper {
-    constexpr KeyWrapper(KeyT&&) {}
-    static inline constexpr KeyT value = K.data;
-};
-
-template <typename KeyT, StaticString K>
-struct KeyWrapper<KeyT, K, true> {
-    KeyT value;
-};
-
-template <typename StatT, typename TraceActionT, typename KeyT, StaticString K>
+template <typename StatT, typename TraceActionT>
 class ScopedRecorder {
 public:
-    constexpr ScopedRecorder(KeyT&& key, bool enabled) : key_{std::forward<KeyT>(key)} {
-        if !consteval {
+    constexpr ScopedRecorder(StatT* stat) : stat_{stat} {
+        if (!std::is_constant_evaluated() && stat_) {
             new (&tr_act_) TraceActionT{};
-            if (enabled) {
-                tr_act_.begin();
-            }
+            tr_act_.begin();
         }
     }
     constexpr ~ScopedRecorder() {
-        if !consteval {
-            if (tr_act_.active()) {
-                Recorder<StatT, K>{key_.value, tr_act_.end()};
-            }
+        if (!std::is_constant_evaluated() && stat_) {
+            stat_->update(tr_act_.end());
             tr_act_.~TraceActionT();
         }
     }
@@ -177,7 +163,7 @@ private:
     union {
         TraceActionT tr_act_;
     };
-    [[no_unique_address]] KeyWrapper<KeyT, K> key_;
+    StatT* stat_;
 };
 
 #define SAYHISORT_GENSYM(name) SAYHISORT_GENSYM_HELPER1(name, __LINE__)
@@ -221,16 +207,17 @@ void PopReportIndent() {
     --g_report_indent;
 }
 
-#define SAYHISORT_SCOPED_RECORDER(...) SAYHISORT_SCOPED_RECORDER_HELPER(__VA_ARGS__, true)
-#define SAYHISORT_SCOPED_RECORDER_HELPER(stat, tr_act, key, pred, ...)                     \
-    [[maybe_unused]] ::sayhisort::test::ScopedRecorder<                                    \
-        stat, tr_act, std::decay_t<decltype(key)>,                                         \
-        std::is_same_v<decltype(key), const char (&)[sizeof(key)]>&& requires {            \
-            std::type_identity_t<char[sizeof(key) + std::size_t{1}]>{};                    \
-        } ? ::sayhisort::test::StaticString<sizeof(key) + !sizeof(key)>{key}               \
-          : ::sayhisort::test::StaticString<sizeof(key) + !sizeof(key)>{}>                 \
-    SAYHISORT_GENSYM(scoped_recorder) {                                                    \
-        std::is_constant_evaluated() ? "" : (key), !std::is_constant_evaluated() && (pred) \
+#define SAYHISORT_GET_STAT(stat, key)                                                                       \
+    ::sayhisort::test::StatAccessor<stat,                                                                   \
+                                    std::is_same_v<decltype(key), const char (&)[sizeof(key)]>&& requires { \
+                                        std::type_identity_t<char[sizeof(key) + std::size_t{1}]>{key};      \
+                                    } ? ::sayhisort::test::StaticString<sizeof(key) + !sizeof(key)>{key}    \
+                                      : ::sayhisort::test::StaticString<sizeof(key) + !sizeof(key)>{}>{}    \
+        .get(std::is_constant_evaluated() ? "" : (key))
+
+#define SAYHISORT_SCOPED_RECORDER(stat, tr_act, key)                                                     \
+    [[maybe_unused]] ::sayhisort::test::ScopedRecorder<stat, tr_act> SAYHISORT_GENSYM(scoped_recorder) { \
+        SAYHISORT_GET_STAT(stat, key)                                                                    \
     }
 
 /**
@@ -240,9 +227,7 @@ void PopReportIndent() {
 class SumTime {
 public:
     void update(uint64_t ns) { sum_ += ns; }
-    void report(ReportEntity report_entity) const {
-        report_entity("elapsed_time_ms", sum_ / (1000.0 * 1000.0));
-    }
+    void report(ReportEntity report_entity) const { report_entity("elapsed_time_ms", sum_ / (1000.0 * 1000.0)); }
     friend auto operator<=>(SumTime, SumTime) = default;
 
 private:
@@ -255,7 +240,6 @@ public:
     uint64_t end() {
         return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start_).count();
     }
-    bool active() const { return start_ != std::chrono::steady_clock::time_point{}; }
 
 private:
     std::chrono::steady_clock::time_point start_{};
