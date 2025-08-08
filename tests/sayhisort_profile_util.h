@@ -252,6 +252,11 @@ inline void EnableRecords(std::string_view key, bool enabled = true) {
     }
 }
 
+inline void EnableRecords(const char* key, bool enabled = true) {
+    // Add overload to prevent const char* pointer casted to bool (enabled flag.)
+    EnableRecords(std::string_view{key}, enabled);
+}
+
 inline void DisableRecords() {
     EnableRecords(false);
 }
