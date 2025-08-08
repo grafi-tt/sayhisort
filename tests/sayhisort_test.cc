@@ -761,9 +761,9 @@ TEST(SayhiSortTest, Sort) {
 
     auto rng = GetPerTestRNG();
 
-    for (int i = 0; i < ary_len; ++i) {
+    for (SsizeT i = 0; i < ary_len; ++i) {
         std::iota(ary.begin(), ary.begin() + i, 0);
-        std::fill(ary.begin() + i, ary.end(), ary_len);
+        std::fill(ary.begin() + i, ary.end(), static_cast<int>(ary_len));
         std::shuffle(ary.begin(), ary.begin() + i, rng);
         std::copy(ary.begin(), ary.end(), expected.begin());
         sayhisort::sort(ary.begin(), ary.begin() + i, Compare{});
@@ -1096,7 +1096,7 @@ TEST(SayhiSortTest, NoOverflow) {
 
     for (int32_t i = 0; i < ary_len; ++i) {
         std::iota(ary.begin(), ary.begin() + i, 0);
-        std::fill(ary.begin() + i, ary.end(), ary_len);
+        std::fill(ary.begin() + i, ary.end(), static_cast<int>(ary_len));
         std::shuffle(ary.begin(), ary.begin() + i, rng);
         CheckedInt::max = std::max<int32_t>(i, 16);
         sayhisort::sort(CheckedIterator{ary.data()}, CheckedIterator{ary.data() + i});
