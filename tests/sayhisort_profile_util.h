@@ -54,10 +54,6 @@ private:
     std::ostream& os_;
 };
 
-/**
- * Internal core to record stats
- */
-
 auto& GetRegistry() {
     static std::multimap<std::string, std::tuple<void*, void (*)(void*, EntityWriter), bool (*)(const void*)>,
                          std::less<>>
@@ -175,13 +171,13 @@ template <typename StatT, typename TraceActionT>
 class ScopedRecorder {
 public:
     constexpr ScopedRecorder(StatT* stat) : stat_{stat} {
-        if (!std::is_constant_evaluated() && stat_) {
+        if (stat_) {
             new (&tr_act_) TraceActionT{};
             tr_act_.begin();
         }
     }
     constexpr ~ScopedRecorder() {
-        if (!std::is_constant_evaluated() && stat_) {
+        if (stat_) {
             stat_->update(tr_act_.end());
             tr_act_.~TraceActionT();
         }
