@@ -16,6 +16,11 @@ int main() {
     constexpr int seed = 42;
     constexpr uint64_t kSize = 1500000;
 
+    DisableRecords();
+    //EnableRecords("MergeWithoutBuf");
+    EnableRecords("std::stable_sort");
+    EnableRecords("sayhisort::sort");
+
 #define BENCHDATA(name)                                                        \
     std::tuple<const char*, void (*)(uint64_t*, uint64_t, std::mt19937_64&)> { \
         #name, name                                                            \

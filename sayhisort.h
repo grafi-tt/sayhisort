@@ -153,6 +153,7 @@ SAYHISORT_CONSTEXPR_SWAP void Rotate(Iterator first, Iterator middle, Iterator l
  */
 template <bool strict, typename Iterator, typename Compare>
 constexpr Iterator BinarySearch(Iterator first, Iterator last, Iterator key, Compare comp) {
+    SAYHISORT_PERF_TRACE("BinarySearch");
     // So-called monobound binary search
     // The algorithm statically determines how many times the loop body runs, so that CPU pipeline becomes happier
     // See https://github.com/scandum/binary_search for idea
@@ -217,6 +218,7 @@ struct MergeResult {
 template <bool is_xs_from_right, typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Iterator xs, Iterator ys, Iterator ys_last,
                                                             Compare comp) {
+    SAYHISORT_PERF_TRACE("MergeWithBuf");
     // So-called cross merge optimization is applied
     // See https://github.com/scandum/quadsort#cross-merge for idea
     auto is_x_selected = [&comp](decltype(xs[0]) x, decltype(ys[0]) y) {
@@ -319,6 +321,7 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Itera
 template <bool is_xs_from_right, typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iterator ys, Iterator ys_last,
                                                                Compare comp) {
+    SAYHISORT_PERF_TRACE("MergeWithoutBuf");
     while (true) {
         // Seek xs so that xs[0] > ys[0]
         xs = BinarySearch<is_xs_from_right>(xs, ys, ys, comp);
@@ -555,7 +558,6 @@ struct BlockingParam {
 template <bool has_buf, typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, Iterator blocks,
                                                   BlockingParam<diff_t<Iterator>> p, Iterator mid_key, Compare comp) {
-    SAYHISORT_PERF_TRACE("MergeAdj");
     diff_t<Iterator> num_remained_blocks = p.num_blocks;
 
     enum BlockOrigin {
@@ -943,7 +945,6 @@ SAYHISORT_CONSTEXPR_SWAP void ShellSort(Iterator data, diff_t<Iterator> len, Com
 template <typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP diff_t<Iterator> CollectKeys(Iterator first, Iterator last, diff_t<Iterator> num_desired_keys,
                                                       Compare comp) {
-    SAYHISORT_PERF_TRACE("Collect");
     if (first == last) {
         return 0;
     }
@@ -1233,7 +1234,6 @@ SAYHISORT_CONSTEXPR_SWAP void Sort(Iterator first, Iterator last, Compare comp) 
     SortLeaves(data, ctrl.seq_len, {ctrl.data_len, ctrl.log2_num_seqs}, comp);
 
     do {
-        SAYHISORT_PERF_TRACE("MergeLevel" + std::to_string(ctrl.log2_num_seqs));
         BlockingParam p = DetermineBlocking(ctrl);
 
         if (!ctrl.buf_len) {
