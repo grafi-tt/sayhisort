@@ -869,7 +869,9 @@ constexpr std::pair<SsizeT, SsizeT> FirstShellSortGap(SsizeT len) {
     }
     SsizeT gap = kCiuraGaps[static_cast<ptrdiff_t>(n)];
     if (n == 7) {
-        // floor(2.25 * gap) < len
+        // The loop condition is equivalent to `floor(2.25 * gap) < len`, which can be written as
+        // `gap * 2 < len - floor(0.25 * gap)`. We can check the equivalence for each case `len - floor(0.25 * gap)` is
+        // even or odd.
         while (gap < (len - gap / 4 + 1) / 2) {
             gap = gap * 2 + gap / 4;
             ++n;
@@ -902,7 +904,7 @@ constexpr SsizeT NthShellSortGap(SsizeT n) {
 /**
  * @brief Sort data by Shell sorting with Ciura's gap sequence. Sorting is unstable.
  *
- * The sequence is extended by repeatedly applying `x \mapsto ceil(2.25 * x)` to the last pre-computed element 701.
+ * The sequence is extended by repeatedly applying `x \mapsto floor(2.25 * x)` to the last pre-computed element 701.
  * https://en.wikipedia.org/wiki/Shellsort#Computational_complexity
  *
  * Though we also considered Tokuda's sequence, this is abandoned since computing the sequence without floating-number
