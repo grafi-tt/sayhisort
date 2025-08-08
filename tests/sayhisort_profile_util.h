@@ -25,9 +25,9 @@ namespace {
  * Internal core to report stats
  */
 
-std::size_t g_report_indent;
+inline std::size_t g_report_indent = 0;
 
-std::ostream& WriteReportIndent(std::ostream& os, std::size_t offset = 0) {
+inline std::ostream& WriteReportIndent(std::ostream& os, std::size_t offset = 0) {
     for (std::size_t i = 0; i < g_report_indent + offset; ++i) {
         os << "  ";
     }
@@ -54,31 +54,38 @@ private:
     std::ostream& os_;
 };
 
-auto& GetRegistry() {
-    static std::multimap<std::string, std::tuple<void*, void (*)(void*, EntityWriter), bool (*)(const void*)>,
-                         std::less<>>
-        registry;
+/**
+ * Internal core to process polymorphic stats
+ */
+
+struct StatEntry {
+    void* stat;
+    bool* disabled;
+    void (*reporter)(void*, EntityWriter);
+    bool (*is_empty)(const void*);
+};
+
+inline auto& GetStatRegistry() {
+    static std::multimap<std::string, StatEntry, std::less<>> registry;
     return registry;
 }
 
-void RegisterReporterImpl(std::string_view key, void* p, void (*reporter)(void*, EntityWriter),
-                          bool (*is_empty)(const void*)) {
-    GetRegistry().emplace(key, std::tuple{p, reporter, is_empty});
+inline void RegisterStatImpl(std::string_view key, StatEntry entry) {
+    GetStatRegistry().emplace(key, entry);
 }
 
 template <typename StatT>
-void RegisterReporter(std::string_view key, StatT& stat) {
-    RegisterReporterImpl(
-        key, &stat,
-        [](void* p, EntityWriter write_entity) {
-            StatT& s = *static_cast<StatT*>(p);
-            s.report(write_entity);
-            s = StatT{};
-        },
-        [](const void* p) {
-            const StatT& s = *static_cast<const StatT*>(p);
-            return s == StatT{};
-        });
+void RegisterStat(std::string_view key, std::pair<StatT, bool>& value) {
+    RegisterStatImpl(key, {&value.first, &value.second,
+                           [](void* p, EntityWriter write_entity) {
+                               StatT& s = *static_cast<StatT*>(p);
+                               s.report(write_entity);
+                               s = StatT{};
+                           },
+                           [](const void* p) {
+                               const StatT& s = *static_cast<const StatT*>(p);
+                               return s == StatT{};
+                           }});
 }
 
 /**
@@ -102,24 +109,24 @@ struct StaticString {
 template <typename StatT, StaticString K, bool = K.invalid>
 class StatStore {
 public:
-    StatT& value(std::string_view) { return value_; }
+    std::pair<StatT, bool>& value(std::string_view) { return value_; }
 
 private:
     template <typename, StaticString>
     friend class StatAccessor;
 
-    StatStore() { RegisterReporter<StatT>(K.view(), value_); }
-    StatT value_{};
+    StatStore() { RegisterStat<StatT>(K.view(), value_); }
+    std::pair<StatT, bool> value_{};
 };
 
 template <typename StatT, StaticString K>
 class StatStore<StatT, K, true> {
 public:
-    StatT& value(std::string_view key) {
+    std::pair<StatT, bool>& value(std::string_view key) {
         auto it = stat_map_.find(key);
         if (it == stat_map_.end()) {
             it = stat_map_.emplace(std::piecewise_construct, std::tuple{key}, std::tuple{}).first;
-            RegisterReporter<StatT>(key, it->second);
+            RegisterStat<StatT>(key, it->second);
         }
         return it->second;
     }
@@ -129,17 +136,22 @@ private:
     friend class StatAccessor;
 
     StatStore() {}
-    std::map<std::string, StatT, std::less<>> stat_map_;
+    std::map<std::string, std::pair<StatT, bool>, std::less<>> stat_map_;
 };
 
 template <typename StatT, StaticString K>
 class StatAccessor {
 public:
-    StatT* get(std::string_view key) {
+    constexpr StatT* get(std::string_view key) {
         if consteval {
             return nullptr;
         } else {
-            return &store_.value(key);
+            auto& [stat, disabled] = store_.value(key);
+            if (disabled) {
+                return nullptr;
+            } else {
+                return &stat;
+            }
         }
     }
 
@@ -194,43 +206,65 @@ private:
  * Public API
  */
 
-void Report(std::ostream& os) {
+#define SAYHISORT_SCOPED_RECORDER(stat, tr_act, key)                                                     \
+    [[maybe_unused]] ::sayhisort::test::ScopedRecorder<stat, tr_act> SAYHISORT_GENSYM(scoped_recorder) { \
+        SAYHISORT_GET_STAT(stat, key)                                                                    \
+    }
+
+inline void EnableRecords(bool enabled = true) {
+    for (auto& kv : GetStatRegistry()) {
+        auto& entry = kv.second;
+        *entry.disabled = !enabled;
+    }
+}
+
+inline void EnableRecords(std::string_view key, bool enabled = true) {
+    auto& registry = GetStatRegistry();
+    auto [it0, it1] = registry.equal_range(key);
+    while (it0 != it1) {
+        auto& entry = it0++->second;
+        *entry.disabled = !enabled;
+    }
+}
+
+inline void DisableRecords() {
+    EnableRecords(false);
+}
+
+inline void DisableRecords(std::string_view key) {
+    EnableRecords(key, false);
+}
+
+inline void Report(std::ostream& os) {
     EntityWriter write_entity{os};
     const std::string* old_key = nullptr;
-    for (const auto& [key, data] : GetRegistry()) {
-        const auto& [p, reporter, is_empty] = data;
-        if (!is_empty(p)) {
+    for (const auto& [key, entry] : GetStatRegistry()) {
+        if (!entry.is_empty(entry.stat)) {
             if (!old_key || *old_key != key) {
                 WriteReportIndent(os) << key << ":\n";
                 old_key = &key;
             }
-            reporter(p, write_entity);
+            entry.reporter(entry.stat, write_entity);
         }
     }
     os.flush();
 }
 
-void Report(std::ostream& os, std::string_view key, bool push_indent = false) {
+inline void Report(std::ostream& os, std::string_view key, bool push_indent = false) {
     EntityWriter write_entity{os};
     WriteReportIndent(os) << key << ":\n";
-    auto& registry = GetRegistry();
+    auto& registry = GetStatRegistry();
     auto [it0, it1] = registry.equal_range(key);
     while (it0 != it1) {
-        const auto& data = it0++->second;
-        const auto& [p, reporter, _] = data;
-        reporter(p, write_entity);
+        auto& entry = it0++->second;
+        entry.reporter(entry.stat, write_entity);
     }
     g_report_indent += push_indent;
 }
 
-void PopReportIndent() {
+inline void PopReportIndent() {
     --g_report_indent;
 }
-
-#define SAYHISORT_SCOPED_RECORDER(stat, tr_act, key)                                                     \
-    [[maybe_unused]] ::sayhisort::test::ScopedRecorder<stat, tr_act> SAYHISORT_GENSYM(scoped_recorder) { \
-        SAYHISORT_GET_STAT(stat, key)                                                                    \
-    }
 
 /**
  * High-level util to trace execution time
