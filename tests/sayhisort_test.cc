@@ -85,10 +85,10 @@ TEST(SayhiSortTest, BinarySearch) {
     for (int i = 1; i <= 16; ++i) {
         for (int j = -1; j <= i; ++j) {
             data[16] = j;
-            auto it = BinarySearch<false>(data.begin(), data.begin() + i, data.begin() + 16, Compare{});
+            auto it = BinarySearch<true>(data.begin(), data.begin() + i, data.begin() + 16, Compare{});
             SsizeT idx = it - data.begin();
             EXPECT_EQ(idx, std::max(0, j));
-            it = BinarySearch<true>(data.begin(), data.begin() + i, data.begin() + 16, Compare{});
+            it = BinarySearch<false>(data.begin(), data.begin() + i, data.begin() + 16, Compare{});
             idx = it - data.begin();
             EXPECT_EQ(idx, std::min(j + 1, i));
         }

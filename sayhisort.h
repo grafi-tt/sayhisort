@@ -148,19 +148,19 @@ SAYHISORT_CONSTEXPR_SWAP void Rotate(Iterator first, Iterator middle, Iterator l
  *   @pre first < last
  * @param last
  * @return pos
- *   @post If nonstrict=false: for any x in [first, last),  comp(*x, *key) iff x < pos
- *   @post If nonstrict=true:  for any x in [first, last), !comp(*key, *x) iff x < pos
+ *   @post If strict=true:  for any x in [first, last),  comp(*x, *key) iff x < pos
+ *   @post If strict=false: for any x in [first, last), !comp(*key, *x) iff x < pos
  */
-template <bool nonstrict, typename Iterator, typename Compare>
+template <bool strict, typename Iterator, typename Compare>
 constexpr Iterator BinarySearch(Iterator first, Iterator last, Iterator key, Compare comp) {
     // So-called monobound binary search
     // The algorithm statically determines how many times the loop body runs, so that CPU pipeline becomes happier
     // See https://github.com/scandum/binary_search for idea
     auto pred = [&comp, &key](Iterator p) {
-        if constexpr (nonstrict) {
-            return !comp(*key, *p);
-        } else {
+        if constexpr (strict) {
             return comp(*p, *key);
+        } else {
+            return !comp(*key, *p);
         }
     };
 
@@ -309,11 +309,10 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Itera
  *   @pre xs < ys
  * @param ys
  *   @pre ys < ys_last
- *   @post ys < ys_last
  * @param ys_last
  * @param comp
- * @note For better performance, `xs` should be not much longer than `ys`.
- *       The time complexity is `O((m + log(n)) * min(m, n, j, k) + m + n)`, where
+ * @note For better performance, `xs` shouldn't be longer than `ys`.
+ *       The time complexity is `O((m + log(n)) * min(m, n, j, k) + n)`, where
  *       `m` and `n` are the lengthes of `xs` and `ys`, whereas `j` and `k` are
  *       the numbers of unique keys in `xs` and `ys`.
  */
@@ -322,12 +321,12 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iter
                                                                Compare comp) {
     while (true) {
         // Seek xs so that xs[0] > ys[0]
-        xs = BinarySearch<!is_xs_from_right>(xs, ys, ys, comp);
+        xs = BinarySearch<is_xs_from_right>(xs, ys, ys, comp);
         if (xs == ys) return {true, ys};
         // Insert xs to ys
         Iterator ys_upper = ys + 1;
         if (ys_upper != ys_last) {
-            ys_upper = BinarySearch<is_xs_from_right>(ys_upper, ys_last, xs, comp);
+            ys_upper = BinarySearch<!is_xs_from_right>(ys_upper, ys_last, xs, comp);
         }
         Rotate(xs, ys, ys_upper);
         xs += ys_upper - ys;
@@ -597,8 +596,8 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
                     // Safely skip continuing blocks as done in `has_buf` case.
                     xs = last_block_before_ys + 1;
                 } else if (ys - xs > p.last_block_len) {
-                    // Ensure that length of `xs` is at most `block_len` This is crucial to ensure time complexity
-                    // due to implementation detail of `MergeWithoutBuf`.
+                    // Ensure that of `xs` is not longer than `ys`. This is crucial to ensure time complexity due to
+                    // implementation of `MergeWithoutBuf`.
                     Rotate(xs, ys, ys_last);
                     ys = xs + p.last_block_len;
                     xs_origin = kRight;
@@ -954,7 +953,7 @@ SAYHISORT_CONSTEXPR_SWAP diff_t<Iterator> CollectKeys(Iterator first, Iterator l
     Iterator keys_last = first + 1;
 
     for (Iterator cur = keys_last; cur < last; ++cur) {
-        Iterator inspos = BinarySearch<false>(keys, keys_last, cur, comp);
+        Iterator inspos = BinarySearch<true>(keys, keys_last, cur, comp);
         if (inspos == keys_last || comp(*cur, *inspos)) {
             // Rotate keys forward so that insertion works in O(num_keys)
             Rotate(keys, keys_last, cur);
