@@ -94,16 +94,17 @@ void RegisterStat(std::string_view key, std::pair<StatT, bool>& value) {
 
 template <std::size_t N>
 struct StaticString {
+    static inline constexpr std::size_t size = N == 0 ? 1 : N;
     constexpr StaticString() : invalid{true} {}
     constexpr StaticString(auto&&) : invalid{true} {}
-    constexpr StaticString(const char (&s)[N]) : invalid{false} {
-        for (std::size_t i = 0; i < N; ++i) {
+    constexpr StaticString(const char (&s)[size]) : invalid{false} {
+        for (std::size_t i = 0; i < size; ++i) {
             data[i] = s[i];
         }
     }
-    constexpr std::string_view view() const { return std::string_view{data, N - 1}; }
+    constexpr std::string_view view() const { return std::string_view{data, size - 1}; }
     bool invalid;
-    char data[N] = {};
+    char data[size] = {};
 };
 
 template <typename StatT, StaticString K, bool = K.invalid>
@@ -171,8 +172,8 @@ private:
     ::sayhisort::test::StatAccessor<stat,                                                                   \
                                     std::is_same_v<decltype(key), const char (&)[sizeof(key)]>&& requires { \
                                         std::type_identity_t<char[sizeof(key) + std::size_t{1}]>{key};      \
-                                    } ? ::sayhisort::test::StaticString<sizeof(key) + !sizeof(key)>{key}    \
-                                      : ::sayhisort::test::StaticString<sizeof(key) + !sizeof(key)>{}>{}    \
+                                    } ? ::sayhisort::test::StaticString<sizeof(key)>{key}                   \
+                                      : ::sayhisort::test::StaticString<sizeof(key)>{}>{}                   \
         .get(std::is_constant_evaluated() ? "" : (key))
 
 /*
