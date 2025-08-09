@@ -1,5 +1,5 @@
-#include "sayhisort_profile_util.h"
 #include "sayhisort.h"
+#include "sayhisort_profile_util.h"
 
 #include <algorithm>
 #include <array>
@@ -17,7 +17,8 @@ int main() {
     constexpr uint64_t kSize = 1500000;
 
     DisableRecords();
-    //EnableRecords("MergeWithoutBuf");
+    EnableRecords("MergeWithoutBuf");
+    EnableRecords("BinarySearch");
     EnableRecords("std::stable_sort");
     EnableRecords("sayhisort::sort");
 

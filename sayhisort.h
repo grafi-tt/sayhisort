@@ -942,34 +942,36 @@ SAYHISORT_CONSTEXPR_SWAP void ShellSort(Iterator data, diff_t<Iterator> len, Com
 // Full sorting
 //
 
+/**
+ * @brief Collect unique keys.
+ *
+ * @param first
+ * @param last
+ *   @pre last - first >= 2
+ * @param num_desired_keys
+ *   @pre num_desired_keys >= 2
+ */
 template <typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP diff_t<Iterator> CollectKeys(Iterator first, Iterator last, diff_t<Iterator> num_desired_keys,
                                                       Compare comp) {
-    if (first == last) {
-        return 0;
-    }
-    if (num_desired_keys <= 1) {
-        return num_desired_keys;
-    }
-
     Iterator keys = first;
     Iterator keys_last = first + 1;
+    Iterator cur = first + 1;
+    --num_desired_keys;
 
-    for (Iterator cur = keys_last; cur < last; ++cur) {
+    do {
         Iterator inspos = BinarySearch<true>(keys, keys_last, cur, comp);
         if (inspos == keys_last || comp(*cur, *inspos)) {
             // Rotate keys forward so that insertion works in O(num_keys)
             Rotate(keys, keys_last, cur);
             keys += cur - keys_last;
             inspos += cur - keys_last;
-            keys_last = cur;
             // Insert the new key
-            Rotate(inspos, keys_last, cur + 1);
-            if (++keys_last - keys == num_desired_keys) {
-                break;
-            }
+            Rotate(inspos, cur, cur + 1);
+            keys_last = cur + 1;
+            --num_desired_keys;
         }
-    }
+    } while (num_desired_keys && ++cur < last);
 
     Rotate(first, keys, keys_last);
     return keys_last - keys;
