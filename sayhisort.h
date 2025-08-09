@@ -166,18 +166,16 @@ constexpr Iterator BinarySearch(Iterator first, Iterator last, Iterator key, Com
     };
 
     Iterator base = first;
-    diff_t<Iterator> len = last - first;
+    diff_t<Iterator> len = last - first + 1;
     diff_t<Iterator> mid{};
 
     while ((mid = len / 2)) {
         Iterator pivot = base + mid;
-        if (pred(pivot)) {
+        if (pred(pivot - 1)) {
             base = pivot;
         }
         len -= mid;
     }
-
-    base += pred(base);
     return base;
 }
 
