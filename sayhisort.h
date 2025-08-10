@@ -713,7 +713,7 @@ struct SequenceDivider {
         return no_carry;
     }
 
-    constexpr SsizeT IsEnd() const { return !num_seqs; }
+    constexpr bool IsEnd() const { return !num_seqs; }
 
     SsizeT log2_num_seqs;
     SsizeT num_seqs;
