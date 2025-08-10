@@ -1,14 +1,16 @@
 # SayhiSort
 
-Fast and portable block merge sort implementation in C++17 inspired by [GrailSort](https://github.com/Mrrl/GrailSort). It's in-place, stable and runs in O(N log(N)) wort-case time complexity. The performance is similar to `std::stable_sort`.
+Fast and portable block merge sort implementation written in C++17, inspired by [GrailSort](https://github.com/Mrrl/GrailSort). It's in-place, stable and runs in O(N log(N)) wort-case time complexity.
 
-The implementation is **purely swap-based**. It means **no item is constructed** at runtime. Items neither default-constructible nor move-constructible are allowed, as long as they are swappable. It also care about portability. **No floating point number** is used, and the code is carefully written and tested to avoid overflow in any integer-like type.
+The implementation is **purely swap-based**. It means **no item is constructed** at runtime. Items neither default-constructible nor move-constructible are allowed, as long as they are swappable. In contrast, other implementations usually come with fixed-size buffer to cache items. Despite the absence of cache, it has **competitive performance**.
+
+Substantial effort is made for portability and security. **No floating point number** is used, and the code is carefully written and tested to avoid overflow in any integer-like type. The code has meticulous comments that clarify mathematical invariants.
 
 Its name derives from GrailSort, in honor of its auhor [Andrey Astrelin](https://superliminal.com/andrey/biography.html) rest in peace. Pronunciation of “say hi” sounds like the Japanese word 「聖杯（せいはい）」, which means grail.
 
 ## Usage
 
-It's header-only C++ library, so just including `sayhisort.h` is fine. C++17 or later is supported. You can also import CMake external project.
+It's header-only C++ library, so just including `sayhisort.h` is fine. You can also import CMake external project.
 
 ## Benchmark
 
