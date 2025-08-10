@@ -164,6 +164,10 @@ private:
  * Helper macro definitions
  */
 
+#define SAYHISORT_EXPAND(a) a
+#define SAYHISORT_CONCAT(a, b) SAYHISORT_CONCAT_HELPER(a, b)
+#define SAYHISORT_CONCAT_HELPER(a, b) a##b
+
 #define SAYHISORT_GET_STAT(key, StatT)                                                                      \
     ::sayhisort::test::StatAccessor<StatT,                                                                  \
                                     std::is_same_v<decltype(key), const char (&)[sizeof(key)]>&& requires { \
@@ -172,14 +176,14 @@ private:
                                       : ::sayhisort::test::StaticString<sizeof(key)>{}>{}                   \
         .get(std::is_constant_evaluated() ? "" : (key))
 
-#define SAYHISORT_GENSYM(name) SAYHISORT_GENSYM_HELPER1(name, __LINE__)
-#define SAYHISORT_GENSYM_HELPER1(name, line) SAYHISORT_GENSYM_HELPER2(name, line)
-#define SAYHISORT_GENSYM_HELPER2(name, line) _sayhisort_macro_##name##_##line
+#define SAYHISORT_GENSYM(name) SAYHISORT_CONCAT(_sayhisort_macro_##name##_, __LINE__)
 
-#define SAYHISORT_CALL_CONCAT(name1, name2, ...) SAYHISORT_CALL_CONCAT_HELPER1(name1, name2, __VA_ARGS__)
-#define SAYHISORT_CALL_CONCAT_HELPER1(name1, name2, ...) SAYHISORT_CALL_CONCAT_HELPER2(name1, name2, __VA_ARGS__)
-#define SAYHISORT_CALL_CONCAT_HELPER2(name1, name2, ...) SAYHISORT_CALL_CONCAT_HELPER3(name1##name2(__VA_ARGS__))
-#define SAYHISORT_CALL_CONCAT_HELPER3(call) call
+#define SAYHISORT_UNLESS_DISABLE_PROFILE(name, ...) \
+    SAYHISORT_EXPAND(SAYHISORT_CONCAT(SAYHISORT_UNLESS_DISABLE_PROFILE_, SAYHISORT_DISABLE_PROFILE)(name, __VA_ARGS__))
+#define SAYHISORT_UNLESS_DISABLE_PROFILE_SAYHISORT_DISABLE_PROFILE(name, ...) name(__VA_ARGS__)
+#define SAYHISORT_UNLESS_DISABLE_PROFILE_0(name, ...) name(__VA_ARGS__)
+#define SAYHISORT_UNLESS_DISABLE_PROFILE_(name, ...)
+#define SAYHISORT_UNLESS_DISABLE_PROFILE_1(name, ...)
 
 /*
  * Helper for RAII style tracing
@@ -219,22 +223,17 @@ private:
 // When 0 is set, profile is still enabled:
 //   #define SAYHISORT_DISABLE_PROFILE 0
 
-#define SAYHISORT_RECORD(...) SAYHISORT_CALL_CONCAT(SAYHISORT_RECORD_, SAYHISORT_DISABLE_PROFILE, __VA_ARGS__)
-#define SAYHISORT_RECORD_0(key, StatT, action)                                                        \
+#define SAYHISORT_RECORD(...) SAYHISORT_UNLESS_DISABLE_PROFILE(SAYHISORT_RECORD_IMPL, __VA_ARGS__)
+#define SAYHISORT_RECORD_IMPL(key, StatT, action)                                                        \
     for (StatT * SAYHISORT_GENSYM(record) = SAYHISORT_GET_STAT(key, StatT); SAYHISORT_GENSYM(record); \
          SAYHISORT_GENSYM(record) = nullptr)                                                          \
     SAYHISORT_GENSYM(record)->update(action)
-#define SAYHISORT_RECORD_1(...)
-#define SAYHISORT_RECORD_SAYHISORT_DISABLE_PROFILE(...) SAYHISORT_RECORD_0(__VA_ARGS__)
 
-#define SAYHISORT_SCOPED_RECORDER(...) \
-    SAYHISORT_CALL_CONCAT(SAYHISORT_SCOPED_RECORDER_, SAYHISORT_DISABLE_PROFILE, __VA_ARGS__)
-#define SAYHISORT_SCOPED_RECORDER_0(key, StatT, TraceActionT)                                                   \
+#define SAYHISORT_SCOPED_RECORDER(...)  SAYHISORT_UNLESS_DISABLE_PROFILE(SAYHISORT_SCOPED_RECORDER_IMPL, __VA_ARGS__)
+#define SAYHISORT_SCOPED_RECORDER_IMPL(key, StatT, TraceActionT)                                                   \
     [[maybe_unused]] ::sayhisort::test::ScopedRecorder<StatT, TraceActionT> SAYHISORT_GENSYM(scoped_recorder) { \
         SAYHISORT_GET_STAT(key, StatT)                                                                          \
     }
-#define SAYHISORT_SCOPED_RECORDER_1(...)
-#define SAYHISORT_SCOPED_RECORDER_SAYHISORT_DISABLE_PROFILE(...) SAYHISORT_SCOPED_RECORDER_0(__VA_ARGS__)
 
 inline void EnableRecords(bool enabled = true) {
     for (auto& kv : GetStatRegistry()) {

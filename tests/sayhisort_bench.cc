@@ -1,5 +1,7 @@
-#include "sayhisort.h"
 #include "sayhisort_profile_util.h"
+#define SAYHISORT_DISABLE_PROFILE
+#include "sayhisort.h"
+#undef SAYHISORT_DISABLE_PROFILE
 
 #include <algorithm>
 #include <array>
