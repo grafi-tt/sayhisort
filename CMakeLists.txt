@@ -61,6 +61,12 @@ if(SAYHISORT_ENABLE_TEST)
             GIT_TAG 73605cdbdfec66e7112c6a3a3830748fcd3bb665
             )
         set(SAYHISORT_CONTENT_NAMES ${SAYHISORT_CONTENT_NAMES} octosort)
+        FetchContent_Declare(
+            logsort
+            GIT_REPOSITORY https://github.com/aphitorite/Logsort.git
+            GIT_TAG 96d3fcfd2e32797d4aa99d61f11a650ce47dac5a
+            )
+        set(SAYHISORT_CONTENT_NAMES ${SAYHISORT_CONTENT_NAMES} logsort)
     endif()
 
     FetchContent_MakeAvailable(${SAYHISORT_CONTENT_NAMES})
@@ -137,7 +143,18 @@ if(SAYHISORT_ENABLE_TEST)
         target_include_directories(sayhisort_bench_octosort PRIVATE ${FETCHCONTENT_BASE_DIR}/octosort-src)
         set(SAYHISORT_BENCH_LIBS ${SAYHISORT_BENCH_LIBS} sayhisort_bench_octosort)
         if(CMAKE_C_COMPILER_ID MATCHES "GNU" OR CMAKE_C_COMPILER_ID MATCHES "Clang")
-            target_compile_options(sayhisort_bench_octosort PRIVATE -std=c99 -Wall -O3 -fno-strict-aliasing -march=native)
+            target_compile_options(sayhisort_bench_octosort PRIVATE -std=c99 -fno-strict-aliasing -Wall -O3 -march=native)
+        endif()
+
+        add_library(
+            sayhisort_bench_logsort STATIC
+            tests/third_party/logsort_bench.c
+            tests/third_party/logsort_bench.h
+            )
+        target_include_directories(sayhisort_bench_logsort PRIVATE ${FETCHCONTENT_BASE_DIR}/logsort-src)
+        set(SAYHISORT_BENCH_LIBS ${SAYHISORT_BENCH_LIBS} sayhisort_bench_logsort)
+        if(CMAKE_C_COMPILER_ID MATCHES "GNU" OR CMAKE_C_COMPILER_ID MATCHES "Clang")
+            target_compile_options(sayhisort_bench_logsort PRIVATE -std=c99 -Wall -O3 -march=native)
         endif()
     endif()
 

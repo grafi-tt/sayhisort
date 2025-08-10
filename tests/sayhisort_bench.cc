@@ -14,8 +14,9 @@
 #include "sayhisort_test_util.h"
 
 #ifdef SAYHISORT_THIRDPARTY_BENCH
-#include "third_party/wikisort_bench.h"
+#include "third_party/logsort_bench.h"
 #include "third_party/octosort_bench.h"
+#include "third_party/wikisort_bench.h"
 #endif
 
 int main() {
@@ -84,6 +85,18 @@ int main() {
             RunOctoSort(data.data(), kSize);
         }
         Report(std::cout, "octosort");
+        if (data != expected) {
+            std::cout << "Result check failed!";
+            return 1;
+        }
+
+        tmpgen = gen;
+        fn(data.data(), kSize, tmpgen);
+        {
+            SAYHISORT_PERF_TRACE("logsort");
+            RunLogSort(data.data(), kSize);
+        }
+        Report(std::cout, "logsort");
         if (data != expected) {
             std::cout << "Result check failed!";
             return 1;
