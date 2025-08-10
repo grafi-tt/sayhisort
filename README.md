@@ -35,7 +35,7 @@ NOTE: The following documentation isn't complete and polished.
 
 ### Merge algorithm
 
-This part is the largest bottleneck.
+This phase is the largest bottleneck.
 
 For the case buffer is available, basically textbook merge algorithm is used. Current implementation applies [cross merge](https://github.com/scandum/quadsort#cross-merge) technique for optimization.
 
@@ -51,7 +51,7 @@ To the author's best knowledge, there's no room of improvement here.
 
 ### Sorting blocks
 
-This part also takes quite noticeable time.
+This phase also takes quite noticeable time.
 
 (TODO: write something better. It's selection sort on the permuted blocks of sequence ys. I think the algorithm is quite basic. I feel some empirical improvement is still possible...)
 
@@ -61,13 +61,21 @@ This overhead heavily depends on input data. For RandomFew benchmark MostEqual b
 
 (TODO: Some unrolling experiment didn't show improvement. Try skipping equal keys.)
 
+### Sorting short sequences
+
+This phase takes non-neglible time, but anyway it takes only O(len) time.
+
+When the sequence length is less than or equals to 8, odd-even sort is used. (Don't confuse with Batcher's odd-even merge sort.) It's stable and friendly to superscalar execution.
+
+The loop calling odd-even sort is optimized to reduce overhead of dispatching specialized odd-even sort routines. Further optimization likely broats-up inlined code size, so the author is reluctant to explore this direction.
+
 ### Sorting unique keys
+
+This phase takes negligible time, so it isn't worth of micro-optimization.
 
 For de-interleaving imitation buffer, bin-sorting is used if data buffer can be used as auxiliary space. Otherwise novel O(NlogN) algorithm is used, that iteratively rotate skewed parts. See comments of `DeinterleaveImitation` for detail.
 
 For sorting data buffer, ShellSort with [Ciura's gap sequence](https://en.wikipedia.org/wiki/Shellsort#Computational_complexity) is used. In practice it's very fast. From theoretical viewpoint, it's time complexity is O(len) even if ShellSort were O(N^2). Actual worst-case time complexity is likely much better.
-
-Now this phase takes negligible time, so it isn't worth of micro-optimization.
 
 ### Rotation sub-algorithm
 
