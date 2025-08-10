@@ -12,17 +12,16 @@
 #include "sayhisort_bench_data.h"
 #include "sayhisort_test_util.h"
 
+#ifdef SAYHISORT_THIRDPARTY_BENCH
+#include <functional>
+#include "WikiSort.cpp"
+#endif
+
 int main() {
     using namespace sayhisort::test;
 
     constexpr int seed = 42;
     constexpr uint64_t kSize = 1500000;
-
-    DisableRecords();
-    EnableRecords("MergeWithoutBuf");
-    EnableRecords("BinarySearch");
-    EnableRecords("std::stable_sort");
-    EnableRecords("sayhisort::sort");
 
 #define BENCHDATA(name)                                                        \
     std::tuple<const char*, void (*)(uint64_t*, uint64_t, std::mt19937_64&)> { \
@@ -59,12 +58,26 @@ int main() {
         Report(std::cout, "sayhisort::sort", true);
         Report(std::cout);
         PopReportIndent();
-        PopReportIndent();
-
         if (data != expected) {
             std::cout << "Result check failed!";
             return 1;
         }
+
+#ifdef SAYHISORT_THIRDPARTY_BENCH
+        tmpgen = gen;
+        fn(data.data(), kSize, tmpgen);
+        {
+            SAYHISORT_PERF_TRACE("Wiki::Sort");
+            Wiki::Sort(data.begin(), data.end(), std::less{});
+        }
+        Report(std::cout, "Wiki::Sort");
+        if (data != expected) {
+            std::cout << "Result check failed!";
+            return 1;
+        }
+#endif
+
+        PopReportIndent();
     }
 
     return 0;

@@ -7,6 +7,7 @@ project(sayhisort LANGUAGES CXX)
 
 option(SAYHISORT_ENABLE_TEST "Enable test targets" ON)
 option(SAYHISORT_USE_SYSTEM_GTEST "Use system GTest" OFF)
+option(SAYHISORT_THIRDPARTY_BENCH "Build benchmark with third party libs (take effect if SAYHISORT_ENABLE_TEST is ON)" OFF)
 
 add_library(sayhisort INTERFACE sayhisort.h)
 install(
@@ -29,6 +30,8 @@ target_compile_features(
 
 if(SAYHISORT_ENABLE_TEST)
     enable_testing()
+    set(SAYHISORT_CONTENT_NAMES)
+
     if(NOT SAYHISORT_USE_SYSTEM_GTEST)
         include(FetchContent)
         FetchContent_Declare(
@@ -36,13 +39,25 @@ if(SAYHISORT_ENABLE_TEST)
             URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
             URL_HASH SHA256=1f357c27ca988c3f7c6b4bf68a9395005ac6761f034046e9dde0896e3aba00e4
             EXCLUDE_FROM_ALL
-        )
+            )
         # For Windows: Prevent overriding the parent project's compiler/linker settings
         set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-        FetchContent_MakeAvailable(googletest)
+        set(SAYHISORT_CONTENT_NAMES ${SAYHISORT_CONTENT_NAMES} googletest)
     else()
         find_package(GTest REQUIRED)
     endif()
+
+    if(SAYHISORT_THIRDPARTY_BENCH)
+        FetchContent_Declare(
+            wikisort
+            GIT_REPOSITORY https://github.com/BonzaiThePenguin/WikiSort.git
+            GIT_TAG df036bd85af713f5012ccc4d329f05eb6a553128
+            PATCH_COMMAND git checkout . && git apply ${CMAKE_CURRENT_SOURCE_DIR}/tests/wikisort.patch
+            )
+        set(SAYHISORT_CONTENT_NAMES ${SAYHISORT_CONTENT_NAMES} wikisort)
+    endif()
+
+    FetchContent_MakeAvailable(${SAYHISORT_CONTENT_NAMES})
 
     add_executable(
         sayhisort_test
@@ -90,10 +105,18 @@ if(SAYHISORT_ENABLE_TEST)
         )
     add_test(NAME sayhisort_bench COMMAND $<TARGET_FILE:sayhisort_bench>)
 
+    if(SAYHISORT_THIRDPARTY_BENCH)
+        target_compile_definitions(sayhisort_bench PRIVATE SAYHISORT_THIRDPARTY_BENCH=1)
+        target_include_directories(sayhisort_bench PRIVATE ${FETCHCONTENT_BASE_DIR}/wikisort-src)
+    endif()
+
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         target_compile_options(sayhisort_test PRIVATE -std=c++17 -Wall -Wextra -Wpedantic -Werror)
         target_compile_options(sayhisort_cpp20_test PRIVATE -std=c++20 -Wall -Wextra -Wpedantic -Werror)
-        target_compile_options(sayhisort_bench PRIVATE -std=c++23 -Wall -Wextra -Wpedantic -Werror -O3 -march=native)
+        target_compile_options(sayhisort_bench PRIVATE -std=c++23 -O3 -march=native)
+        if(NOT ${SAYHISORT_THIRDPARTY_BENCH})
+            target_compile_options(sayhisort_bench PRIVATE  -Wall -Wextra -Wpedantic -Werror)
+        endif()
     endif()
     if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
         target_compile_options(sayhisort_bench PRIVATE /Zc:preprocessor)
