@@ -761,23 +761,15 @@ SAYHISORT_CONSTEXPR_SWAP void MergeOneLevel(Iterator imit, Iterator buf, Iterato
  * @param data
  * @param comp
  */
-template <int len, typename Iterator, typename Compare>
+template <int len, typename Iterator, typename Compare, int i = 0>
 SAYHISORT_CONSTEXPR_SWAP void OddEvenSort(Iterator data, Compare comp) {
-    for (diff_t<Iterator> i = 0; i < len; i += 2) {
-        for (diff_t<Iterator> j = 0; j < len - 1; j += 2) {
+    if constexpr (i < len) {
+        for (diff_t<Iterator> j = i % 2; j < len - 1; j += 2) {
             if (comp(data[j + 1], data[j])) {
                 swap(data[j], data[j + 1]);
             }
         }
-        if (i + 1 == len) {
-            break;
-        }
-
-        for (diff_t<Iterator> j = 1; j < len - 1; j += 2) {
-            if (comp(data[j + 1], data[j])) {
-                swap(data[j], data[j + 1]);
-            }
-        }
+        OddEvenSort<len, Iterator, Compare, i + 1>(data, comp);
     }
 }
 
