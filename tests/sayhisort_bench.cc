@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <functional>
 #include <iostream>
 #include <tuple>
 
@@ -13,8 +14,8 @@
 #include "sayhisort_test_util.h"
 
 #ifdef SAYHISORT_THIRDPARTY_BENCH
-#include <functional>
-#include "WikiSort.cpp"
+#include "third_party/wikisort_bench.h"
+#include "third_party/octosort_bench.h"
 #endif
 
 int main() {
@@ -52,10 +53,10 @@ int main() {
         tmpgen = gen;
         fn(data.data(), kSize, tmpgen);
         {
-            SAYHISORT_PERF_TRACE("sayhisort::sort");
+            SAYHISORT_PERF_TRACE("sayhisort");
             sayhisort::sort(data.begin(), data.end());
         }
-        Report(std::cout, "sayhisort::sort", true);
+        Report(std::cout, "sayhisort", true);
         Report(std::cout);
         PopReportIndent();
         if (data != expected) {
@@ -67,10 +68,22 @@ int main() {
         tmpgen = gen;
         fn(data.data(), kSize, tmpgen);
         {
-            SAYHISORT_PERF_TRACE("Wiki::Sort");
-            Wiki::Sort(data.begin(), data.end(), std::less{});
+            SAYHISORT_PERF_TRACE("wikisort");
+            RunWikiSort(data);
         }
-        Report(std::cout, "Wiki::Sort");
+        Report(std::cout, "wikisort");
+        if (data != expected) {
+            std::cout << "Result check failed!";
+            return 1;
+        }
+
+        tmpgen = gen;
+        fn(data.data(), kSize, tmpgen);
+        {
+            SAYHISORT_PERF_TRACE("octosort");
+            RunOctoSort(data.data(), kSize);
+        }
+        Report(std::cout, "octosort");
         if (data != expected) {
             std::cout << "Result check failed!";
             return 1;

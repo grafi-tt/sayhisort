@@ -1,0 +1,18 @@
+diff --git a/WikiSort.cpp b/WikiSort.cpp
+index 9cb90a0..df024fa 100644
+--- a/WikiSort.cpp
++++ b/WikiSort.cpp
+@@ -969,6 +969,7 @@ namespace Wiki {
+ 
+ 
+ 
++#if 0
+ 
+ // class to test stable sorting (index will contain its original index in the array, to make sure it doesn't switch places with other items)
+ class Test {
+@@ -1225,3 +1226,5 @@ int main() {
+ 
+     return 0;
+ }
++
++#endif

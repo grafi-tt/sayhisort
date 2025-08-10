@@ -3,7 +3,7 @@ if(POLICY CMP0135)
     cmake_policy(SET CMP0135 NEW)
 endif()
 
-project(sayhisort LANGUAGES CXX)
+project(sayhisort LANGUAGES C CXX)
 
 option(SAYHISORT_ENABLE_TEST "Enable test targets" ON)
 option(SAYHISORT_USE_SYSTEM_GTEST "Use system GTest" OFF)
@@ -55,6 +55,12 @@ if(SAYHISORT_ENABLE_TEST)
             PATCH_COMMAND git checkout . && git apply ${CMAKE_CURRENT_SOURCE_DIR}/tests/wikisort.patch
             )
         set(SAYHISORT_CONTENT_NAMES ${SAYHISORT_CONTENT_NAMES} wikisort)
+        FetchContent_Declare(
+            octosort
+            GIT_REPOSITORY https://github.com/scandum/octosort.git
+            GIT_TAG 73605cdbdfec66e7112c6a3a3830748fcd3bb665
+            )
+        set(SAYHISORT_CONTENT_NAMES ${SAYHISORT_CONTENT_NAMES} octosort)
     endif()
 
     FetchContent_MakeAvailable(${SAYHISORT_CONTENT_NAMES})
@@ -95,30 +101,46 @@ if(SAYHISORT_ENABLE_TEST)
         tests/sayhisort_test_util.cc
         tests/sayhisort_test_util.h
         )
-    target_link_libraries(
-        sayhisort_bench PRIVATE
-        sayhisort
-        )
     target_compile_features(
         sayhisort_bench PRIVATE
         cxx_std_23
         )
-    add_test(NAME sayhisort_bench COMMAND $<TARGET_FILE:sayhisort_bench>)
-
-    if(SAYHISORT_THIRDPARTY_BENCH)
-        target_compile_definitions(sayhisort_bench PRIVATE SAYHISORT_THIRDPARTY_BENCH=1)
-        target_include_directories(sayhisort_bench PRIVATE ${FETCHCONTENT_BASE_DIR}/wikisort-src)
-    endif()
+    set(SAYHISORT_BENCH_LIBS sayhisort)
 
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         target_compile_options(sayhisort_test PRIVATE -std=c++17 -Wall -Wextra -Wpedantic -Werror)
         target_compile_options(sayhisort_cpp20_test PRIVATE -std=c++20 -Wall -Wextra -Wpedantic -Werror)
-        target_compile_options(sayhisort_bench PRIVATE -std=c++23 -O3 -march=native)
-        if(NOT ${SAYHISORT_THIRDPARTY_BENCH})
-            target_compile_options(sayhisort_bench PRIVATE  -Wall -Wextra -Wpedantic -Werror)
-        endif()
+        target_compile_options(sayhisort_bench PRIVATE -std=c++23 -Wall -Wextra -Wpedantic -Werror -O3 -march=native)
     endif()
     if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
         target_compile_options(sayhisort_bench PRIVATE /Zc:preprocessor)
     endif()
+
+    if(SAYHISORT_THIRDPARTY_BENCH)
+        target_compile_definitions(sayhisort_bench PRIVATE SAYHISORT_THIRDPARTY_BENCH=1)
+        add_library(
+            sayhisort_bench_wikisort STATIC
+            tests/third_party/wikisort_bench.cc
+            tests/third_party/wikisort_bench.h
+            )
+        target_include_directories(sayhisort_bench_wikisort PRIVATE ${FETCHCONTENT_BASE_DIR}/wikisort-src)
+        set(SAYHISORT_BENCH_LIBS ${SAYHISORT_BENCH_LIBS} sayhisort_bench_wikisort)
+        if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+            target_compile_options(sayhisort_bench_wikisort PRIVATE -O3 -march=native)
+        endif()
+
+        add_library(
+            sayhisort_bench_octosort STATIC
+            tests/third_party/octosort_bench.c
+            tests/third_party/octosort_bench.h
+            )
+        target_include_directories(sayhisort_bench_octosort PRIVATE ${FETCHCONTENT_BASE_DIR}/octosort-src)
+        set(SAYHISORT_BENCH_LIBS ${SAYHISORT_BENCH_LIBS} sayhisort_bench_octosort)
+        if(CMAKE_C_COMPILER_ID MATCHES "GNU" OR CMAKE_C_COMPILER_ID MATCHES "Clang")
+            target_compile_options(sayhisort_bench_octosort PRIVATE -std=c99 -Wall -O3 -fno-strict-aliasing -march=native)
+        endif()
+    endif()
+
+    target_link_libraries(sayhisort_bench PRIVATE ${SAYHISORT_BENCH_LIBS})
+    add_test(NAME sayhisort_bench COMMAND $<TARGET_FILE:sayhisort_bench>)
 endif()
