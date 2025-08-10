@@ -10,7 +10,6 @@
 #define SAYHISORT_CONSTEXPR_SWAP
 #endif
 
-#include <cstddef>
 #include <functional>
 #include <iterator>
 #include <type_traits>
@@ -217,8 +216,6 @@ template <bool is_xs_from_right, typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Iterator xs, Iterator ys, Iterator ys_last,
                                                             Compare comp) {
     SAYHISORT_PERF_TRACE("MergeWithBuf");
-    // So-called cross merge optimization is applied
-    // See https://github.com/scandum/quadsort#cross-merge for idea
     auto is_x_selected = [&comp](decltype(xs[0]) x, decltype(ys[0]) y) {
         if constexpr (is_xs_from_right) {
             return comp(x, y);
@@ -239,6 +236,8 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Itera
     }
     bool xs_consumed = xs == xs_last;
 #else
+    // So-called cross merge optimization is applied
+    // See https://github.com/scandum/quadsort#cross-merge for idea
     while (xs < xs_last - 1 && ys < ys_last - 1) {
         if (is_x_selected(xs[1], ys[0])) {
             swap(*buf++, *xs++);
@@ -947,7 +946,7 @@ constexpr std::pair<SsizeT, SsizeT> FirstShellSortGap(SsizeT len) {
     for (int j = 1; j < 8; ++j) {
         n += kCiuraGaps[j] < len;
     }
-    SsizeT gap = kCiuraGaps[static_cast<ptrdiff_t>(n)];
+    SsizeT gap = kCiuraGaps[static_cast<int>(n)];
     if (n == 7) {
         // The loop condition is equivalent to `floor(2.25 * gap) < len`, which can be written as
         // `gap * 2 < len - floor(0.25 * gap)`. We can check the equivalence for each case `len - floor(0.25 * gap)` is
@@ -971,10 +970,10 @@ constexpr std::pair<SsizeT, SsizeT> FirstShellSortGap(SsizeT len) {
 template <typename SsizeT>
 constexpr SsizeT NthShellSortGap(SsizeT n) {
     if (n < 8) {
-        return kCiuraGaps[static_cast<ptrdiff_t>(n)];
+        return kCiuraGaps[static_cast<int>(n)];
     }
     SsizeT i = 7;
-    SsizeT gap = kCiuraGaps[static_cast<ptrdiff_t>(i)];
+    SsizeT gap = kCiuraGaps[7];
     do {
         gap = gap * 2 + gap / 4;
     } while (++i < n);
