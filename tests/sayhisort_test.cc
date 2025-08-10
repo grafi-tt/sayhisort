@@ -805,7 +805,8 @@ struct CheckedInt {
         val = static_cast<int32_t>(v);
     }
 
-    explicit operator ptrdiff_t() const { return val; }
+    explicit operator int() const { return static_cast<int>(val); }
+    explicit operator ptrdiff_t() const { return static_cast<ptrdiff_t>(val); }
     explicit operator bool() const { return !!val; }
 
     friend CheckedInt& operator+=(CheckedInt& lhs, int rhs) {

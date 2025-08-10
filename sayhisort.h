@@ -786,6 +786,7 @@ template <typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP void SortLeaves(Iterator data, diff_t<Iterator> seq_len,
                                          SequenceDivider<diff_t<Iterator>> seq_div, Compare comp) {
     SAYHISORT_PERF_TRACE("SortLeaves");
+#if 0
     do {
         bool decr = seq_div.Next();
         diff_t<Iterator> len = seq_len - decr;
@@ -800,13 +801,100 @@ SAYHISORT_CONSTEXPR_SWAP void SortLeaves(Iterator data, diff_t<Iterator> seq_len
         } else if (len == 8) {
             OddEvenSort<8>(data, comp);
         }
-#if __GNUC__
-        else {
-            __builtin_unreachable();
-        }
-#endif
         data += len;
     } while (!seq_div.IsEnd());
+#else
+    // Apply optimization similar to thread-code technique https://en.wikipedia.org/wiki/Threaded_code
+    // Though branch miss-prediction isn't a problem, it reduces the number of branch instructions without
+    // duplicating template instantiation of OddEvenSort<n>.
+    enum Dispatcher {
+        Len4,
+        Len5,
+        Len6,
+        Len7,
+        Len8,
+    };
+    diff_t<Iterator> len = seq_len - seq_div.Next();
+    Dispatcher dispatcher = static_cast<Dispatcher>(static_cast<int>(len - 4));
+    while (true) {
+        switch (dispatcher) {
+            case Len4:
+                OddEvenSort<4>(data, comp);
+                data += 4;
+                if (seq_div.IsEnd()) {
+                    return;
+                }
+                len = seq_len - seq_div.Next();
+                if (len == 4) {
+                    dispatcher = Len4;
+                    break;
+                }
+                [[fallthrough]];
+            case Len5:
+                OddEvenSort<5>(data, comp);
+                data += 5;
+                if (seq_div.IsEnd()) {
+                    return;
+                }
+                len = seq_len - seq_div.Next();
+                if (len == 4) {
+                    dispatcher = Len4;
+                    break;
+                }
+                if (len == 5) {
+                    dispatcher = Len5;
+                    break;
+                }
+                [[fallthrough]];
+            case Len6:
+                OddEvenSort<6>(data, comp);
+                data += 6;
+                if (seq_div.IsEnd()) {
+                    return;
+                }
+                len = seq_len - seq_div.Next();
+                if (len == 5) {
+                    dispatcher = Len5;
+                    break;
+                }
+                if (len == 6) {
+                    dispatcher = Len6;
+                    break;
+                }
+                [[fallthrough]];
+            case Len7:
+                OddEvenSort<7>(data, comp);
+                data += 7;
+                if (seq_div.IsEnd()) {
+                    return;
+                }
+                len = seq_len - seq_div.Next();
+                if (len == 6) {
+                    dispatcher = Len6;
+                    break;
+                }
+                if (len == 7) {
+                    dispatcher = Len7;
+                    break;
+                }
+                [[fallthrough]];
+            case Len8:
+                OddEvenSort<8>(data, comp);
+                data += 8;
+                if (seq_div.IsEnd()) {
+                    return;
+                }
+                len = seq_len - seq_div.Next();
+                if (len == 7) {
+                    dispatcher = Len7;
+                    break;
+                } else {
+                    dispatcher = Len8;
+                    break;
+                }
+        }
+    }
+#endif
 }
 
 /**
