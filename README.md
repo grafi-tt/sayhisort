@@ -30,10 +30,28 @@ Whereas all algorithm code is written by the author, many ideas are given from o
 
 It's the variant of block merge sort that
 
-* search O(√len) unique keys for imitation buffer and data buffer at first, and
+* search (approximately) 2√N unique keys for imitation buffer and data buffer at first, and
 * alternately apply left-to-right merge and right-to-left merge to skip needless buffer movement, if data buffer is available.
 
 NOTE: The following documentation isn't complete and polished.
+
+### Searching unique keys
+
+This phase's overhead heavily depends on input data. When the data has unique keys slight less that 2√N, it performs worst.
+
+(TODO: Some unrolling experiment didn't show improvement.)
+
+(TODO: Discuss that skipping equal keys doesn't improve worst case.)
+
+(TODO: Discuss trade-off btw multi-phase collection.)
+
+### Sorting blocks
+
+This phase also takes quite noticeable time.
+
+Each of two sequences to merge, those length is len, are divided at most `sqrt(len) / sqrt(2)` blocks. The blocks are merged in-place by the algorithm based on selection-sort. The merge algorithm is similar to basic one used in merge sort, but it uses selection sort to search the smallest block in the left sequence.
+
+The algorithm is quite basic on block merge sort. The author tried moving blocks' first elements to buffer space to improve data locality, but performance had degraded. At now there is no idea for further speed-up.
 
 ### Merge algorithm
 
@@ -51,37 +69,25 @@ For buffer-less case, the algorithm repeats the following procedure to merge seq
 
 To the author's best knowledge, there's no room of improvement here.
 
-### Sorting blocks
-
-This phase also takes quite noticeable time.
-
-(TODO: write something better. It's selection sort on the permuted blocks of sequence ys. I think the algorithm is quite basic. I feel some empirical improvement is still possible...)
-
-### Searching unique keys
-
-This overhead heavily depends on input data. For RandomFew benchmark MostEqual benchmark, it's large. For random input, it's acceptable. (So the current implementation strategy to search O(√N) unique keys in single step seems to be OK.)
-
-(TODO: Some unrolling experiment didn't show improvement. Try skipping equal keys.)
-
 ### Sorting short sequences
 
-This phase takes non-neglible time, but anyway it takes only O(len) time.
+This phase takes non-neglible time, but anyway it takes only O(N) time.
 
 When the sequence length is less than or equals to 8, odd-even sort is used. (Don't confuse with Batcher's odd-even merge sort.) It's stable and friendly to superscalar execution.
 
-The loop calling odd-even sort is optimized to reduce overhead of dispatching specialized odd-even sort routines. Further optimization likely broats-up inlined code size, so the author is reluctant to explore this direction.
+The loop calling odd-even sort is optimized to reduce overhead of dispatching specialized odd-even sort routines. Further optimization likely bloats-up inlined code size, so the author is reluctant to explore this direction.
 
 ### Sorting unique keys
 
-This phase takes negligible time, so it isn't worth of micro-optimization.
+This phase takes negligible time, so it isn't worth of micro-optimization. Let K be the number of unique keys collected, which is at most 2√N.
 
-For de-interleaving imitation buffer, bin-sorting is used if data buffer can be used as auxiliary space. Otherwise novel O(NlogN) algorithm is used, that iteratively rotate skewed parts. See comments of `DeinterleaveImitation` for detail.
+To de-interleave imitation buffer, bin-sorting is used if data buffer can be used as a auxiliary space. Otherwise novel O(K logK) algorithm is used, that iteratively rotate skewed parts. See comments of `DeinterleaveImitation` for detail.
 
-For sorting data buffer, ShellSort with [Ciura's gap sequence](https://en.wikipedia.org/wiki/Shellsort#Computational_complexity) is used. In practice it's very fast. From theoretical viewpoint, it's time complexity is O(len) even if ShellSort were O(N^2). Actual worst-case time complexity is likely much better.
+For sorting data buffer, ShellSort with [Ciura's gap sequence](https://en.wikipedia.org/wiki/Shellsort#Computational_complexity) is used. I's very fast in practice. From theoretical viewpoint, time complexity is O(N) even if ShellSort were O(K^2). Actual worst-case time complexity is likely much better.
 
 ### Rotation sub-algorithm
 
-Use [Helix rotation](https://github.com/scandum/rotate#helix-rotation) for large data, because of it's simple control flow and cache friendliness. Switch to triple reversal when data becomes small, to avoid integer modulo operation in Helix rotation.
+Uses [Helix rotation](https://github.com/scandum/rotate#helix-rotation) for large data, because of it's simple control flow and cache friendliness. Switches to triple reversal when data becomes small, to avoid integer modulo operation in Helix rotation.
 
 Though some improvement might be possible, significant speed-up is seemingly difficult.
 

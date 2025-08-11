@@ -1176,7 +1176,7 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
     // Proof that `block_len >= 3`.
     // (NOTE: probably tighter bound is possible. For the sake of algorithm correctness `block_len >= 2` is enough.)
     //
-    // If `buf_len = 0`, it's easy to see `block_len` is over-approx of `seq_len / sqrt(2)`, since `limit_num_blocks`
+    // If `buf_len = 0`, it's easy to see `block_len` is over-approx of `sqrt(2 * seq_len)`, since `limit_num_blocks`
     // must be a multple of 2 and under-approx of `sqrt(2 * seq_len)`. As `seq_len >= 5`, we have `block_len >= 3`.
     //
     // Otherwise, we first note that
