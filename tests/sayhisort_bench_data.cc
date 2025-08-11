@@ -1,6 +1,7 @@
 #include "sayhisort_bench_data.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace sayhisort::test {
 
@@ -68,6 +69,13 @@ void Append(uint64_t* p, uint64_t n, std::mt19937_64& gen) {
     std::uniform_int_distribution<uint64_t> dist{0, n};
     for (uint64_t i = 0; i < n; ++i) {
         p[i] = i > n - n / 5 ? dist(gen) : i;
+    }
+}
+
+void SqrtKeys(uint64_t* p, uint64_t n, std::mt19937_64& gen) {
+    std::uniform_int_distribution<uint64_t> dist{0, static_cast<uint64_t>(std::sqrt(static_cast<double>(n)))};
+    for (uint64_t i = 0; i < n; ++i) {
+        p[i] = dist(gen);
     }
 }
 

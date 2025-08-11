@@ -152,7 +152,6 @@ SAYHISORT_CONSTEXPR_SWAP void Rotate(Iterator first, Iterator middle, Iterator l
  */
 template <bool strict, typename Iterator, typename Compare>
 constexpr Iterator BinarySearch(Iterator first, Iterator last, Iterator key, Compare comp) {
-    SAYHISORT_PERF_TRACE("BinarySearch");
     // So-called monobound binary search
     // The algorithm statically determines how many times the loop body runs, so that CPU pipeline becomes happier
     // See https://github.com/scandum/binary_search for idea
@@ -215,7 +214,6 @@ struct MergeResult {
 template <bool is_xs_from_right, typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Iterator xs, Iterator ys, Iterator ys_last,
                                                             Compare comp) {
-    SAYHISORT_PERF_TRACE("MergeWithBuf");
     auto is_x_selected = [&comp](decltype(xs[0]) x, decltype(ys[0]) y) {
         if constexpr (is_xs_from_right) {
             return comp(x, y);
@@ -318,7 +316,6 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Itera
 template <bool is_xs_from_right, typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iterator ys, Iterator ys_last,
                                                                Compare comp) {
-    SAYHISORT_PERF_TRACE("MergeWithoutBuf");
     while (true) {
         // Seek xs so that xs[0] > ys[0]
         xs = BinarySearch<is_xs_from_right>(xs, ys, ys, comp);
@@ -356,7 +353,6 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iter
 template <typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator blocks, diff_t<Iterator> num_blocks,
                                                    diff_t<Iterator> block_len, Compare comp) {
-    SAYHISORT_PERF_TRACE("Interleave");
     // Algorithm similar to wikisort's block movement
     // https://github.com/BonzaiThePenguin/WikiSort/blob/master/Chapter%203.%20In-Place.md
     //
@@ -724,6 +720,7 @@ template <bool has_buf, bool forward, typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, diff_t<Iterator> seq_len,
                                             SequenceDivider<diff_t<Iterator>, forward> seq_div,
                                             BlockingParam<diff_t<Iterator>> p, Compare comp) {
+    SAYHISORT_PERF_TRACE("MergeOneLevel");
     diff_t<Iterator> residual_len = p.first_block_len;
     do {
         bool lseq_decr = seq_div.Next();
@@ -1031,6 +1028,7 @@ SAYHISORT_CONSTEXPR_SWAP void ShellSort(Iterator data, diff_t<Iterator> len, Com
 template <typename Iterator, typename Compare>
 SAYHISORT_CONSTEXPR_SWAP diff_t<Iterator> CollectKeys(Iterator first, Iterator last, diff_t<Iterator> num_desired_keys,
                                                       Compare comp) {
+    SAYHISORT_PERF_TRACE("CollectKeys");
     Iterator keys = first;
     Iterator keys_last = first + 1;
     Iterator cur = first + 1;

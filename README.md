@@ -14,7 +14,7 @@ It's header-only C++ library, so just including `sayhisort.h` is fine. You can a
 
 ## Benchmark
 
-TODO: benchmark with other libs and show result
+TODO: Take comprehensive data and show result. Benchmark code is now working.
 
 ## Similar projects
 
@@ -26,24 +26,18 @@ TODO: benchmark with other libs and show result
 
 ## Algorithm detail
 
-Whereas all algorithm code is written by the author, many ideas are given from others' research and implementation.
-
 It's the variant of block merge sort that
 
 * search (approximately) 2√N unique keys for imitation buffer and data buffer at first, and
 * alternately apply left-to-right merge and right-to-left merge to skip needless buffer movement, if data buffer is available.
 
-NOTE: The following documentation isn't complete and polished.
+While all algorithm code is written by the author, many ideas are given from others' research and implementation.
 
 ### Searching unique keys
 
-This phase's overhead heavily depends on input data. When the data has unique keys slight less that 2√N, it performs worst.
+This phase's overhead heavily depends on input data. If the data has unique keys slightly less that 2√N, it performs worst.
 
-(TODO: Some unrolling experiment didn't show improvement.)
-
-(TODO: Discuss that skipping equal keys doesn't improve worst case.)
-
-(TODO: Discuss trade-off btw multi-phase collection.)
+Though it's hard to eliminate the bottleneck with no auxiliary buffer, only marginal performance drop is observed. On the `SqrtKey` benchmark, sayhisort still performs par to `std::stable_sort` and outperforms other block merge sort implementations.
 
 ### Sorting blocks
 
@@ -57,40 +51,42 @@ The algorithm is quite basic on block merge sort. The author tried moving blocks
 
 This phase is the largest bottleneck.
 
-For the case buffer is available, basically textbook merge algorithm is used. Current implementation applies [cross merge](https://github.com/scandum/quadsort#cross-merge) technique for optimization.
+For the case data buffer is available, basically textbook merge algorithm is used. Current implementation applies [cross merge](https://github.com/scandum/quadsort#cross-merge) technique for optimization.
 
 Some adaptive merge logic can significantly improve performance, since the length of two sequences `xs` and `ys` can differ. Depending on data, `ys` can be much longer than `xs`.
 
-For buffer-less case, the algorithm repeats the following procedure to merge sequences `xs` and `ys`:
+When the data buffer isn't available, in-place merge algorithm is required. The algorithm repeats the following procedure to merge sequences `xs` and `ys`:
 
 * find the index `i` such that `xs[i] > ys[0]` by binary searching `xs`
 * find the index `j` such in `xs[i] <= ys[j]` by binary searching `ys`, and
 * rotate `xs[i:]` and `ys[:j]`.
 
-To the author's best knowledge, there's no room of improvement here.
+The computational complexity is still linear, since the algorithm is used only if the number of unique keys is small. In practice, however, in-place merge algorithm is slower than standard one. Sayhisort avoids any auxiliary buffer, so it resorts to in-place merge in many case. This weakpoint is observed in `RandomFew` benchmark.
 
 ### Sorting short sequences
 
 This phase takes non-neglible time, but anyway it takes only O(N) time.
 
-When the sequence length is less than or equals to 8, odd-even sort is used. (Don't confuse with Batcher's odd-even merge sort.) It's stable and friendly to superscalar execution.
+When the sequence length is less than or equals to 8, odd-even sort is used. (Don't confuse with Batcher's odd-even merge sort.) It's stable and parallelizable by superscalar execution.
 
-The loop calling odd-even sort is optimized to reduce overhead of dispatching specialized odd-even sort routines. Further optimization likely bloats-up inlined code size, so the author is reluctant to explore this direction.
+The loop calling odd-even sort is optimized to reduce overhead of dispatching specialized odd-even sort routines. The author is relucutant to further optimization, because it likely bloats up inlined code size.
 
 ### Sorting unique keys
 
 This phase takes negligible time, so it isn't worth of micro-optimization. Let K be the number of unique keys collected, which is at most 2√N.
 
-To de-interleave imitation buffer, bin-sorting is used if data buffer can be used as a auxiliary space. Otherwise novel O(K logK) algorithm is used, that iteratively rotate skewed parts. See comments of `DeinterleaveImitation` for detail.
+To de-interleave imitation buffer, bin-sorting is used if the data buffer can be used as a auxiliary space. Otherwise novel O(K logK) algorithm is used, that iteratively rotate skewed parts. See comments of `DeinterleaveImitation` for detail.
 
-For sorting data buffer, ShellSort with [Ciura's gap sequence](https://en.wikipedia.org/wiki/Shellsort#Computational_complexity) is used. I's very fast in practice. From theoretical viewpoint, time complexity is O(N) even if ShellSort were O(K^2). Actual worst-case time complexity is likely much better.
+The data buffer is sorted by ShellSort, using [Ciura's gap sequence](https://en.wikipedia.org/wiki/Shellsort#Computational_complexity). It's very fast in practice. From theoretical viewpoint, time complexity is O(N) even if ShellSort were O(K^2). Actual worst-case time complexity is likely much better.
 
 ### Rotation sub-algorithm
 
-Uses [Helix rotation](https://github.com/scandum/rotate#helix-rotation) for large data, because of it's simple control flow and cache friendliness. Switches to triple reversal when data becomes small, to avoid integer modulo operation in Helix rotation.
-
-Though some improvement might be possible, significant speed-up is seemingly difficult.
+Uses [Helix rotation](https://github.com/scandum/rotate#helix-rotation) for large data, because of it's simple control flow and memory access friendly to cache memory. Switches to triple reversal when data becomes small, to avoid integer modulo operation in Helix rotation.
 
 ### Binary search sub-algorithm
 
-[Monobound binary search](https://github.com/scandum/binary_search). Information theoretically, the number of comparison to identify an item from N choices is at most `ceil(log2(N))`. The algorithm always performs this fixed number of comparisons. Though one comparison is redundant, friendliness to CPU pipeline likely wins.
+Uses [monobound binary search](https://github.com/scandum/binary_search). In general, the number of comparison to identify an item from N choices is at most `ceil(log2(N))`. The algorithm always performs this fixed number of comparisons. Though there maybe a redundant computation, branch prediction improvement certainly wins.
+
+### Optimizal sequence division
+
+TODO: write this

@@ -16,6 +16,7 @@ void Equal(uint64_t* p, uint64_t n, std::mt19937_64& gen);
 void Jittered(uint64_t* p, uint64_t n, std::mt19937_64& gen);
 void MostlyEqual(uint64_t* p, uint64_t n, std::mt19937_64& gen);
 void Append(uint64_t* p, uint64_t n, std::mt19937_64& gen);
+void SqrtKeys(uint64_t* p, uint64_t n, std::mt19937_64& gen);
 
 }  // namespace sayhisort::test
 

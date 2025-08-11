@@ -1,7 +1,5 @@
 #include "sayhisort_profile_util.h"
-#define SAYHISORT_DISABLE_PROFILE
 #include "sayhisort.h"
-#undef SAYHISORT_DISABLE_PROFILE
 
 #include <algorithm>
 #include <array>
@@ -33,7 +31,7 @@ int main() {
         BENCHDATA(Random),          BENCHDATA(RandomFew), BENCHDATA(MostlyDescending),
         BENCHDATA(MostlyAscending), BENCHDATA(Ascending), BENCHDATA(Descending),
         BENCHDATA(Equal),           BENCHDATA(Jittered),  BENCHDATA(MostlyEqual),
-        BENCHDATA(Append),
+        BENCHDATA(Append),          BENCHDATA(SqrtKeys),
     };
 
     std::vector<uint64_t> data(kSize);
