@@ -26,7 +26,7 @@ TODO: Take comprehensive data and show result. Benchmark code is now working.
 
 ## Algorithm detail
 
-It's the variant of block merge sort that
+It's the variant of bottom-up block merge sort that
 
 * search (approximately) 2√N unique keys for imitation buffer and data buffer at first, and
 * alternately apply left-to-right merge and right-to-left merge to skip needless buffer movement, if data buffer is available.
@@ -37,7 +37,7 @@ While all algorithm code is written by the author, many ideas are given from oth
 
 This phase's overhead heavily depends on input data. If the data has unique keys slightly less that 2√N, it performs worst.
 
-Though it's hard to eliminate the bottleneck with no auxiliary buffer, only marginal performance drop is observed. On the `SqrtKey` benchmark, sayhisort still performs par to `std::stable_sort` and outperforms other block merge sort implementations.
+Though it's hard to eliminate the bottleneck with no auxiliary buffer, only marginal performance drop is observed. On the `SqrtKey` benchmark, SayhiSort still performs par to `std::stable_sort` and outperforms other block merge sort implementations.
 
 ### Sorting blocks
 
@@ -45,7 +45,7 @@ This phase also takes quite noticeable time.
 
 Each of two sequences to merge, those length is len, are divided at most `sqrt(len) / sqrt(2)` blocks. The blocks are merged in-place by the algorithm based on selection-sort. The merge algorithm is similar to basic one used in merge sort, but it uses selection sort to search the smallest block in the left sequence.
 
-The algorithm is quite basic on block merge sort. The author tried moving blocks' first elements to buffer space to improve data locality, but performance had degraded. At now there is no idea for further speed-up.
+The algorithm is quite basic on block merge sort. Though some micro-optimizations were tried, the result had been inconclusive. Seemingly complex code is harmful due to register pressure. At now there is no idea for further speed-up.
 
 ### Merge algorithm
 
@@ -87,6 +87,8 @@ Uses [Helix rotation](https://github.com/scandum/rotate#helix-rotation) for larg
 
 Uses [monobound binary search](https://github.com/scandum/binary_search). In general, the number of comparison to identify an item from N choices is at most `ceil(log2(N))`. The algorithm always performs this fixed number of comparisons. Though there maybe a redundant computation, branch prediction improvement certainly wins.
 
-### Optimizal sequence division
+### Optimal sequence division
 
-TODO: write this
+Sequences are divided as evenly as possible if the input length is non-power-of-2. In principle, the length of sequences is treated as a rational number. Actual implementation uses bit operations for the sake of efficiency. The author knew this technique from [WikiSort](https://github.com/BonzaiThePenguin/WikiSort/blob/master/Chapter%202.%20Merging.md).
+
+Sequences are evenly divided following 
