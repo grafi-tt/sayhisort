@@ -18,11 +18,19 @@ TODO: Take comprehensive data and show result. Benchmark code is now working.
 
 ## Similar projects
 
+### Block merge sort
+
+* https://github.com/BonzaiThePenguin/WikiSort/
+* https://github.com/scandum/octosort
 * https://github.com/HolyGrailSortProject/Rewritten-Grailsort
 * https://github.com/HolyGrailSortProject/Holy-Grailsort
 * https://github.com/ecstatic-morse/MrrlSort/
-* https://github.com/BonzaiThePenguin/WikiSort/
-* https://github.com/scandum/octosort
+
+### Other fast in-place and stable sort
+
+* https://github.com/aphitorite/Logsort
+
+  Quicksort with stable partitioning. IIUC it's worst-case time complexity is O(N^2) due to simple pivot selection. It's partioning algorithm, which assigns bits to sequences' arrangement, is still very elegant.
 
 ## Algorithm detail
 
@@ -90,5 +98,3 @@ Uses [monobound binary search](https://github.com/scandum/binary_search). In gen
 ### Optimal sequence division
 
 Sequences are divided as evenly as possible if the input length is non-power-of-2. In principle, the length of sequences is treated as a rational number. Actual implementation uses bit operations for the sake of efficiency. The author knew this technique from [WikiSort](https://github.com/BonzaiThePenguin/WikiSort/blob/master/Chapter%202.%20Merging.md).
-
-Sequences are evenly divided following 
