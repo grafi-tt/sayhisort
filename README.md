@@ -81,7 +81,7 @@ The loop dispatching specialized odd-even sort function is heavily optimized. Th
 
 ### Sorting unique keys
 
-Its compuation is negligible at now, so it isn't worth of micro-optimization.
+It's negligible at now, so isn't worth of micro-optimization.
 
 To de-interleave imitation buffer, bin-sorting is used if the data buffer can be used as a auxiliary space. Otherwise novel O(K logK) algorithm is used, where K is the number of unique keys collected. This algorithm iteratively rotate skewed parts. See [comments](https://github.com/grafi-tt/sayhisort/blob/1a5833f27aaeeb9c463a971ceabd35f51af4c9a9/sayhisort.h#L476-L485) for detail.
 
