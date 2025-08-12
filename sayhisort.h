@@ -351,7 +351,7 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iter
  * @param comp
  */
 template <typename Iterator, typename Compare>
-SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator blocks, diff_t<Iterator> num_blocks,
+SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator blocks, diff_t<Iterator> imit_len,
                                                    diff_t<Iterator> block_len, Compare comp) {
     // Algorithm similar to wikisort's block movement
     // https://github.com/BonzaiThePenguin/WikiSort/blob/master/Chapter%203.%20In-Place.md
@@ -361,7 +361,7 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
     // We pick the least block `least_left` from `left_permuted` by linear search.
     // Then we compare `least_left` with `right[0]`, and swap the selected block for
     // `left_permuted[0]`.
-    if (num_blocks == 0) {
+    if (imit_len == 0) {
         return imit;
     }
 
@@ -376,15 +376,14 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
     };
 
     Iterator left_keys = imit;
-    Iterator right_keys = imit + num_blocks / 2;
+    Iterator right_keys = imit + imit_len / 2;
     Iterator left_blocks = blocks;
-    Iterator right_blocks = left_blocks + num_blocks / 2 * block_len;
+    Iterator right_blocks = left_blocks + imit_len / 2 * block_len;
 
     Iterator least_left_key = left_keys;
     Iterator least_left_block = left_blocks;
-
     Iterator least_right_key = right_keys;
-    Iterator last_right_key = right_keys + num_blocks / 2;
+    Iterator last_right_key = right_keys + imit_len / 2;
 
     while (true) {
         if (right_keys == last_right_key || !comp(*right_blocks, *least_left_block)) {
@@ -399,14 +398,13 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
 
             least_left_key = left_keys;
             least_left_block = left_blocks;
-
             if (right_keys != least_right_key) {  // skip searching if left keys aren't permuted
                 for (Iterator key = left_keys + 1; key < right_keys; ++key) {
                     if (comp(*key, *least_left_key)) {
                         least_left_key = key;
                     }
                 }
-                least_left_block = left_blocks + (least_left_key - left_keys) * block_len;
+                least_left_block += (least_left_key - left_keys) * block_len;
             }
 
         } else {
@@ -420,6 +418,7 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
             if (right_keys == least_right_key) {
                 least_right_key = left_keys;
             }
+
             ++left_keys;
             ++right_keys;
             left_blocks += block_len;
