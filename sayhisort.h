@@ -344,8 +344,8 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iter
  * @param imit
  * @param blocks
  *   @pre [imit, imit + num_blocks) and [blocks, bloks + num_blocks * block_len) are non-overlapping
- * @param num_blocks
- *   @pre num_blocks is non-negative
+ * @param imit_len
+ *   @pre imit_len is a positive multiple of 2
  * @param block_len
  *   @pre block_len is positive
  * @param comp
@@ -361,10 +361,6 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
     // We pick the least block `least_left` from `left_permuted` by linear search.
     // Then we compare `least_left` with `right[0]`, and swap the selected block for
     // `left_permuted[0]`.
-    if (imit_len == 0) {
-        return imit;
-    }
-
     auto swapBlock = [block_len](Iterator a, Iterator b) {
         if (a == b) {
             return;
@@ -383,6 +379,7 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
     Iterator least_left_key = left_keys;
     Iterator least_left_block = left_blocks;
     Iterator least_right_key = right_keys;
+    Iterator orig_right_key = right_keys;
     Iterator last_right_key = right_keys + imit_len / 2;
 
     while (true) {
@@ -398,14 +395,12 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
 
             least_left_key = left_keys;
             least_left_block = left_blocks;
-            if (right_keys != least_right_key) {  // skip searching if left keys aren't permuted
-                for (Iterator key = left_keys + 1; key < right_keys; ++key) {
-                    if (comp(*key, *least_left_key)) {
-                        least_left_key = key;
-                    }
+            for (Iterator key = left_keys < orig_right_key ? orig_right_key : left_keys + 1; key < right_keys; ++key) {
+                if (comp(*key, *least_left_key)) {
+                    least_left_key = key;
                 }
-                least_left_block += (least_left_key - left_keys) * block_len;
             }
+            least_left_block += (least_left_key - left_keys) * block_len;
 
         } else {
             swap(*left_keys, *right_keys);
@@ -635,7 +630,8 @@ SAYHISORT_CONSTEXPR_SWAP void MergeBlocking(Iterator imit, Iterator& buf, Iterat
                                             BlockingParam<diff_t<Iterator>> p, Compare comp) {
     // Skip interleaving the first block and the last one, those may have shorter length.
     diff_t<Iterator> imit_len = p.num_blocks - 2;
-    Iterator mid_key = InterleaveBlocks(imit, blocks + p.first_block_len, imit_len, p.block_len, comp);
+    Iterator mid_key =
+        imit_len == 0 ? imit : InterleaveBlocks(imit, blocks + p.first_block_len, imit_len, p.block_len, comp);
 
     MergeAdjacentBlocks<has_buf>(imit, buf, blocks, p, mid_key, comp);
     if (!imit_len) {
