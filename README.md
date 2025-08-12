@@ -43,21 +43,21 @@ While all algorithm code is written by the author, many ideas are given from oth
 
 ### Searching unique keys
 
-This phase's overhead heavily depends on input data. If the data has unique keys slightly less that 2√N, it performs worst.
+Its overhead heavily depends on input data. If the data has unique keys slightly less that 2√N, it performs worst.
 
 Though it's hard to eliminate the bottleneck with no auxiliary buffer, only marginal performance drop is observed. On the `SqrtKey` benchmark, SayhiSort still performs par to `std::stable_sort` and outperforms other block merge sort implementations.
 
 ### Sorting blocks
 
-This phase also takes quite noticeable time.
+It takes quite noticeable time.
 
 Each of two sequences to merge, those length is len, are divided at most `sqrt(len) / sqrt(2)` blocks. The blocks are merged in-place by the algorithm based on selection-sort. The merge algorithm is similar to basic one used in merge sort, but it uses selection sort to search the smallest block in the left sequence.
 
 The algorithm is quite basic on block merge sort. Though some micro-optimizations were tried, the result had been inconclusive. Seemingly complex code is harmful due to register pressure. At now there is no idea for further speed-up.
 
-### Merge algorithm
+### Merging blocks
 
-This phase is the largest bottleneck.
+It's the most time-consuming routine.
 
 For the case data buffer is available, basically textbook merge algorithm is used. Current implementation applies [cross merge](https://github.com/scandum/quadsort#cross-merge) technique for optimization.
 
@@ -73,28 +73,28 @@ The computational complexity is still linear, since the algorithm is used only i
 
 ### Sorting short sequences
 
-This phase takes non-neglible time, but anyway it takes only O(N) time.
+It takes small but non-negligible time.
 
-When the sequence length is less than or equals to 8, odd-even sort is used. (Don't confuse with Batcher's odd-even merge sort.) It's stable and parallelizable by superscalar execution.
+When the sequence length is less than or equals to 8, odd-even sort is used. It's stable and parallelizable by superscalar execution.
 
-The loop calling odd-even sort is optimized to reduce overhead of dispatching specialized odd-even sort routines. The author is relucutant to further optimization, because it likely bloats up inlined code size.
+The loop dispatching specialized odd-even sort function is heavily optimized. The author is reluctant to further optimization, because it likely bloats up inlined code size.
 
 ### Sorting unique keys
 
-This phase takes negligible time, so it isn't worth of micro-optimization. Let K be the number of unique keys collected, which is at most 2√N.
+Its compuation is negligible at now, so it isn't worth of micro-optimization.
 
-To de-interleave imitation buffer, bin-sorting is used if the data buffer can be used as a auxiliary space. Otherwise novel O(K logK) algorithm is used, that iteratively rotate skewed parts. See comments of `DeinterleaveImitation` for detail.
+To de-interleave imitation buffer, bin-sorting is used if the data buffer can be used as a auxiliary space. Otherwise novel O(K logK) algorithm is used, where K is the number of unique keys collected. This algorithm iteratively rotate skewed parts. See [comments](https://github.com/grafi-tt/sayhisort/blob/1a5833f27aaeeb9c463a971ceabd35f51af4c9a9/sayhisort.h#L476-L485) for detail.
 
-The data buffer is sorted by ShellSort, using [Ciura's gap sequence](https://en.wikipedia.org/wiki/Shellsort#Computational_complexity). It's very fast in practice. From theoretical viewpoint, time complexity is O(N) even if ShellSort were O(K^2). Actual worst-case time complexity is likely much better.
+The data buffer is sorted by ShellSort with [Ciura's gap sequence](https://en.wikipedia.org/wiki/Shellsort#Computational_complexity), which is very fast in practice. From theoretical viewpoint, time complexity is O(N) even if ShellSort were O(K^2). Actual worst-case time complexity is likely much better.
 
 ### Rotation sub-algorithm
 
-Uses [Helix rotation](https://github.com/scandum/rotate#helix-rotation) for large data, because of it's simple control flow and memory access friendly to cache memory. Switches to triple reversal when data becomes small, to avoid integer modulo operation in Helix rotation.
+Uses [Helix rotation](https://github.com/scandum/rotate#helix-rotation) for large data, because of it's simple control flow and memory cache memory friendliness. Switches to triple reversal when data becomes small, to avoid integer modulo operation in Helix rotation.
 
 ### Binary search sub-algorithm
 
-Uses [monobound binary search](https://github.com/scandum/binary_search). In general, the number of comparison to identify an item from N choices is at most `ceil(log2(N))`. The algorithm always performs this fixed number of comparisons. Though there maybe a redundant computation, branch prediction improvement certainly wins.
+Uses [monobound binary search](https://github.com/scandum/binary_search). In general, the number of comparison to identify an item from N choices is at most ceil(log2(N)). It always performs this fixed number of comparisons. Though there maybe a redundant comparison, branch prediction improvement certainly wins.
 
 ### Optimal sequence division
 
-Sequences are divided as evenly as possible if the input length is non-power-of-2. In principle, the length of sequences is treated as a rational number. Actual implementation uses bit operations for the sake of efficiency. The author knew this technique from [WikiSort](https://github.com/BonzaiThePenguin/WikiSort/blob/master/Chapter%202.%20Merging.md).
+Data are divided to sequences as evenly as possible if the input length is non-power-of-2. In principle, the length of each sequence is treated as a rational number. Actual implementation uses bit operations for the sake of efficiency. The author knew this technique from [WikiSort](https://github.com/BonzaiThePenguin/WikiSort/blob/master/Chapter%202.%20Merging.md).
