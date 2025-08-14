@@ -1,19 +1,17 @@
 #ifndef SAYHISORT_H
 #define SAYHISORT_H
 
-// just for  __cpp_lib_constexpr_algorithms macro
 #include <algorithm>
+#include <functional>
+#include <iterator>
+#include <type_traits>
+#include <utility>
 
 #if __cpp_lib_constexpr_algorithms >= 201806L
 #define SAYHISORT_CONSTEXPR_SWAP constexpr
 #else
 #define SAYHISORT_CONSTEXPR_SWAP
 #endif
-
-#include <functional>
-#include <iterator>
-#include <type_traits>
-#include <utility>
 
 #ifndef SAYHISORT_PERF_TRACE
 #define SAYHISORT_PERF_TRACE(...)
@@ -25,10 +23,100 @@ namespace sayhisort {
 namespace detail {
 namespace {
 
-template <typename Iterator>
-using diff_t = typename std::iterator_traits<Iterator>::difference_type;
+using ::std::iter_swap;
 
-using std::swap;
+template <typename Iterator>
+struct ReversedIterator {
+    using difference_type = typename ::std::iterator_traits<Iterator>::difference_type;
+    using value_type = typename ::std::iterator_traits<Iterator>::value_type;
+    using pointer = typename ::std::iterator_traits<Iterator>::pointer;
+    using reference = typename ::std::iterator_traits<Iterator>::reference;
+    using iterator_category = typename ::std::iterator_traits<Iterator>::iterator_category;
+
+    Iterator base;
+
+    constexpr ReversedIterator& operator++() {
+        --base;
+        return *this;
+    }
+    constexpr ReversedIterator& operator--() {
+        ++base;
+        return *this;
+    }
+    constexpr ReversedIterator& operator+=(difference_type d) {
+        base -= d;
+        return *this;
+    }
+    constexpr ReversedIterator& operator-=(difference_type d) {
+        base += d;
+        return *this;
+    }
+
+    constexpr ReversedIterator operator++(int) { return ReversedIterator{base--}; }
+    constexpr ReversedIterator operator--(int) { return ReversedIterator{base++}; }
+    constexpr ReversedIterator operator+(difference_type d) const { return ReversedIterator{base - d}; }
+    constexpr ReversedIterator operator-(difference_type d) const { return ReversedIterator{base + d}; }
+
+    constexpr reference operator*() const {
+        Iterator tmp = base;
+        return *--tmp;
+    }
+    constexpr pointer operator->() const {
+        Iterator tmp = base;
+        if constexpr (::std::is_pointer_v<Iterator>) {
+            return --tmp;
+        } else {
+            return (--tmp).operator->();
+        }
+    }
+    constexpr reference operator[](difference_type d) const { return base[-d - 1]; }
+
+    constexpr friend ReversedIterator operator+(difference_type d, ReversedIterator a) { return a + d; }
+    constexpr friend difference_type operator-(ReversedIterator a, ReversedIterator b) { return b.base - a.base; }
+
+    constexpr friend bool operator==(ReversedIterator a, ReversedIterator b) { return a.base == b.base; }
+    constexpr friend bool operator!=(ReversedIterator a, ReversedIterator b) { return a.base != b.base; }
+    constexpr friend bool operator<(ReversedIterator a, ReversedIterator b) { return a.base > b.base; }
+    constexpr friend bool operator<=(ReversedIterator a, ReversedIterator b) { return a.base >= b.base; }
+    constexpr friend bool operator>(ReversedIterator a, ReversedIterator b) { return a.base < b.base; }
+    constexpr friend bool operator>=(ReversedIterator a, ReversedIterator b) { return a.base <= b.base; }
+
+private:
+    friend void iter_swap(ReversedIterator a, ReversedIterator b) {
+        iter_swap(--a.base, --b.base);
+    }
+};
+
+template <typename Iterator>
+ReversedIterator(Iterator) -> ReversedIterator<Iterator>;
+
+template <bool strict = true, typename Iterator, typename Compare, typename Projection>
+constexpr bool IterComp(Iterator a, Iterator b, Compare comp, Projection proj) {
+    if constexpr (strict) {
+        return comp(proj(*a), proj(*b));
+    } else {
+        return !comp(proj(*b), proj(*a));
+    }
+}
+
+template <bool strict = true, typename Iterator, typename Compare, typename Projection>
+constexpr bool IterComp(ReversedIterator<Iterator> a, ReversedIterator<Iterator> b, Compare comp, Projection proj) {
+    if constexpr (strict) {
+        return comp(proj(*b), proj(*a));
+    } else {
+        return !comp(proj(*a), proj(*b));
+    }
+}
+
+template <typename Iterator>
+using diff_t = typename ::std::iterator_traits<Iterator>::difference_type;
+
+struct IdentityProj {
+    template <typename T>
+    constexpr T&& operator()(T&& a) noexcept {
+        return ::std::forward<T>(a);
+    }
+};
 
 //
 // Utilities
@@ -101,7 +189,7 @@ SAYHISORT_CONSTEXPR_SWAP void Rotate(Iterator first, Iterator middle, Iterator l
         if (l_len <= r_len) {
             diff_t<Iterator> rem = r_len % l_len;
             do {
-                swap(*first++, *middle++);
+                iter_swap(first++, middle++);
             } while (middle != last);
             if (!rem) {
                 return;
@@ -113,7 +201,7 @@ SAYHISORT_CONSTEXPR_SWAP void Rotate(Iterator first, Iterator middle, Iterator l
         } else {
             diff_t<Iterator> rem = l_len % r_len;
             do {
-                swap(*--last, *--middle);
+                iter_swap(--last, --middle);
             } while (middle != first);
             if (!rem) {
                 return;
@@ -130,13 +218,13 @@ SAYHISORT_CONSTEXPR_SWAP void Rotate(Iterator first, Iterator middle, Iterator l
     Iterator m = middle;
     Iterator l = last;
     while (f < --m) {
-        swap(*f++, *m);
+        iter_swap(f++, m);
     }
     while (middle < --l) {
-        swap(*middle++, *l);
+        iter_swap(middle++, l);
     }
     while (first < --last) {
-        swap(*first++, *last);
+        iter_swap(first++, last);
     }
 }
 
@@ -147,29 +235,21 @@ SAYHISORT_CONSTEXPR_SWAP void Rotate(Iterator first, Iterator middle, Iterator l
  *   @pre first < last
  * @param last
  * @return pos
- *   @post If strict=true:  for any x in [first, last),  comp(*x, *key) iff x < pos
- *   @post If strict=false: for any x in [first, last), !comp(*key, *x) iff x < pos
+ *   @post If strict=true:  for any x in [first, last),  comp(proj(*x), proj(*key)) iff x < pos
+ *   @post If strict=false: for any x in [first, last), !comp(proj(*key), proj(*x)) iff x < pos
  */
-template <bool strict, typename Iterator, typename Compare>
-constexpr Iterator BinarySearch(Iterator first, Iterator last, Iterator key, Compare comp) {
+template <bool strict, typename Iterator, typename Compare, typename Projection>
+constexpr Iterator BinarySearch(Iterator first, Iterator last, Iterator key, Compare comp, Projection proj) {
     // So-called monobound binary search
     // The algorithm statically determines how many times the loop body runs, so that CPU pipeline becomes happier
     // See https://github.com/scandum/binary_search for idea
-    auto pred = [&comp, &key](Iterator p) {
-        if constexpr (strict) {
-            return comp(*p, *key);
-        } else {
-            return !comp(*key, *p);
-        }
-    };
-
     Iterator base = first;
     diff_t<Iterator> len = last - first + 1;
     diff_t<Iterator> mid{};
 
     while ((mid = len / 2)) {
         Iterator pivot = base + mid;
-        if (pred(pivot - 1)) {
+        if (IterComp<strict>(pivot - 1, key, comp, proj)) {
             base = pivot;
         }
         len -= mid;
@@ -211,25 +291,17 @@ struct MergeResult {
  *
  * @note The implementation actually works if xs or ys is empty, but the behaviour shall not be depended on.
  */
-template <bool is_xs_from_right, typename Iterator, typename Compare>
+template <bool is_xs_from_right, typename Iterator, typename Compare, typename Projection>
 SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Iterator xs, Iterator ys, Iterator ys_last,
-                                                            Compare comp) {
-    auto is_x_selected = [&comp](decltype(xs[0]) x, decltype(ys[0]) y) {
-        if constexpr (is_xs_from_right) {
-            return comp(x, y);
-        } else {
-            return !comp(y, x);
-        }
-    };
-
+                                                            Compare comp, Projection proj) {
     Iterator xs_last = ys;
 
 #if 0
     while (xs < xs_last && ys < ys_last) {
-        if (is_x_selected(xs[0], ys[0])) {
-            swap(*buf++, *xs++);
+        if (IterComp<is_xs_from_right>(xs, ys, comp, proj)) {
+            iter_swap(buf++, xs++);
         } else {
-            swap(*buf++, *ys++);
+            iter_swap(buf++, ys++);
         }
     }
     bool xs_consumed = xs == xs_last;
@@ -237,16 +309,16 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Itera
     // So-called cross merge optimization is applied
     // See https://github.com/scandum/quadsort#cross-merge for idea
     while (xs < xs_last - 1 && ys < ys_last - 1) {
-        if (is_x_selected(xs[1], ys[0])) {
-            swap(*buf++, *xs++);
-            swap(*buf++, *xs++);
-        } else if (!is_x_selected(xs[0], ys[1])) {
-            swap(*buf++, *ys++);
-            swap(*buf++, *ys++);
+        if (IterComp<is_xs_from_right>(xs + 1, ys, comp, proj)) {
+            iter_swap(buf++, xs++);
+            iter_swap(buf++, xs++);
+        } else if (!IterComp<is_xs_from_right>(xs, ys + 1, comp, proj)) {
+            iter_swap(buf++, ys++);
+            iter_swap(buf++, ys++);
         } else {
-            bool y_pos = is_x_selected(xs[0], ys[0]);
-            swap(buf[!y_pos], *xs++);
-            swap(buf[y_pos], *ys++);
+            bool y_pos = IterComp<is_xs_from_right>(xs, ys, comp, proj);
+            iter_swap(buf + !y_pos, xs++);
+            iter_swap(buf + y_pos, ys++);
             buf += 2;
         }
     }
@@ -256,23 +328,23 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Itera
     if (xs == xs_last - 1) {
         xs_consumed = false;
         do {
-            if (is_x_selected(xs[0], ys[0])) {
-                swap(*buf++, *xs++);
+            if (IterComp<is_xs_from_right>(xs, ys, comp, proj)) {
+                iter_swap(buf++, xs++);
                 xs_consumed = true;
                 break;
             }
-            swap(*buf++, *ys++);
+            iter_swap(buf++, ys++);
         } while (ys < ys_last);
 
     } else if (ys == ys_last - 1) {
         xs_consumed = true;
         do {
-            if (!is_x_selected(xs[0], ys[0])) {
-                swap(*buf++, *ys++);
+            if (!IterComp<is_xs_from_right>(xs, ys, comp, proj)) {
+                iter_swap(buf++, ys++);
                 xs_consumed = false;
                 break;
             }
-            swap(*buf++, *xs++);
+            iter_swap(buf++, xs++);
         } while (xs < xs_last);
     }
 #endif
@@ -291,7 +363,7 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Itera
     //    [ merged | buffer | buffer | left  ]
     //            buf       xs       ys    ys_last
     do {
-        swap(*--ys, *--xs_last);
+        iter_swap(--ys, --xs_last);
     } while (xs_last != xs);
     return {false, ys};
 }
@@ -313,17 +385,17 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Itera
  *       `m` and `n` are the lengthes of `xs` and `ys`, whereas `j` and `k` are
  *       the numbers of unique keys in `xs` and `ys`.
  */
-template <bool is_xs_from_right, typename Iterator, typename Compare>
-SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iterator ys, Iterator ys_last,
-                                                               Compare comp) {
+template <bool is_xs_from_right, typename Iterator, typename Compare, typename Projection>
+SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iterator ys, Iterator ys_last, Compare comp,
+                                                               Projection proj) {
     while (true) {
         // Seek xs so that xs[0] > ys[0]
-        xs = BinarySearch<is_xs_from_right>(xs, ys, ys, comp);
+        xs = BinarySearch<is_xs_from_right>(xs, ys, ys, comp, proj);
         if (xs == ys) return {true, ys};
         // Insert xs to ys
         Iterator ys_upper = ys + 1;
         if (ys_upper != ys_last) {
-            ys_upper = BinarySearch<!is_xs_from_right>(ys_upper, ys_last, xs, comp);
+            ys_upper = BinarySearch<!is_xs_from_right>(ys_upper, ys_last, xs, comp, proj);
         }
         Rotate(xs, ys, ys_upper);
         xs += ys_upper - ys;
@@ -350,9 +422,9 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iter
  *   @pre block_len is positive
  * @param comp
  */
-template <typename Iterator, typename Compare>
+template <typename Iterator, typename Compare, typename Projection>
 SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator blocks, diff_t<Iterator> imit_len,
-                                                   diff_t<Iterator> block_len, Compare comp) {
+                                                   diff_t<Iterator> block_len, Compare comp, Projection proj) {
     // Algorithm similar to wikisort's block movement
     // https://github.com/BonzaiThePenguin/WikiSort/blob/master/Chapter%203.%20In-Place.md
     //
@@ -367,7 +439,7 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
         }
         diff_t<Iterator> i = block_len;
         do {
-            swap(*a++, *b++);
+            iter_swap(a++, b++);
         } while (--i);
     };
 
@@ -383,8 +455,8 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
     Iterator last_right_key = right_keys + imit_len / 2;
 
     while (true) {
-        if (right_keys == last_right_key || !comp(*right_blocks, *least_left_block)) {
-            swap(*left_keys, *least_left_key);
+        if (right_keys == last_right_key || !IterComp(right_blocks, least_left_block, comp, proj)) {
+            iter_swap(left_keys, least_left_key);
             swapBlock(left_blocks, least_left_block);
 
             ++left_keys;
@@ -396,14 +468,14 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
             least_left_key = left_keys;
             least_left_block = left_blocks;
             for (Iterator key = left_keys < orig_right_key ? orig_right_key : left_keys + 1; key < right_keys; ++key) {
-                if (comp(*key, *least_left_key)) {
+                if (IterComp(key, least_left_key, comp, proj)) {
                     least_left_key = key;
                 }
             }
             least_left_block += (least_left_key - left_keys) * block_len;
 
         } else {
-            swap(*left_keys, *right_keys);
+            iter_swap(left_keys, right_keys);
             swapBlock(left_blocks, right_blocks);
 
             if (left_keys == least_left_key) {
@@ -435,29 +507,29 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
  * @param mid_key
  * @param comp
  */
-template <typename Iterator, typename Compare>
+template <typename Iterator, typename Compare, typename Projection>
 SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterator> imit_len, Iterator buf,
-                                                    Iterator mid_key, Compare comp) {
+                                                    Iterator mid_key, Compare comp, Projection proj) {
     // Bin-sort like algorithm based on partitioning.
     // Same algorithm founds in HolyGrailsort.
     // https://github.com/HolyGrailSortProject/Holy-Grailsort/blob/ccfcc4315c6ccafbca5f6a51886710898a06c8a1/Holy%20Grail%20Sort/Java/Summer%20Dragonfly%20et%20al.'s%20Rough%20Draft/src/holygrail/HolyGrailSort.java#L1328-L1330
-    swap(*mid_key, *buf);
+    iter_swap(mid_key, buf);
     Iterator left_cur = mid_key;
     Iterator right_cur = buf + 1;
     Iterator cur = mid_key + 1;
     mid_key = buf;
 
     while (cur != imit + imit_len) {
-        if (comp(*cur, *mid_key)) {
-            swap(*left_cur++, *cur++);
+        if (IterComp(cur, mid_key, comp, proj)) {
+            iter_swap(left_cur++, cur++);
         } else {
-            swap(*right_cur++, *cur++);
+            iter_swap(right_cur++, cur++);
         }
     }
 
     // Append right keys in `buf` to `left_cur`
     do {
-        swap(*left_cur++, *buf++);
+        iter_swap(left_cur++, buf++);
     } while (buf != right_cur);
 }
 
@@ -470,9 +542,9 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
  * @param mid_key
  * @param comp
  */
-template <typename Iterator, typename Compare>
+template <typename Iterator, typename Compare, typename Projection>
 SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterator> imit_len, Iterator mid_key,
-                                                    Compare comp) {
+                                                    Compare comp, Projection proj) {
     // We colour each key by whether they are from left or right.
     // Then we can see the imitation buffer as a sequence of runs with alternating colour.
     //
@@ -515,7 +587,7 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
         bool was_left = false;
         Iterator cur = imit;
         do {
-            bool is_left = comp(*cur, *mid_key);
+            bool is_left = IterComp(cur, mid_key, comp, proj);
             if (was_left && !is_left) {
                 rotate_runs(cur);
             }
@@ -542,9 +614,10 @@ struct BlockingParam {
     SsizeT last_block_len;
 };
 
-template <bool has_buf, typename Iterator, typename Compare>
+template <bool has_buf, typename Iterator, typename Compare, typename Projection>
 SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, Iterator blocks,
-                                                  BlockingParam<diff_t<Iterator>> p, Iterator mid_key, Compare comp) {
+                                                  BlockingParam<diff_t<Iterator>> p, Iterator mid_key, Compare comp,
+                                                  Projection proj) {
     diff_t<Iterator> num_remained_blocks = p.num_blocks;
 
     enum BlockOrigin {
@@ -561,7 +634,7 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
 
     do {
         Iterator ys_last = ys + (--num_remained_blocks ? p.block_len : p.last_block_len);
-        BlockOrigin ys_origin = (num_remained_blocks && comp(*imit++, *mid_key)) ? kLeft : kRight;
+        BlockOrigin ys_origin = (num_remained_blocks && IterComp(imit++, mid_key, comp, proj)) ? kLeft : kRight;
 
         if (ys_origin == xs_origin) {
             last_block_before_ys = ys;
@@ -577,7 +650,7 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
                     // the position `last_block_before_ys + 1`.
                     // The sequence `xs` won't be empty, since `block_len >= 2`.
                     do {
-                        swap(*buf++, *xs++);
+                        iter_swap(buf++, xs++);
                     } while (xs != last_block_before_ys + 1);
                 }
             } else {
@@ -598,15 +671,15 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
         MergeResult mr = ([&]() {
             if constexpr (has_buf) {
                 if (xs_origin == kLeft) {
-                    return MergeWithBuf<false>(buf, xs, ys, ys_last, comp);
+                    return MergeWithBuf<false>(buf, xs, ys, ys_last, comp, proj);
                 } else {
-                    return MergeWithBuf<true>(buf, xs, ys, ys_last, comp);
+                    return MergeWithBuf<true>(buf, xs, ys, ys_last, comp, proj);
                 }
             } else {
                 if (xs_origin == kLeft) {
-                    return MergeWithoutBuf<false>(xs, ys, ys_last, comp);
+                    return MergeWithoutBuf<false>(xs, ys, ys_last, comp, proj);
                 } else {
-                    return MergeWithoutBuf<true>(xs, ys, ys_last, comp);
+                    return MergeWithoutBuf<true>(xs, ys, ys_last, comp, proj);
                 }
             }
         })();
@@ -620,57 +693,34 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
 
     if constexpr (has_buf) {
         while (xs != ys) {
-            swap(*buf++, *xs++);
+            iter_swap(buf++, xs++);
         }
     }
 }
 
-template <bool has_buf, typename Iterator, typename Compare>
+template <bool has_buf, typename Iterator, typename Compare, typename Projection>
 SAYHISORT_CONSTEXPR_SWAP void MergeBlocking(Iterator imit, Iterator& buf, Iterator blocks,
-                                            BlockingParam<diff_t<Iterator>> p, Compare comp) {
+                                            BlockingParam<diff_t<Iterator>> p, Compare comp, Projection proj) {
     // Skip interleaving the first block and the last one, those may have shorter length.
     diff_t<Iterator> imit_len = p.num_blocks - 2;
     Iterator mid_key =
-        imit_len == 0 ? imit : InterleaveBlocks(imit, blocks + p.first_block_len, imit_len, p.block_len, comp);
+        imit_len == 0 ? imit : InterleaveBlocks(imit, blocks + p.first_block_len, imit_len, p.block_len, comp, proj);
 
-    MergeAdjacentBlocks<has_buf>(imit, buf, blocks, p, mid_key, comp);
+    MergeAdjacentBlocks<has_buf>(imit, buf, blocks, p, mid_key, comp, proj);
     if (!imit_len) {
         return;
     }
 
     if constexpr (has_buf) {
-        DeinterleaveImitation(imit, imit_len, buf, mid_key, comp);
+        DeinterleaveImitation(imit, imit_len, buf, mid_key, comp, proj);
     } else {
-        DeinterleaveImitation(imit, imit_len, mid_key, comp);
+        DeinterleaveImitation(imit, imit_len, mid_key, comp, proj);
     }
 }
 
 //
 // Bottom-up merge sort logics
 //
-
-template <typename Compare, bool = std::is_empty_v<Compare> && !std::is_final_v<Compare>>
-struct ReverseCompare : Compare {
-    constexpr ReverseCompare(Compare comp) : Compare(comp) {}
-
-    template <typename T>
-    constexpr bool operator()(T&& lhs, T&& rhs) {
-        return Compare::operator()(std::forward<T>(rhs), std::forward<T>(lhs));
-    }
-};
-
-template <typename Compare>
-struct ReverseCompare<Compare, false> {
-    constexpr ReverseCompare(Compare comp) : comp_{comp} {}
-
-    template <typename T>
-    constexpr bool operator()(T&& lhs, T&& rhs) {
-        return comp_(std::forward<T>(rhs), std::forward<T>(lhs));
-    }
-
-private:
-    Compare comp_;
-};
 
 /**
  * @brief Helper to evenly divide array those length may not be power of 2
@@ -711,10 +761,10 @@ struct SequenceDivider {
     SsizeT frac_counter;
 };
 
-template <bool has_buf, bool forward, typename Iterator, typename Compare>
+template <bool has_buf, bool forward, typename Iterator, typename Compare, typename Projection>
 SAYHISORT_CONSTEXPR_SWAP void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, diff_t<Iterator> seq_len,
                                             SequenceDivider<diff_t<Iterator>, forward> seq_div,
-                                            BlockingParam<diff_t<Iterator>> p, Compare comp) {
+                                            BlockingParam<diff_t<Iterator>> p, Compare comp, Projection proj) {
     SAYHISORT_PERF_TRACE("MergeOneLevel");
     diff_t<Iterator> residual_len = p.first_block_len;
     do {
@@ -725,14 +775,14 @@ SAYHISORT_CONSTEXPR_SWAP void MergeOneLevel(Iterator imit, Iterator buf, Iterato
         p.last_block_len = residual_len - rseq_decr;
 
         if constexpr (forward) {
-            MergeBlocking<has_buf>(imit, buf, data, p, comp);
+            MergeBlocking<has_buf>(imit, buf, data, p, comp, proj);
             data += merging_len;
         } else {
-            auto rev_imit = std::make_reverse_iterator(imit + p.num_blocks - 2);
-            auto rev_buf = std::make_reverse_iterator(buf);
-            auto rev_data = std::make_reverse_iterator(data);
-            MergeBlocking<has_buf>(rev_imit, rev_buf, rev_data, p, ReverseCompare{comp});
-            buf = rev_buf.base();
+            auto rev_imit = ReversedIterator{imit + p.num_blocks - 2};
+            auto rev_buf = ReversedIterator{buf};
+            auto rev_data = ReversedIterator{data};
+            MergeBlocking<has_buf>(rev_imit, rev_buf, rev_data, p, comp, proj);
+            buf = rev_buf.base;
             data -= merging_len;
         }
     } while (!seq_div.IsEnd());
@@ -752,15 +802,15 @@ SAYHISORT_CONSTEXPR_SWAP void MergeOneLevel(Iterator imit, Iterator buf, Iterato
  * @param data
  * @param comp
  */
-template <int len, typename Iterator, typename Compare, int i = 0>
-SAYHISORT_CONSTEXPR_SWAP void OddEvenSort(Iterator data, Compare comp) {
+template <int len, typename Iterator, typename Compare, typename Projection, int i = 0>
+SAYHISORT_CONSTEXPR_SWAP void OddEvenSort(Iterator data, Compare comp, Projection proj) {
     if constexpr (i < len) {
         for (diff_t<Iterator> j = i % 2; j < len - 1; j += 2) {
-            if (comp(data[j + 1], data[j])) {
-                swap(data[j], data[j + 1]);
+            if (IterComp(data + (j + 1), data + j, comp, proj)) {
+                iter_swap(data + j, data + (j + 1));
             }
         }
-        OddEvenSort<len, Iterator, Compare, i + 1>(data, comp);
+        OddEvenSort<len, Iterator, Compare, Projection, i + 1>(data, comp, proj);
     }
 }
 
@@ -773,24 +823,24 @@ SAYHISORT_CONSTEXPR_SWAP void OddEvenSort(Iterator data, Compare comp) {
  * @param seq_div
  * @param comp
  */
-template <typename Iterator, typename Compare>
+template <typename Iterator, typename Compare, typename Projection>
 SAYHISORT_CONSTEXPR_SWAP void SortLeaves(Iterator data, diff_t<Iterator> seq_len,
-                                         SequenceDivider<diff_t<Iterator>> seq_div, Compare comp) {
+                                         SequenceDivider<diff_t<Iterator>> seq_div, Compare comp, Projection proj) {
     SAYHISORT_PERF_TRACE("SortLeaves");
 #if 0
     do {
         bool decr = seq_div.Next();
         diff_t<Iterator> len = seq_len - decr;
         if (len == 4) {
-            OddEvenSort<4>(data, comp);
+            OddEvenSort<4>(data, comp, proj);
         } else if (len == 5) {
-            OddEvenSort<5>(data, comp);
+            OddEvenSort<5>(data, comp, proj);
         } else if (len == 6) {
-            OddEvenSort<6>(data, comp);
+            OddEvenSort<6>(data, comp, proj);
         } else if (len == 7) {
-            OddEvenSort<7>(data, comp);
+            OddEvenSort<7>(data, comp, proj);
         } else if (len == 8) {
-            OddEvenSort<8>(data, comp);
+            OddEvenSort<8>(data, comp, proj);
         }
         data += len;
     } while (!seq_div.IsEnd());
@@ -810,7 +860,7 @@ SAYHISORT_CONSTEXPR_SWAP void SortLeaves(Iterator data, diff_t<Iterator> seq_len
     while (true) {
         switch (dispatcher) {
             case Len4:
-                OddEvenSort<4>(data, comp);
+                OddEvenSort<4>(data, comp, proj);
                 data += 4;
                 if (seq_div.IsEnd()) {
                     return;
@@ -822,7 +872,7 @@ SAYHISORT_CONSTEXPR_SWAP void SortLeaves(Iterator data, diff_t<Iterator> seq_len
                 }
                 [[fallthrough]];
             case Len5:
-                OddEvenSort<5>(data, comp);
+                OddEvenSort<5>(data, comp, proj);
                 data += 5;
                 if (seq_div.IsEnd()) {
                     return;
@@ -838,7 +888,7 @@ SAYHISORT_CONSTEXPR_SWAP void SortLeaves(Iterator data, diff_t<Iterator> seq_len
                 }
                 [[fallthrough]];
             case Len6:
-                OddEvenSort<6>(data, comp);
+                OddEvenSort<6>(data, comp, proj);
                 data += 6;
                 if (seq_div.IsEnd()) {
                     return;
@@ -854,7 +904,7 @@ SAYHISORT_CONSTEXPR_SWAP void SortLeaves(Iterator data, diff_t<Iterator> seq_len
                 }
                 [[fallthrough]];
             case Len7:
-                OddEvenSort<7>(data, comp);
+                OddEvenSort<7>(data, comp, proj);
                 data += 7;
                 if (seq_div.IsEnd()) {
                     return;
@@ -870,7 +920,7 @@ SAYHISORT_CONSTEXPR_SWAP void SortLeaves(Iterator data, diff_t<Iterator> seq_len
                 }
                 [[fallthrough]];
             case Len8:
-                OddEvenSort<8>(data, comp);
+                OddEvenSort<8>(data, comp, proj);
                 data += 8;
                 if (seq_div.IsEnd()) {
                     return;
@@ -896,27 +946,27 @@ SAYHISORT_CONSTEXPR_SWAP void SortLeaves(Iterator data, diff_t<Iterator> seq_len
  *   @pre 0 <= len <= 8
  * @param comp
  */
-template <typename Iterator, typename Compare>
-SAYHISORT_CONSTEXPR_SWAP void Sort0To8(Iterator data, diff_t<Iterator> len, Compare comp) {
+template <typename Iterator, typename Compare, typename Projection>
+SAYHISORT_CONSTEXPR_SWAP void Sort0To8(Iterator data, diff_t<Iterator> len, Compare comp, Projection proj) {
     if (len <= 1) {
         return;
     }
     if (len <= 3) {
-        if (comp(data[1], data[0])) {
-            swap(data[0], data[1]);
+        if (IterComp(data + 1, data, comp, proj)) {
+            iter_swap(data, data + 1);
         }
         if (len == 2) {
             return;
         }
-        if (comp(data[2], data[1])) {
-            swap(data[1], data[2]);
+        if (IterComp(data + 2, data + 1, comp, proj)) {
+            iter_swap(data + 1, data + 2);
         }
-        if (comp(data[1], data[0])) {
-            swap(data[0], data[1]);
+        if (IterComp(data + 1, data, comp, proj)) {
+            iter_swap(data, data + 1);
         }
         return;
     }
-    return SortLeaves(data, len, {len, diff_t<Iterator>{0}}, comp);
+    return SortLeaves(data, len, {len, diff_t<Iterator>{0}}, comp, proj);
 }
 
 constexpr int kCiuraGaps[8] = {1, 4, 10, 23, 57, 132, 301, 701};
@@ -933,7 +983,7 @@ constexpr int kCiuraGaps[8] = {1, 4, 10, 23, 57, 132, 301, 701};
  *   @post NthShellSortGap(n) == gap
  */
 template <typename SsizeT>
-constexpr std::pair<SsizeT, SsizeT> FirstShellSortGap(SsizeT len) {
+constexpr ::std::pair<SsizeT, SsizeT> FirstShellSortGap(SsizeT len) {
     SsizeT n = 0;
     for (int j = 1; j < 8; ++j) {
         n += kCiuraGaps[j] < len;
@@ -986,18 +1036,18 @@ constexpr SsizeT NthShellSortGap(SsizeT n) {
  *   @pre len >= 2
  * @param comp
  */
-template <typename Iterator, typename Compare>
-SAYHISORT_CONSTEXPR_SWAP void ShellSort(Iterator data, diff_t<Iterator> len, Compare comp) {
+template <typename Iterator, typename Compare, typename Projection>
+SAYHISORT_CONSTEXPR_SWAP void ShellSort(Iterator data, diff_t<Iterator> len, Compare comp, Projection proj) {
     auto [gap, n] = FirstShellSortGap(len);
 
     while (true) {
         diff_t<Iterator> i = gap;
         do {
             for (diff_t<Iterator> j = i; j >= gap; j -= gap) {
-                if (!comp(data[j], data[j - gap])) {
+                if (!IterComp(data + j, data + (j - gap), comp, proj)) {
                     break;
                 }
-                swap(data[j - gap], data[j]);
+                iter_swap(data + (j - gap), data + j);
             }
         } while (++i < len);
         if (!n) {
@@ -1020,9 +1070,9 @@ SAYHISORT_CONSTEXPR_SWAP void ShellSort(Iterator data, diff_t<Iterator> len, Com
  * @param num_desired_keys
  *   @pre num_desired_keys >= 2
  */
-template <typename Iterator, typename Compare>
+template <typename Iterator, typename Compare, typename Projection>
 SAYHISORT_CONSTEXPR_SWAP diff_t<Iterator> CollectKeys(Iterator first, Iterator last, diff_t<Iterator> num_desired_keys,
-                                                      Compare comp) {
+                                                      Compare comp, Projection proj) {
     SAYHISORT_PERF_TRACE("CollectKeys");
     Iterator keys = first;
     Iterator keys_last = first + 1;
@@ -1030,8 +1080,8 @@ SAYHISORT_CONSTEXPR_SWAP diff_t<Iterator> CollectKeys(Iterator first, Iterator l
     --num_desired_keys;
 
     do {
-        Iterator inspos = BinarySearch<true>(keys, keys_last, cur, comp);
-        if (inspos == keys_last || comp(*cur, *inspos)) {
+        Iterator inspos = BinarySearch<true>(keys, keys_last, cur, comp, proj);
+        if (inspos == keys_last || IterComp(cur, inspos, comp, proj)) {
             // Rotate keys forward so that insertion works in O(num_keys)
             Rotate(keys, keys_last, cur);
             keys += cur - keys_last;
@@ -1270,11 +1320,12 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
     return {num_blocks, block_len, residual_len, residual_len};
 }
 
-template <typename Iterator, typename Compare>
-SAYHISORT_CONSTEXPR_SWAP void Sort(Iterator first, Iterator last, Compare comp) {
+template <typename Iterator, typename Compare, typename Projection>
+SAYHISORT_CONSTEXPR_SWAP Iterator Sort(Iterator first, Iterator last, Compare comp, Projection proj) {
     diff_t<Iterator> len = last - first;
     if (len <= 8) {
-        return Sort0To8(first, len, comp);
+        Sort0To8(first, len, comp, proj);
+        return last;
     }
 
     Iterator imit = first;
@@ -1288,7 +1339,7 @@ SAYHISORT_CONSTEXPR_SWAP void Sort(Iterator first, Iterator last, Compare comp) 
         //
         // As `sqrt(len) > 4`, therefore, `len - num_desired_keys > 8` holds
         diff_t<Iterator> num_desired_keys = 2 * OverApproxSqrt(len) - 2;
-        num_keys = CollectKeys(first, last, num_desired_keys, comp);
+        num_keys = CollectKeys(first, last, num_desired_keys, comp, proj);
         if (num_keys < 8) {
             imit += num_keys;
             len -= num_keys;
@@ -1303,20 +1354,20 @@ SAYHISORT_CONSTEXPR_SWAP void Sort(Iterator first, Iterator last, Compare comp) 
     MergeSortControl ctrl{num_keys, data_len};
 
     Iterator data = imit + num_keys;
-    SortLeaves(data, ctrl.seq_len, {ctrl.data_len, ctrl.log2_num_seqs}, comp);
+    SortLeaves(data, ctrl.seq_len, {ctrl.data_len, ctrl.log2_num_seqs}, comp, proj);
 
     do {
         BlockingParam p = DetermineBlocking(ctrl);
 
         if (!ctrl.buf_len) {
             MergeOneLevel<false, true>(imit, imit + ctrl.imit_len, data, ctrl.seq_len,
-                                       {ctrl.data_len, ctrl.log2_num_seqs}, p, comp);
+                                       {ctrl.data_len, ctrl.log2_num_seqs}, p, comp, proj);
         } else if (ctrl.forward) {
             MergeOneLevel<true, true>(imit, imit + ctrl.imit_len, data, ctrl.seq_len,
-                                      {ctrl.data_len, ctrl.log2_num_seqs}, p, comp);
+                                      {ctrl.data_len, ctrl.log2_num_seqs}, p, comp, proj);
         } else {
             MergeOneLevel<true, false>(imit, last, last - ctrl.buf_len, ctrl.seq_len,
-                                       {ctrl.data_len, ctrl.log2_num_seqs}, p, comp);
+                                       {ctrl.data_len, ctrl.log2_num_seqs}, p, comp, proj);
         }
 
         if (diff_t<Iterator> old_buf_len = ctrl.Next()) {
@@ -1325,31 +1376,37 @@ SAYHISORT_CONSTEXPR_SWAP void Sort(Iterator first, Iterator last, Compare comp) 
                 Iterator back_buf = last;
                 Iterator back_data = last - old_buf_len;
                 do {
-                    swap(*--back_data, *--back_buf);
+                    iter_swap(--back_data, --back_buf);
                 } while (back_data != buf);
                 ctrl.forward = true;
             }
-            ShellSort(buf, old_buf_len, comp);
-            MergeWithoutBuf<false>(imit, buf, data, comp);
+            ShellSort(buf, old_buf_len, comp, proj);
+            MergeWithoutBuf<false>(imit, buf, data, comp, proj);
         }
     } while (ctrl.log2_num_seqs);
 
     if (first != data) {
-        MergeWithoutBuf<false>(first, data, last, comp);
+        MergeWithoutBuf<false>(first, data, last, comp, proj);
     }
+    return last;
 }
 
 }  // namespace
 }  // namespace detail
 
-template <typename RandomAccessIterator>
-SAYHISORT_CONSTEXPR_SWAP void sort(RandomAccessIterator first, RandomAccessIterator last) {
-    return detail::Sort(first, last, std::less<>{});
+using ::std::begin;
+using ::std::end;
+
+template <typename RandomAccessIterator, typename Sentinel, typename Compare = ::std::less<>,
+          typename Projection = detail::IdentityProj>
+SAYHISORT_CONSTEXPR_SWAP auto sort(RandomAccessIterator first, Sentinel sentinel, Compare comp = {},
+                                   Projection proj = {}) -> decltype(first + (sentinel - first)) {
+    return detail::Sort(first, first + (sentinel - first), comp, proj);
 }
 
-template <typename RandomAccessIterator, typename Compare>
-SAYHISORT_CONSTEXPR_SWAP void sort(RandomAccessIterator first, RandomAccessIterator last, Compare comp) {
-    return detail::Sort(first, last, comp);
+template <typename Range, typename Compare = ::std::less<>, typename Projection = detail::IdentityProj>
+SAYHISORT_CONSTEXPR_SWAP auto sort(Range&& range, Compare comp = {}, Projection proj = {}) -> decltype(end(range)) {
+    return detail::Sort(begin(range), end(range), comp, proj);
 }
 
 }  // namespace sayhisort

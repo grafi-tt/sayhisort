@@ -1,5 +1,5 @@
-#include "sayhisort_profile_util.h"
 #include "sayhisort.h"
+#include "sayhisort_profile_util.h"
 
 #include <algorithm>
 #include <array>
@@ -28,7 +28,8 @@ int main() {
         #name, name                                                            \
     }
     static std::array kBenchData{
-        BENCHDATA(Random),          BENCHDATA(RandomFew), BENCHDATA(MostlyDescending),
+        BENCHDATA(Random),  
+        BENCHDATA(RandomFew), BENCHDATA(MostlyDescending),
         BENCHDATA(MostlyAscending), BENCHDATA(Ascending), BENCHDATA(Descending),
         BENCHDATA(Equal),           BENCHDATA(Jittered),  BENCHDATA(MostlyEqual),
         BENCHDATA(Append),          BENCHDATA(SqrtKeys),
@@ -59,7 +60,14 @@ int main() {
         Report(std::cout);
         PopReportIndent();
         if (data != expected) {
-            std::cout << "Result check failed!";
+            std::cout << "Result check failed!" << std::endl;
+            for (uint64_t i = 0; i < kSize; ++i) {
+                if (data[i] != expected[i]) {
+                    std::cout << "data[" << i << "]=" << data[i] << " vs "
+                              << "expected[" << i << "]=" << expected[i] << std::endl;
+                    break;
+                }
+            }
             return 1;
         }
 
@@ -72,7 +80,7 @@ int main() {
         }
         Report(std::cout, "wikisort");
         if (data != expected) {
-            std::cout << "Result check failed!";
+            std::cout << "Result check failed!" << std::endl;
             return 1;
         }
 
@@ -84,7 +92,7 @@ int main() {
         }
         Report(std::cout, "octosort");
         if (data != expected) {
-            std::cout << "Result check failed!";
+            std::cout << "Result check failed!" << std::endl;
             return 1;
         }
 
@@ -96,7 +104,7 @@ int main() {
         }
         Report(std::cout, "logsort");
         if (data != expected) {
-            std::cout << "Result check failed!";
+            std::cout << "Result check failed!" << std::endl;
             return 1;
         }
 #endif
