@@ -35,6 +35,8 @@ std::mt19937_64 GetPerTestRNG() {
     return GetRNG(seed, {suite_name, "::", test_name});
 }
 
+struct FinalLess final : public std::less<int> {};
+
 TEST(SayhiSortTest, IterComp) {
     std::vector ary{0, 1, 2};
     auto it = ary.begin();
@@ -45,8 +47,7 @@ TEST(SayhiSortTest, IterComp) {
     EXPECT_FALSE(lt_ebo(it + 1, it + 1));
     EXPECT_FALSE(lt_ebo(it + 2, it + 1));
 
-    std::function lessobj = [](int x, int y) { return x < y; };
-    IterComp lt_noebo{lessobj, VoidProj{}};
+    IterComp lt_noebo{FinalLess{}, VoidProj{}};
     static_assert(!std::is_empty_v<decltype(lt_noebo)>);
     EXPECT_TRUE(lt_noebo(it, it + 1));
     EXPECT_FALSE(lt_noebo(it + 1, it + 1));
@@ -57,6 +58,12 @@ TEST(SayhiSortTest, IterComp) {
     EXPECT_FALSE(gt_ebo(it, it + 1));
     EXPECT_FALSE(gt_ebo(it + 1, it + 1));
     EXPECT_TRUE(gt_ebo(it + 2, it + 1));
+
+    IterComp gt_noebo{FinalLess{}, [](int x) { return -x; }};
+    static_assert(!std::is_empty_v<decltype(gt_noebo)>);
+    EXPECT_FALSE(gt_noebo(it, it + 1));
+    EXPECT_FALSE(gt_noebo(it + 1, it + 1));
+    EXPECT_TRUE(gt_noebo(it + 2, it + 1));
 }
 
 TEST(SayhiSortTest, OverApproxSqrt) {

@@ -168,7 +168,7 @@ struct IterComp<Comp, VoidProj, false> : Comp {
 };
 
 template <typename Comp>
-struct IterComp<Comp, VoidProj, true> : Comp {
+struct IterComp<Comp, VoidProj, true> {
     constexpr IterComp(Comp comp, VoidProj) : comp_{comp} {}
 
     template <typename Iterator, bool strict = true>
