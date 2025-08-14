@@ -1395,7 +1395,7 @@ struct IdentityProj {
 using ::std::end;
 
 template <typename Range>
-using EndT = decltype(end(std::declval<Range>()));
+using EndT = decltype(end(::std::declval<Range>()));
 
 }  // namespace
 }  // namespace detail
