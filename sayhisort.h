@@ -1169,7 +1169,7 @@ struct MergeSortControl {
     }
 
     /**
-     * imit_len is positive and multiple of 2.
+     * imit_len is non-negative and multiple of 2.
      * imit_len + buf_len = num_keys.
      */
     SsizeT imit_len = 0;
