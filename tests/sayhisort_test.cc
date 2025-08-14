@@ -51,6 +51,12 @@ TEST(SayhiSortTest, IterComp) {
     EXPECT_TRUE(lt_noebo(it, it + 1));
     EXPECT_FALSE(lt_noebo(it + 1, it + 1));
     EXPECT_FALSE(lt_noebo(it + 2, it + 1));
+
+    IterComp gt_ebo{std::less<int>{}, [](int x) { return -x; }};
+    static_assert(std::is_empty_v<decltype(gt_ebo)>);
+    EXPECT_FALSE(gt_ebo(it, it + 1));
+    EXPECT_FALSE(gt_ebo(it + 1, it + 1));
+    EXPECT_TRUE(gt_ebo(it + 2, it + 1));
 }
 
 TEST(SayhiSortTest, OverApproxSqrt) {
