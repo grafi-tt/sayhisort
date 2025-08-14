@@ -12,7 +12,7 @@ void Random(uint64_t* p, uint64_t n, std::mt19937_64& gen) {
 }
 
 void RandomFew(uint64_t* p, uint64_t n, std::mt19937_64& gen) {
-    std::uniform_int_distribution dist{0, 99};
+    std::uniform_int_distribution dist{0, 98};
     for (uint64_t i = 0; i < n; ++i) {
         p[i] = dist(gen);
     }

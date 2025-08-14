@@ -61,13 +61,6 @@ int main() {
         PopReportIndent();
         if (data != expected) {
             std::cout << "Result check failed!" << std::endl;
-            for (uint64_t i = 0; i < kSize; ++i) {
-                if (data[i] != expected[i]) {
-                    std::cout << "data[" << i << "]=" << data[i] << " vs "
-                              << "expected[" << i << "]=" << expected[i] << std::endl;
-                    break;
-                }
-            }
             return 1;
         }
 
