@@ -795,6 +795,13 @@ TEST(SayhiSortTest, SortAPI) {
     sayhisort::sort(ary.begin(), ary.end());
     std::stable_sort(expected.begin(), expected.end());
     EXPECT_EQ(ary, expected);
+
+    std::iota(ary.begin(), ary.end(), 0);
+    std::shuffle(ary.begin(), ary.end(), rng);
+    std::copy(ary.begin(), ary.end(), expected.begin());
+    sayhisort::sort(ary);
+    std::stable_sort(expected.begin(), expected.end());
+    EXPECT_EQ(ary, expected);
 }
 
 #ifdef __GNUC__

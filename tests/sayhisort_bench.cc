@@ -28,8 +28,7 @@ int main() {
         #name, name                                                            \
     }
     static std::array kBenchData{
-        BENCHDATA(Random),  
-        BENCHDATA(RandomFew), BENCHDATA(MostlyDescending),
+        BENCHDATA(Random),          BENCHDATA(RandomFew), BENCHDATA(MostlyDescending),
         BENCHDATA(MostlyAscending), BENCHDATA(Ascending), BENCHDATA(Descending),
         BENCHDATA(Equal),           BENCHDATA(Jittered),  BENCHDATA(MostlyEqual),
         BENCHDATA(Append),          BENCHDATA(SqrtKeys),

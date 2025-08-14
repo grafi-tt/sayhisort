@@ -1,6 +1,11 @@
 #ifndef SAYHISORT_H
 #define SAYHISORT_H
 
+#ifndef SAYHISORT_PERF_TRACE
+#define SAYHISORT_PERF_TRACE(...)
+#define SAYHISORT_H_PERF_TRACE_STUB
+#endif
+
 #include <algorithm>
 #include <functional>
 #include <iterator>
@@ -11,11 +16,6 @@
 #define SAYHISORT_CONSTEXPR_SWAP constexpr
 #else
 #define SAYHISORT_CONSTEXPR_SWAP
-#endif
-
-#ifndef SAYHISORT_PERF_TRACE
-#define SAYHISORT_PERF_TRACE(...)
-#define SAYHISORT_H_PERF_TRACE_STUB
 #endif
 
 namespace sayhisort {
@@ -82,9 +82,7 @@ struct ReversedIterator {
     constexpr friend bool operator>=(ReversedIterator a, ReversedIterator b) { return a.base <= b.base; }
 
 private:
-    friend void iter_swap(ReversedIterator a, ReversedIterator b) {
-        iter_swap(--a.base, --b.base);
-    }
+    friend void iter_swap(ReversedIterator a, ReversedIterator b) { iter_swap(--a.base, --b.base); }
 };
 
 template <typename Iterator>
@@ -110,13 +108,6 @@ constexpr bool IterComp(ReversedIterator<Iterator> a, ReversedIterator<Iterator>
 
 template <typename Iterator>
 using diff_t = typename ::std::iterator_traits<Iterator>::difference_type;
-
-struct IdentityProj {
-    template <typename T>
-    constexpr T&& operator()(T&& a) noexcept {
-        return ::std::forward<T>(a);
-    }
-};
 
 //
 // Utilities
@@ -1390,11 +1381,24 @@ SAYHISORT_CONSTEXPR_SWAP Iterator Sort(Iterator first, Iterator last, Compare co
     return last;
 }
 
+//
+// range API helper
+//
+
+struct IdentityProj {
+    template <typename T>
+    constexpr T&& operator()(T&& a) noexcept {
+        return ::std::forward<T>(a);
+    }
+};
+
+using ::std::end;
+
+template <typename Range>
+using EndT = decltype(end(std::declval<Range>()));
+
 }  // namespace
 }  // namespace detail
-
-using ::std::begin;
-using ::std::end;
 
 template <typename RandomAccessIterator, typename Sentinel, typename Compare = ::std::less<>,
           typename Projection = detail::IdentityProj>
@@ -1404,7 +1408,9 @@ SAYHISORT_CONSTEXPR_SWAP auto sort(RandomAccessIterator first, Sentinel sentinel
 }
 
 template <typename Range, typename Compare = ::std::less<>, typename Projection = detail::IdentityProj>
-SAYHISORT_CONSTEXPR_SWAP auto sort(Range&& range, Compare comp = {}, Projection proj = {}) -> decltype(end(range)) {
+SAYHISORT_CONSTEXPR_SWAP auto sort(Range&& range, Compare comp = {}, Projection proj = {}) -> detail::EndT<Range> {
+    using ::std::begin;
+    using ::std::end;
     return detail::Sort(begin(range), end(range), comp, proj);
 }
 
