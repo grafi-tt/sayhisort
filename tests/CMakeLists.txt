@@ -11,10 +11,8 @@ add_test(NAME sayhisort_test COMMAND $<TARGET_FILE:sayhisort_test>)
 add_executable(
   sayhisort_cpp20_test
   sayhisort_cpp20_test.cc
-)
-target_link_libraries(
-  sayhisort_cpp20_test PRIVATE
-  sayhisort
+  sayhisort_test_util.cc
+  sayhisort_test_util.h
 )
 target_compile_features(
   sayhisort_cpp20_test PRIVATE
@@ -48,10 +46,15 @@ endif()
 
 add_subdirectory(third_party)
 
-target_link_libraries(sayhisort_bench PRIVATE sayhisort ${THIRDPARTY_BENCH_LIBS})
-
 target_link_libraries(
   sayhisort_test PRIVATE
   sayhisort
   GTest::gtest_main
 )
+target_link_libraries(
+  sayhisort_cpp20_test PRIVATE
+  sayhisort
+  GTest::gtest_main
+)
+
+target_link_libraries(sayhisort_bench PRIVATE sayhisort ${THIRDPARTY_BENCH_LIBS})

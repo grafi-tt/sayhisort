@@ -7,7 +7,6 @@
 #include <numeric>
 #include <set>
 #include <tuple>
-#include <type_traits>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -450,23 +449,6 @@ TEST(SayhiSortTest, MergeBlocking) {
     }
 }
 
-/*
-TEST(SayhiSortTest, ReverseCompare) {
-    ReverseCompare gt_ebo{std::less<int>{}};
-    static_assert(std::is_empty_v<decltype(gt_ebo)>);
-    EXPECT_FALSE(gt_ebo(1, 2));
-    EXPECT_FALSE(gt_ebo(2, 2));
-    EXPECT_TRUE(gt_ebo(3, 2));
-
-    std::function lessobj = [](int x, int y) { return x < y; };
-    ReverseCompare gt_noebo{lessobj};
-    static_assert(!std::is_empty_v<decltype(gt_noebo)>);
-    EXPECT_FALSE(gt_noebo(1, 2));
-    EXPECT_FALSE(gt_noebo(2, 2));
-    EXPECT_TRUE(gt_noebo(3, 2));
-}
-*/
-
 TEST(SayhiSortTest, MergeOneLevel) {
     BlockingParam<SsizeT> p{16, 19, 17, 17};
     SsizeT imit_len = 14;
@@ -793,13 +775,6 @@ TEST(SayhiSortTest, SortAPI) {
     std::shuffle(ary.begin(), ary.end(), rng);
     std::copy(ary.begin(), ary.end(), expected.begin());
     sayhisort::sort(ary.begin(), ary.end());
-    std::stable_sort(expected.begin(), expected.end());
-    EXPECT_EQ(ary, expected);
-
-    std::iota(ary.begin(), ary.end(), 0);
-    std::shuffle(ary.begin(), ary.end(), rng);
-    std::copy(ary.begin(), ary.end(), expected.begin());
-    sayhisort::sort(ary);
     std::stable_sort(expected.begin(), expected.end());
     EXPECT_EQ(ary, expected);
 }
