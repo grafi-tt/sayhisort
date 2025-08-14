@@ -1158,11 +1158,12 @@ struct MergeSortControl {
         }
         forward = !forward;
 
-        if (!(log2_num_seqs && seq_len <= bufferable_len)) {
+        if (log2_num_seqs == 0 || seq_len > bufferable_len) {
             // No more buffered merge will be done. Need to clean up the buffer here.
             SsizeT old_buf_len = buf_len;
             imit_len += buf_len / 2 * 2;
             buf_len = 0;
+            bufferable_len = 0;
             return old_buf_len;
         }
         return 0;
