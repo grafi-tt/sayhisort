@@ -376,7 +376,7 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Itera
 
 #if 0
     while (xs < xs_last && ys < ys_last) {
-        if (iter_comp(xs, ys, std::bool<is_xs_from_right>{})) {
+        if (iter_comp(xs, ys, std::bool_constant<is_xs_from_right>{})) {
             iter_swap(buf++, xs++);
         } else {
             iter_swap(buf++, ys++);
