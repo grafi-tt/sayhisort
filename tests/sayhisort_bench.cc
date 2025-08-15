@@ -1,4 +1,3 @@
-#include "sayhisort.h"
 #include "sayhisort_profile_util.h"
 
 #include <algorithm>
@@ -10,6 +9,9 @@
 
 #include "sayhisort_bench_data.h"
 #include "sayhisort_test_util.h"
+
+#include "sayhisort_bench_runner.h"
+#include "stablesort_bench_runner.h"
 
 #ifdef SAYHISORT_THIRDPARTY_BENCH
 #include "third_party/logsort_bench.h"
@@ -44,7 +46,7 @@ int main() {
         fn(data.data(), kSize, tmpgen);
         {
             SAYHISORT_PERF_TRACE("std::stable_sort");
-            std::stable_sort(data.begin(), data.end());
+            RunStableSort(data);
         }
         std::copy(data.begin(), data.end(), expected.begin());
         Report(std::cout, "std::stable_sort");
@@ -53,7 +55,7 @@ int main() {
         fn(data.data(), kSize, tmpgen);
         {
             SAYHISORT_PERF_TRACE("sayhisort");
-            sayhisort::sort(data.begin(), data.end());
+            RunSayhiSort(data);
         }
         Report(std::cout, "sayhisort", true);
         Report(std::cout);

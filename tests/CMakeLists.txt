@@ -44,6 +44,25 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
   target_compile_options(sayhisort_bench PRIVATE /Zc:preprocessor)
 endif()
 
+add_library(
+  sayhisort_bench_runner STATIC
+  sayhisort_bench_runner.cc
+  sayhisort_bench_runner.h
+)
+target_link_libraries(sayhisort_bench_runner sayhisort)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  target_compile_options(sayhisort_bench_runner PRIVATE -std=c++20 -Wall -Wextra -Wpedantic -Werror -O3 -march=native)
+endif()
+
+add_library(
+  stablesort_bench_runner STATIC
+  stablesort_bench_runner.cc
+  stablesort_bench_runner.h
+)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  target_compile_options(stablesort_bench_runner PRIVATE -std=c++17 -Wall -Wextra -Wpedantic -Werror -O3 -march=native)
+endif()
+
 add_subdirectory(third_party)
 
 target_link_libraries(
@@ -57,4 +76,4 @@ target_link_libraries(
   GTest::gtest_main
 )
 
-target_link_libraries(sayhisort_bench PRIVATE sayhisort ${THIRDPARTY_BENCH_LIBS})
+target_link_libraries(sayhisort_bench PRIVATE sayhisort sayhisort_bench_runner stablesort_bench_runner ${THIRDPARTY_BENCH_LIBS})
