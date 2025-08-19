@@ -23,15 +23,20 @@ Interface compatible to `std::ranges::sort` is constrained by concepts. To use t
 
 
 ```cpp
-template <std::random_access_iterator I, std::sentinel_for<I> S, typename Comp = std::ranges::less, typename Proj = std::identity>
+template <std::random_access_iterator I, std::sentinel_for<I> S,
+          typename Comp = std::ranges::less, typename Proj = std::identity>
     requires std::indirectly_swappable<I> &&
              std::indirect_strict_weak_order<Comp, std::projected<I, Proj>>
-constexpr I sahisort::sort(I first, S last, Comp comp = {}, Proj proj = {});
+constexpr I
+sahisort::sort(I first, S last, Comp comp = {}, Proj proj = {});
 
-template <std::ranges::random_access_range R, typename Comp = std::ranges::less, typename Proj = std::identity>
+template <std::ranges::random_access_range R,
+         typename Comp = std::ranges::less, typename Proj = std::identity>
     requires std::indirectly_swappable<std::ranges::iterator_t<R>> &&
-             std::indirect_strict_weak_order<Comp, std::projected<std::ranges::iterator_t<R>, Proj>>
-constexpr std::ranges::borrowed_iterator_t<R> sahisort::sort(R&& range, Comp comp = {}, Proj proj = {});
+             std::indirect_strict_weak_order<
+                 Comp, std::projected<std::ranges::iterator_t<R>, Proj>>
+constexpr std::ranges::borrowed_iterator_t<R>
+sahisort::sort(R&& range, Comp comp = {}, Proj proj = {});
 ```
 
 ## Benchmark
