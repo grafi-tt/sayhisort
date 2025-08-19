@@ -18,6 +18,24 @@ if(SAYHISORT_THIRDPARTY_BENCH)
   target_compile_definitions(sayhisort_bench PRIVATE SAYHISORT_THIRDPARTY_BENCH=1)
 
   FetchContent_Declare(
+    grailsort
+    GIT_REPOSITORY https://github.com/Mrrl/GrailSort.git
+    GIT_TAG e1e08788b85d92c594f5953e844b5210e4f57121
+  )
+  set(CONTENT_NAME ${CONTENT_NAME} grailsort)
+
+  add_library(
+    grailsort_bench_runner STATIC
+    grailsort_bench_runner.cc
+    grailsort_bench_runner.h
+  )
+  set(BENCH_LIBS ${BENCH_LIBS} grailsort_bench_runner)
+  target_include_directories(grailsort_bench_runner PRIVATE ${FETCHCONTENT_BASE_DIR}/grailsort-src)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(grailsort_bench_runner PRIVATE -std=c++20 -O3 -march=native)
+  endif()
+
+  FetchContent_Declare(
     wikisort
     GIT_REPOSITORY https://github.com/BonzaiThePenguin/WikiSort.git
     GIT_TAG df036bd85af713f5012ccc4d329f05eb6a553128
@@ -33,7 +51,7 @@ if(SAYHISORT_THIRDPARTY_BENCH)
   set(BENCH_LIBS ${BENCH_LIBS} wikisort_bench_runner)
   target_include_directories(wikisort_bench_runner PRIVATE ${FETCHCONTENT_BASE_DIR}/wikisort-src)
   if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    target_compile_options(wikisort_bench_runner PRIVATE -O3 -march=native)
+    target_compile_options(wikisort_bench_runner PRIVATE -std=c++20 -O3 -march=native)
   endif()
 
   FetchContent_Declare(

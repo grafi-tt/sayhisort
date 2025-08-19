@@ -14,10 +14,13 @@
 #include "stablesort_bench_runner.h"
 
 #ifdef SAYHISORT_THIRDPARTY_BENCH
+#include "third_party/grailsort_bench_runner.h"
 #include "third_party/logsort_bench_runner.h"
 #include "third_party/octosort_bench_runner.h"
 #include "third_party/wikisort_bench_runner.h"
 #endif
+
+
 
 int main() {
     using namespace sayhisort::test;
@@ -66,6 +69,18 @@ int main() {
         }
 
 #ifdef SAYHISORT_THIRDPARTY_BENCH
+        tmpgen = gen;
+        fn(data.data(), kSize, tmpgen);
+        {
+            SAYHISORT_PERF_TRACE("grailsort");
+            RunGrailSort(data);
+        }
+        Report(std::cout, "grailsort");
+        if (data != expected) {
+            std::cout << "Result check failed!" << std::endl;
+            return 1;
+        }
+
         tmpgen = gen;
         fn(data.data(), kSize, tmpgen);
         {
