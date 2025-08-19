@@ -1,6 +1,6 @@
 # SayhiSort
 
-Fast and portable block merge sort implementation written in C++17, inspired by [GrailSort](https://github.com/Mrrl/GrailSort). It's in-place, stable and runs in O(N log(N)) wort-case time complexity. The API is compatible to `std::sort`. When compiled as C++20, it's also compatible to `std::ranges::sort`.
+**Fast and portable block merge sort implementation** written in C++17, inspired by [GrailSort](https://github.com/Mrrl/GrailSort). It's in-place, stable and runs in O(N log(N)) wort-case time complexity. The interface is compatible to `std::sort`. When compiled as C++20 or later, it's also compatible to `std::ranges::sort`.
 
 The implementation is **purely swap-based**. It means **no item is constructed** at runtime. Items neither default-constructible nor move-constructible are allowed, as long as they are swappable. In contrast, other implementations usually come with fixed-size buffer to cache items. Despite the absence of cache, it has **competitive performance**.
 
@@ -10,7 +10,29 @@ Its name derives from GrailSort, in honor of its auhor [Andrey Astrelin](https:/
 
 ## Usage
 
-It's header-only C++ library, so just including `sayhisort.h` is fine. You can also import CMake external project.
+It's header-only C++ library, so just including `sayhisort.h` is fine. You can also import CMake external project. It provides `sayhisort::sort` function.
+
+
+```cpp
+template <typename Iterator, typename Sentinel, typename Comp = std::less<>>
+Iterator sahisort::sort(Iterator first, Sentinel last, Comp comp = {});
+
+```
+
+Interface compatible to `std::ranges::sort` is constrained by concepts. To use the following interface, you need to compile `sayhisort.h` as C++20 or later.
+
+
+```cpp
+template <std::random_access_iterator I, std::sentinel_for<I> S, typename Comp = std::ranges::less, typename Proj = std::identity>
+    requires std::indirectly_swappable<I> &&
+             std::indirect_strict_weak_order<Comp, std::projected<I, Proj>>
+constexpr I sahisort::sort(I first, S last, Comp comp = {}, Proj proj = {});
+
+template <std::ranges::random_access_range R, typename Comp = std::ranges::less, typename Proj = std::identity>
+    requires std::indirectly_swappable<std::ranges::iterator_t<R>> &&
+             std::indirect_strict_weak_order<Comp, std::projected<std::ranges::iterator_t<R>, Proj>>
+constexpr std::ranges::borrowed_iterator_t<R> sahisort::sort(R&& range, Comp comp = {}, Proj proj = {});
+```
 
 ## Benchmark
 
