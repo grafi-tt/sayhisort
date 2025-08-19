@@ -1,4 +1,4 @@
-#include "wikisort_bench.h"
+#include "wikisort_bench_runner.h"
 
 #include <WikiSort.cpp>
 

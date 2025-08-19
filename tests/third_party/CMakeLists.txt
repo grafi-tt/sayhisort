@@ -26,14 +26,14 @@ if(SAYHISORT_THIRDPARTY_BENCH)
   set(CONTENT_NAME ${CONTENT_NAME} wikisort)
 
   add_library(
-    sayhisort_bench_wikisort STATIC
-    wikisort_bench.cc
-    wikisort_bench.h
+    wikisort_bench_runner STATIC
+    wikisort_bench_runner.cc
+    wikisort_bench_runner.h
   )
-  set(BENCH_LIBS ${BENCH_LIBS} sayhisort_bench_wikisort)
-  target_include_directories(sayhisort_bench_wikisort PRIVATE ${FETCHCONTENT_BASE_DIR}/wikisort-src)
+  set(BENCH_LIBS ${BENCH_LIBS} wikisort_bench_runner)
+  target_include_directories(wikisort_bench_runner PRIVATE ${FETCHCONTENT_BASE_DIR}/wikisort-src)
   if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    target_compile_options(sayhisort_bench_wikisort PRIVATE -O3 -march=native)
+    target_compile_options(wikisort_bench_runner PRIVATE -O3 -march=native)
   endif()
 
   FetchContent_Declare(
@@ -44,14 +44,14 @@ if(SAYHISORT_THIRDPARTY_BENCH)
   set(CONTENT_NAME ${CONTENT_NAME} octosort)
 
   add_library(
-    sayhisort_bench_octosort STATIC
-    octosort_bench.c
-    octosort_bench.h
+    octosort_bench_runner STATIC
+    octosort_bench_runner.c
+    octosort_bench_runner.h
   )
-  set(BENCH_LIBS ${BENCH_LIBS} sayhisort_bench_octosort)
-  target_include_directories(sayhisort_bench_octosort PRIVATE ${FETCHCONTENT_BASE_DIR}/octosort-src)
+  set(BENCH_LIBS ${BENCH_LIBS} octosort_bench_runner)
+  target_include_directories(octosort_bench_runner PRIVATE ${FETCHCONTENT_BASE_DIR}/octosort-src)
   if(CMAKE_C_COMPILER_ID MATCHES "GNU" OR CMAKE_C_COMPILER_ID MATCHES "Clang")
-    target_compile_options(sayhisort_bench_octosort PRIVATE -std=c99 -fno-strict-aliasing -Wall -O3 -march=native)
+    target_compile_options(octosort_bench_runner PRIVATE -std=c99 -fno-strict-aliasing -Wall -O3 -march=native)
   endif()
 
   FetchContent_Declare(
@@ -62,14 +62,14 @@ if(SAYHISORT_THIRDPARTY_BENCH)
   set(CONTENT_NAME ${CONTENT_NAME} logsort)
 
   add_library(
-    sayhisort_bench_logsort STATIC
-    logsort_bench.c
-    logsort_bench.h
+    logsort_bench_runner STATIC
+    logsort_bench_runner.c
+    logsort_bench_runner.h
   )
-  set(BENCH_LIBS ${BENCH_LIBS} sayhisort_bench_logsort)
-  target_include_directories(sayhisort_bench_logsort PRIVATE ${FETCHCONTENT_BASE_DIR}/logsort-src)
+  set(BENCH_LIBS ${BENCH_LIBS} logsort_bench_runner)
+  target_include_directories(logsort_bench_runner PRIVATE ${FETCHCONTENT_BASE_DIR}/logsort-src)
   if(CMAKE_C_COMPILER_ID MATCHES "GNU" OR CMAKE_C_COMPILER_ID MATCHES "Clang")
-    target_compile_options(sayhisort_bench_logsort PRIVATE -std=c99 -Wall -O3 -march=native)
+    target_compile_options(logsort_bench_runner PRIVATE -std=c99 -Wall -O3 -march=native)
   endif()
 endif()
 

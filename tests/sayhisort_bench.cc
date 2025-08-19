@@ -14,9 +14,9 @@
 #include "stablesort_bench_runner.h"
 
 #ifdef SAYHISORT_THIRDPARTY_BENCH
-#include "third_party/logsort_bench.h"
-#include "third_party/octosort_bench.h"
-#include "third_party/wikisort_bench.h"
+#include "third_party/logsort_bench_runner.h"
+#include "third_party/octosort_bench_runner.h"
+#include "third_party/wikisort_bench_runner.h"
 #endif
 
 int main() {

@@ -1,4 +1,4 @@
-#include "logsort_bench.h"
+#include "logsort_bench_runner.h"
 
 #define VAR uint64_t
 #define CMP comp

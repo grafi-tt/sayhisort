@@ -1,4 +1,4 @@
-#include "octosort_bench.h"
+#include "octosort_bench_runner.h"
 
 #include <octosort.h>
 
