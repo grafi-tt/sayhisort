@@ -19,7 +19,6 @@
 #include <cstdint>
 
 namespace sayhisort::test {
-namespace {
 
 /**
  * Internal core to report stats
@@ -178,12 +177,17 @@ private:
 
 #define SAYHISORT_GENSYM(name) SAYHISORT_CONCAT(_sayhisort_macro_##name##_, __LINE__)
 
-#define SAYHISORT_UNLESS_DISABLE_PROFILE(name, ...) \
-    SAYHISORT_EXPAND(SAYHISORT_CONCAT(SAYHISORT_UNLESS_DISABLE_PROFILE_, SAYHISORT_DISABLE_PROFILE)(name, __VA_ARGS__))
-#define SAYHISORT_UNLESS_DISABLE_PROFILE_SAYHISORT_DISABLE_PROFILE(name, ...) name(__VA_ARGS__)
-#define SAYHISORT_UNLESS_DISABLE_PROFILE_0(name, ...) name(__VA_ARGS__)
-#define SAYHISORT_UNLESS_DISABLE_PROFILE_(name, ...)
-#define SAYHISORT_UNLESS_DISABLE_PROFILE_1(name, ...)
+#define SAYHISORT_DEFINED_DISABLE_PROFILE      \
+    SAYHISORT_DEFINED_DISABLE_PROFILE_HELPER0( \
+        SAYHISORT_CONCAT(SAYHISORT_DEFINED_DISABLE_PROFILE_X_, SAYHISORT_DISABLE_PROFILE), 1)
+#define SAYHISORT_DEFINED_DISABLE_PROFILE_HELPER0(x, ...) SAYHISORT_DEFINED_DISABLE_PROFILE_HELPER1(x, __VA_ARGS__)
+#define SAYHISORT_DEFINED_DISABLE_PROFILE_HELPER1(y, flag, ...) flag
+#define SAYHISORT_DEFINED_DISABLE_PROFILE_X_SAYHISORT_DISABLE_PROFILE 42, 0
+
+#define SAYHISORT_IFNDEF_DISABLE_PROFILE(name, ...) \
+    SAYHISORT_EXPAND(SAYHISORT_CONCAT(SAYHISORT_IFNDEF_DISABLE_PROFILE_, SAYHISORT_DEFINED_DISABLE_PROFILE)(name, __VA_ARGS__))
+#define SAYHISORT_IFNDEF_DISABLE_PROFILE_0(name, ...) name(__VA_ARGS__)
+#define SAYHISORT_IFNDEF_DISABLE_PROFILE_1(name, ...)
 
 /*
  * Helper for RAII style tracing
@@ -217,20 +221,18 @@ private:
  */
 
 // To disable profile:
-//   #define SAYHISORT_DISABLE_PROFILE 1
+//   #define SAYHISORT_DISABLE_PROFILE
 // To re-enable profile:
 //   #undef SAYHISORT_DISABLE_PROFILE
-// When 0 is set, profile is still enabled:
-//   #define SAYHISORT_DISABLE_PROFILE 0
 
-#define SAYHISORT_RECORD(...) SAYHISORT_UNLESS_DISABLE_PROFILE(SAYHISORT_RECORD_IMPL, __VA_ARGS__)
-#define SAYHISORT_RECORD_IMPL(key, StatT, action)                                                        \
+#define SAYHISORT_RECORD(...) SAYHISORT_IFNDEF_DISABLE_PROFILE(SAYHISORT_RECORD_IMPL, __VA_ARGS__)
+#define SAYHISORT_RECORD_IMPL(key, StatT, action)                                                     \
     for (StatT * SAYHISORT_GENSYM(record) = SAYHISORT_GET_STAT(key, StatT); SAYHISORT_GENSYM(record); \
          SAYHISORT_GENSYM(record) = nullptr)                                                          \
     SAYHISORT_GENSYM(record)->update(action)
 
-#define SAYHISORT_SCOPED_RECORDER(...)  SAYHISORT_UNLESS_DISABLE_PROFILE(SAYHISORT_SCOPED_RECORDER_IMPL, __VA_ARGS__)
-#define SAYHISORT_SCOPED_RECORDER_IMPL(key, StatT, TraceActionT)                                                   \
+#define SAYHISORT_SCOPED_RECORDER(...) SAYHISORT_IFNDEF_DISABLE_PROFILE(SAYHISORT_SCOPED_RECORDER_IMPL, __VA_ARGS__)
+#define SAYHISORT_SCOPED_RECORDER_IMPL(key, StatT, TraceActionT)                                                \
     [[maybe_unused]] ::sayhisort::test::ScopedRecorder<StatT, TraceActionT> SAYHISORT_GENSYM(scoped_recorder) { \
         SAYHISORT_GET_STAT(key, StatT)                                                                          \
     }
@@ -323,7 +325,6 @@ private:
 #define SAYHISORT_PERF_TRACE(key) \
     SAYHISORT_SCOPED_RECORDER(key, ::sayhisort::test::SumTime, ::sayhisort::test::PerfTracer)
 
-}  // namespace
 }  // namespace sayhisort::test
 
 #endif  // SAYHISORT_PROFILE_UTIL_H

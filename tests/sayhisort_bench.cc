@@ -21,7 +21,6 @@
 #endif
 
 
-
 int main() {
     using namespace sayhisort::test;
 
@@ -48,6 +47,16 @@ int main() {
         std::mt19937_64 tmpgen = gen;
         fn(data.data(), kSize, tmpgen);
         {
+            SAYHISORT_PERF_TRACE("sayhisort_profile");
+            RunSayhiSortProfile(data);
+        }
+        Report(std::cout, "sayhisort_profile", true);
+        Report(std::cout);
+        PopReportIndent();
+
+        tmpgen = gen;
+        fn(data.data(), kSize, tmpgen);
+        {
             SAYHISORT_PERF_TRACE("std::stable_sort");
             RunStableSort(data);
         }
@@ -60,9 +69,7 @@ int main() {
             SAYHISORT_PERF_TRACE("sayhisort");
             RunSayhiSort(data);
         }
-        Report(std::cout, "sayhisort", true);
-        Report(std::cout);
-        PopReportIndent();
+        Report(std::cout, "sayhisort");
         if (data != expected) {
             std::cout << "Result check failed!" << std::endl;
             return 1;
