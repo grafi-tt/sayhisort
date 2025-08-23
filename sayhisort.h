@@ -495,7 +495,7 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iter
  * @param blocks
  *   @pre [imit, imit + num_blocks) and [blocks, bloks + num_blocks * block_len) are non-overlapping
  * @param imit_len
- *   @pre imit_len is a positive multiple of 2
+ *   @pre imit_len is a non-negative multiple of 2
  * @param block_len
  *   @pre block_len is positive
  * @param iter_comp
@@ -503,6 +503,10 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iter
 template <typename Iterator, typename Comp, typename Proj>
 SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator blocks, diff_t<Iterator> imit_len,
                                                    diff_t<Iterator> block_len, IterComp<Comp, Proj> iter_comp) {
+    if (!imit_len) {
+        return imit;
+    }
+
     // Algorithm similar to wikisort's block movement
     // https://github.com/BonzaiThePenguin/WikiSort/blob/master/Chapter%203.%20In-Place.md
     //
@@ -511,6 +515,7 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
     // We pick the least block `least_left` from `left_permuted` by linear search.
     // Then we compare `least_left` with `right[0]`, and swap the selected block for
     // `left_permuted[0]`.
+
     auto swapBlock = [block_len](Iterator a, Iterator b) {
         if (a == b) {
             return;
@@ -579,7 +584,7 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
  *
  * @param imit
  * @param imit_len
- *   @pre imit_len is a positive multiple of 2
+ *   @pre imit_len is a non-negative multiple of 2
  * @param buf
  *   @pre [imit, imit + imit_len) and [buf, buf + imit_len / 2) are non-overlapping
  * @param mid_key
@@ -591,6 +596,10 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
     // Bin-sort like algorithm based on partitioning.
     // Same algorithm founds in HolyGrailsort.
     // https://github.com/HolyGrailSortProject/Holy-Grailsort/blob/ccfcc4315c6ccafbca5f6a51886710898a06c8a1/Holy%20Grail%20Sort/Java/Summer%20Dragonfly%20et%20al.'s%20Rough%20Draft/src/holygrail/HolyGrailSort.java#L1328-L1330
+    if (!imit_len) {
+        return;
+    }
+
     iter_swap(mid_key, buf);
     Iterator left_cur = mid_key;
     Iterator right_cur = buf + 1;
@@ -616,7 +625,7 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
  *
  * @param imit
  * @param imit_len
- *   @pre imit_len is a positive multiple of 2
+ *   @pre imit_len is a non-negative multiple of 2
  * @param mid_key
  * @param iter_comp
  */
@@ -633,6 +642,10 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
     //
     // The idea to rotate pairs of runs of is borrowed from HolyGrailsort's algorithm.
     // https://github.com/HolyGrailSortProject/Holy-Grailsort/blob/ccfcc4315c6ccafbca5f6a51886710898a06c8a1/Holy%20Grail%20Sort/Java/Summer%20Dragonfly%20et%20al.'s%20Rough%20Draft/src/holygrail/HolyGrailSort.java#L1373-L1376
+    if (!imit_len) {
+        return;
+    }
+
     diff_t<Iterator> l_runlength{};
     diff_t<Iterator> r_runlength{};
     diff_t<Iterator> num_rl_pairs{};
@@ -781,13 +794,9 @@ SAYHISORT_CONSTEXPR_SWAP void MergeBlocking(Iterator imit, Iterator& buf, Iterat
                                             BlockingParam<diff_t<Iterator>> p, IterComp<Comp, Proj> iter_comp) {
     // Skip interleaving the first block and the last one, those may have shorter length.
     diff_t<Iterator> imit_len = p.num_blocks - 2;
-    Iterator mid_key =
-        imit_len == 0 ? imit : InterleaveBlocks(imit, blocks + p.first_block_len, imit_len, p.block_len, iter_comp);
+    Iterator mid_key = InterleaveBlocks(imit, blocks + p.first_block_len, imit_len, p.block_len, iter_comp);
 
     MergeAdjacentBlocks<has_buf>(imit, buf, blocks, p, mid_key, iter_comp);
-    if (!imit_len) {
-        return;
-    }
 
     if constexpr (has_buf) {
         DeinterleaveImitation(imit, imit_len, buf, mid_key, iter_comp);
@@ -840,9 +849,13 @@ struct SequenceDivider {
 };
 
 template <bool has_buf, bool forward, typename Iterator, typename Comp, typename Proj>
-SAYHISORT_CONSTEXPR_SWAP void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, diff_t<Iterator> seq_len,
-                                            SequenceDivider<diff_t<Iterator>, forward> seq_div,
-                                            BlockingParam<diff_t<Iterator>> p, IterComp<Comp, Proj> iter_comp) {
+#if defined(__GNUC__) && !defined(__clang__)
+__attribute__((flatten))  // It seems clang behaves strangely with this attribute
+#endif
+SAYHISORT_CONSTEXPR_SWAP void
+MergeOneLevel(Iterator imit, Iterator buf, Iterator data, diff_t<Iterator> seq_len,
+              SequenceDivider<diff_t<Iterator>, forward> seq_div, BlockingParam<diff_t<Iterator>> p,
+              IterComp<Comp, Proj> iter_comp) {
     SAYHISORT_PERF_TRACE("MergeOneLevel");
     diff_t<Iterator> residual_len = p.first_block_len;
     do {
@@ -1165,7 +1178,9 @@ SAYHISORT_CONSTEXPR_SWAP diff_t<Iterator> CollectKeys(Iterator first, Iterator l
             keys += cur - keys_last;
             inspos += cur - keys_last;
             // Insert the new key
-            Rotate(inspos, cur, cur + 1);
+            for (Iterator tmp = cur; tmp > inspos; --tmp) {
+                iter_swap(tmp, tmp - 1);
+            }
             keys_last = cur + 1;
             --num_desired_keys;
         }

@@ -51,7 +51,7 @@ add_library(
 )
 target_link_libraries(sayhisort_bench_runner sayhisort)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  target_compile_options(sayhisort_bench_runner PRIVATE -std=c++20 -Wall -Wextra -Wpedantic -Werror -O3 -march=native)
+  target_compile_options(sayhisort_bench_runner PRIVATE -std=c++17 -Wall -Wextra -Wpedantic -Werror -O3 -march=native)
 endif()
 
 add_library(

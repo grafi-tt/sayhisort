@@ -311,7 +311,7 @@ TEST(SayhiSortTest, InterleaveBlocks) {
     SsizeT block_len = 3;
     auto rng = GetPerTestRNG();
 
-    for (SsizeT num_blocks = 2; num_blocks <= 8; num_blocks += 2) {
+    for (SsizeT num_blocks = 0; num_blocks <= 8; num_blocks += 2) {
         for (SsizeT pad = 0; pad < ary_len - (num_blocks + num_blocks * block_len); ++pad) {
             Iterator imit = ary.begin();
             Iterator blocks = imit + num_blocks + pad;
@@ -348,7 +348,7 @@ TEST(SayhiSortTest, DeinterleaveImitation) {
     auto rng = GetPerTestRNG();
 
     for (bool use_buf : {true, false}) {
-        for (SsizeT imit_len = 2; imit_len + imit_len / 2 < ary_len; imit_len += 2) {
+        for (SsizeT imit_len = 0; imit_len + imit_len / 2 < ary_len; imit_len += 2) {
             SsizeT buf_len = imit_len / 2;
             Iterator imit = ary.begin();
             Iterator imit_last = imit + imit_len;
