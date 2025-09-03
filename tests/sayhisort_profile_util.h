@@ -5,6 +5,7 @@
 // Generalized code isn't directly related to sayhisort logic.
 // Just playing to create handy micro profiling utility.
 
+#include <concepts>
 #include <cstddef>
 #include <functional>
 #include <map>
@@ -21,6 +22,41 @@
 namespace sayhisort::test {
 
 /**
+ * Public type interface
+ */
+
+class EntityWriter {
+public:
+    EntityWriter(std::ostream& os) : os_{os} {}
+
+    template <typename... NameT, typename... ValueT>
+    void operator()(std::tuple<NameT...> name, std::tuple<ValueT...> value);
+
+    template <typename NameT, typename ValueT>
+    void operator()(const NameT& name, const ValueT& value) {
+        this->operator()(std::forward_as_tuple(name), std::forward_as_tuple(value));
+    }
+
+private:
+    std::ostream& os_;
+};
+
+template <typename S>
+concept Stat = std::equality_comparable<S> && requires(S s, EntityWriter write_entity) {
+    S{};
+    s.report(write_entity);
+};
+
+template <typename A, typename S>
+concept Action = requires(const A& a, S s) { s.update(a); };
+
+template <typename T, typename S>
+concept TraceAction = requires(T t, S s) {
+    t.begin();
+    s.update(t.end());
+};
+
+/**
  * Internal core to report stats
  */
 
@@ -33,25 +69,14 @@ inline std::ostream& WriteReportIndent(std::ostream& os, std::size_t offset = 0)
     return os;
 }
 
-class EntityWriter {
-public:
-    EntityWriter(std::ostream& os) : os_{os} {}
-    template <typename... NameT, typename... ValueT>
-    void operator()(std::tuple<NameT...> name, std::tuple<ValueT...> value) {
-        WriteReportIndent(os_, 1);
-        std::apply([this](const auto&... args) { (os_ << ... << args); }, name);
-        os_ << ": ";
-        std::apply([this](const auto&... args) { (os_ << ... << args); }, value);
-        os_ << "\n";
-    }
-    template <typename NameT, typename ValueT>
-    void operator()(const NameT& name, const ValueT& value) {
-        this->operator()(std::forward_as_tuple(name), std::forward_as_tuple(value));
-    }
-
-private:
-    std::ostream& os_;
-};
+template <typename... NameT, typename... ValueT>
+void EntityWriter::operator()(std::tuple<NameT...> name, std::tuple<ValueT...> value) {
+    WriteReportIndent(os_, 1);
+    std::apply([this](const auto&... args) { (os_ << ... << args); }, name);
+    os_ << ": ";
+    std::apply([this](const auto&... args) { (os_ << ... << args); }, value);
+    os_ << "\n";
+}
 
 /**
  * Internal core to process polymorphic stats
@@ -108,6 +133,7 @@ struct StaticString {
 
 template <typename StatT, StaticString K, bool = K.invalid>
 class StatStore {
+    // zero-overhead impl
 public:
     std::pair<StatT, bool>& value(std::string_view) { return value_; }
 
@@ -121,6 +147,7 @@ private:
 
 template <typename StatT, StaticString K>
 class StatStore<StatT, K, true> {
+    // dynamic key impl
 public:
     std::pair<StatT, bool>& value(std::string_view key) {
         auto it = stat_map_.find(key);
@@ -160,22 +187,12 @@ private:
 };
 
 /*
- * Helper macro definitions
+ * Internal helper macro definitions
  */
 
 #define SAYHISORT_EXPAND(a) a
 #define SAYHISORT_CONCAT(a, b) SAYHISORT_CONCAT_HELPER(a, b)
 #define SAYHISORT_CONCAT_HELPER(a, b) a##b
-
-#define SAYHISORT_GET_STAT(key, StatT)                                                                      \
-    ::sayhisort::test::StatAccessor<StatT,                                                                  \
-                                    std::is_same_v<decltype(key), const char (&)[sizeof(key)]>&& requires { \
-                                        std::type_identity_t<char[sizeof(key) + std::size_t{1}]>{key};      \
-                                    } ? ::sayhisort::test::StaticString<sizeof(key)>{key}                   \
-                                      : ::sayhisort::test::StaticString<sizeof(key)>{}>{}                   \
-        .get(std::is_constant_evaluated() ? "" : (key))
-
-#define SAYHISORT_GENSYM(name) SAYHISORT_CONCAT(_sayhisort_macro_##name##_, __LINE__)
 
 #define SAYHISORT_DEFINED_DISABLE_PROFILE      \
     SAYHISORT_DEFINED_DISABLE_PROFILE_HELPER0( \
@@ -185,35 +202,53 @@ private:
 #define SAYHISORT_DEFINED_DISABLE_PROFILE_X_SAYHISORT_DISABLE_PROFILE 42, 0
 
 #define SAYHISORT_IFNDEF_DISABLE_PROFILE(name, ...) \
-    SAYHISORT_EXPAND(SAYHISORT_CONCAT(SAYHISORT_IFNDEF_DISABLE_PROFILE_, SAYHISORT_DEFINED_DISABLE_PROFILE)(name, __VA_ARGS__))
+    SAYHISORT_EXPAND(                               \
+        SAYHISORT_CONCAT(SAYHISORT_IFNDEF_DISABLE_PROFILE_, SAYHISORT_DEFINED_DISABLE_PROFILE)(name, __VA_ARGS__))
 #define SAYHISORT_IFNDEF_DISABLE_PROFILE_0(name, ...) name(__VA_ARGS__)
 #define SAYHISORT_IFNDEF_DISABLE_PROFILE_1(name, ...)
 
+#define SAYHISORT_GENSYM(name) SAYHISORT_CONCAT(_sayhisort_macro_##name##_, __LINE__)
+
+#define SAYHISORT_GET_STAT(key, StatT)                                                                      \
+    ::sayhisort::test::StatAccessor<StatT,                                                                  \
+                                    std::is_same_v<decltype(key), const char (&)[sizeof(key)]>&& requires { \
+                                        std::type_identity_t<char[sizeof(key) + std::size_t{1}]>{key};      \
+                                    } ? ::sayhisort::test::StaticString<sizeof(key)>{key}                   \
+                                      : ::sayhisort::test::StaticString<sizeof(key)>{}>{}                   \
+        .get(std::is_constant_evaluated() ? "" : (key))
+
 /*
- * Helper for RAII style tracing
+ * Internal helper for constrained recording
  */
 
-template <typename StatT, typename TraceActionT>
+template <Stat S, Action<S> A>
+void Record(S* stat, const A& act) {
+    if (stat) {
+        stat->update(act);
+    }
+}
+
+template <Stat S, TraceAction<S> T>
 class ScopedRecorder {
 public:
-    constexpr ScopedRecorder(StatT* stat) : stat_{stat} {
+    constexpr ScopedRecorder(S* stat) : stat_{stat} {
         if (stat_) {
-            new (&tr_act_) TraceActionT{};
+            new (&tr_act_) T{};
             tr_act_.begin();
         }
     }
     constexpr ~ScopedRecorder() {
         if (stat_) {
             stat_->update(tr_act_.end());
-            tr_act_.~TraceActionT();
+            tr_act_.~T();
         }
     }
 
 private:
     union {
-        TraceActionT tr_act_;
+        T tr_act_;
     };
-    StatT* stat_;
+    S* stat_;
 };
 
 /**
@@ -226,10 +261,7 @@ private:
 //   #undef SAYHISORT_DISABLE_PROFILE
 
 #define SAYHISORT_RECORD(...) SAYHISORT_IFNDEF_DISABLE_PROFILE(SAYHISORT_RECORD_IMPL, __VA_ARGS__)
-#define SAYHISORT_RECORD_IMPL(key, StatT, action)                                                     \
-    for (StatT * SAYHISORT_GENSYM(record) = SAYHISORT_GET_STAT(key, StatT); SAYHISORT_GENSYM(record); \
-         SAYHISORT_GENSYM(record) = nullptr)                                                          \
-    SAYHISORT_GENSYM(record)->update(action)
+#define SAYHISORT_RECORD_IMPL(key, StatT, act) Record(SAYHISORT_GET_STAT(key, StatT), act)
 
 #define SAYHISORT_SCOPED_RECORDER(...) SAYHISORT_IFNDEF_DISABLE_PROFILE(SAYHISORT_SCOPED_RECORDER_IMPL, __VA_ARGS__)
 #define SAYHISORT_SCOPED_RECORDER_IMPL(key, StatT, TraceActionT)                                                \
