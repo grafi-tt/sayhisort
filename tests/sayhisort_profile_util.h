@@ -187,7 +187,7 @@ private:
 };
 
 /*
- * Internal helper macro definitions
+ * Internal low-level API
  */
 
 #define SAYHISORT_EXPAND(a) a
@@ -209,20 +209,17 @@ private:
 
 #define SAYHISORT_GENSYM(name) SAYHISORT_CONCAT(_sayhisort_macro_##name##_, __LINE__)
 
+// Detect string literal by https://stackoverflow.com/a/75151972
 #define SAYHISORT_GET_STAT(key, StatT)                                                                      \
     ::sayhisort::test::StatAccessor<StatT,                                                                  \
                                     std::is_same_v<decltype(key), const char (&)[sizeof(key)]>&& requires { \
                                         std::type_identity_t<char[sizeof(key) + std::size_t{1}]>{key};      \
                                     } ? ::sayhisort::test::StaticString<sizeof(key)>{key}                   \
                                       : ::sayhisort::test::StaticString<sizeof(key)>{}>{}                   \
-        .get(std::is_constant_evaluated() ? "" : (key))
-
-/*
- * Internal helper for constrained recording
- */
+        .get(std::is_constant_evaluated() ? std::string_view{} : std::string_view{key})
 
 template <Stat S, Action<S> A>
-void Record(S* stat, const A& act) {
+constexpr void Record(S* stat, const A& act) {
     if (stat) {
         stat->update(act);
     }
