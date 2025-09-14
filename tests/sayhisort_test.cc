@@ -569,75 +569,14 @@ TEST(SayhiSortTest, Sort0To8) {
     }
 }
 
-TEST(SayhiSortTest, FirstShellSortGap) {
-    SsizeT n;
-    SsizeT gap;
-
-    for (SsizeT len = 2; len < 1600; ++len) {
-        SsizeT n_ans;
-        if (len <= 4) {
-            n_ans = 0;
-        } else if (len <= 10) {
-            n_ans = 1;
-        } else if (len <= 23) {
-            n_ans = 2;
-        } else if (len <= 57) {
-            n_ans = 3;
-        } else if (len <= 132) {
-            n_ans = 4;
-        } else if (len <= 301) {
-            n_ans = 5;
-        } else if (len <= 701) {
-            n_ans = 6;
-        } else if (len <= 1577) {
-            n_ans = 7;
-        } else {
-            n_ans = 8;
-        }
-        std::tie(gap, n) = FirstShellSortGap(len);
-        EXPECT_EQ(n, n_ans);
-        EXPECT_EQ(gap, n_ans == 8 ? 1577 : kCiuraGaps[n]);
-    }
-
-    std::tie(gap, n) = FirstShellSortGap(SsizeT{3548});
-    EXPECT_EQ(n, 8);
-    EXPECT_EQ(gap, 1577);
-
-    std::tie(gap, n) = FirstShellSortGap(SsizeT{3549});
-    EXPECT_EQ(n, 9);
-    EXPECT_EQ(gap, 3548);
-
-    std::tie(gap, n) = FirstShellSortGap(SsizeT{7983});
-    EXPECT_EQ(n, 9);
-    EXPECT_EQ(gap, 3548);
-
-    std::tie(gap, n) = FirstShellSortGap(SsizeT{7984});
-    EXPECT_EQ(n, 10);
-    EXPECT_EQ(gap, 7983);
-}
-
-TEST(SayhiSortTest, NthShellSortGap) {
-    EXPECT_EQ(NthShellSortGap(0), 1);
-    EXPECT_EQ(NthShellSortGap(1), 4);
-    EXPECT_EQ(NthShellSortGap(2), 10);
-    EXPECT_EQ(NthShellSortGap(3), 23);
-    EXPECT_EQ(NthShellSortGap(4), 57);
-    EXPECT_EQ(NthShellSortGap(5), 132);
-    EXPECT_EQ(NthShellSortGap(6), 301);
-    EXPECT_EQ(NthShellSortGap(7), 701);
-    EXPECT_EQ(NthShellSortGap(8), 1577);
-    EXPECT_EQ(NthShellSortGap(9), 3548);
-    EXPECT_EQ(NthShellSortGap(10), 7983);
-}
-
-TEST(SayhiSortTest, ShellSort) {
+TEST(SayhiSortTest, HeapSort) {
     auto rng = GetPerTestRNG();
 
     for (SsizeT sz : {5, 2024}) {
         std::vector<int> data(sz);
         std::iota(data.begin(), data.end(), 0);
         std::shuffle(data.begin(), data.end(), rng);
-        ShellSort(data.begin(), sz, IterComp{Compare{}, VoidProj{}});
+        HeapSort(data.begin(), sz, IterComp{Compare{}, VoidProj{}});
 
         std::vector<int> expected(sz);
         std::iota(expected.begin(), expected.end(), 0);

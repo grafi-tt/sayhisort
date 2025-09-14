@@ -112,7 +112,7 @@ Its cost is negligible at now, so it isn't worth of micro-optimization.
 
 To de-interleave imitation buffer, bin-sorting is used if the data buffer can be used as a auxiliary space. Otherwise novel O(K logK) algorithm is used, where K is the number of unique keys collected. This algorithm iteratively rotate skewed parts. See [comments](https://github.com/grafi-tt/sayhisort/blob/1a5833f27aaeeb9c463a971ceabd35f51af4c9a9/sayhisort.h#L476-L485) for detail.
 
-The data buffer is sorted by ShellSort with [Ciura's gap sequence](https://en.wikipedia.org/wiki/Shellsort#Computational_complexity), which is very fast in practice. From theoretical viewpoint, time complexity is O(N) even if ShellSort were O(K^2). Actual worst-case time complexity is likely much better.
+The data buffer is sorted by heapsort.
 
 ### Rotation sub-algorithm detail
 

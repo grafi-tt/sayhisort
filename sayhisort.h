@@ -852,10 +852,9 @@ template <bool has_buf, bool forward, typename Iterator, typename Comp, typename
 #if defined(__GNUC__) && !defined(__clang__)
 __attribute__((flatten))  // It seems clang behaves strangely with this attribute
 #endif
-SAYHISORT_CONSTEXPR_SWAP void
-MergeOneLevel(Iterator imit, Iterator buf, Iterator data, diff_t<Iterator> seq_len,
-              SequenceDivider<diff_t<Iterator>, forward> seq_div, BlockingParam<diff_t<Iterator>> p,
-              IterComp<Comp, Proj> iter_comp) {
+SAYHISORT_CONSTEXPR_SWAP void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, diff_t<Iterator> seq_len,
+                                            SequenceDivider<diff_t<Iterator>, forward> seq_div,
+                                            BlockingParam<diff_t<Iterator>> p, IterComp<Comp, Proj> iter_comp) {
     SAYHISORT_PERF_TRACE("MergeOneLevel");
     diff_t<Iterator> residual_len = p.first_block_len;
     do {
@@ -1060,67 +1059,8 @@ SAYHISORT_CONSTEXPR_SWAP void Sort0To8(Iterator data, diff_t<Iterator> len, Iter
     return SortLeaves(data, len, {len, diff_t<Iterator>{0}}, iter_comp);
 }
 
-constexpr int kCiuraGaps[8] = {1, 4, 10, 23, 57, 132, 301, 701};
-
 /**
- * @brief Find the larget gap within `len` from Ciura's gap sequence.
- *
- * @param len
- *   @pre len >= 2
- * @return gap
- *   @post 1 <= gap < len
- * @return n
- *   @post n >= 0
- *   @post NthShellSortGap(n) == gap
- */
-template <typename SsizeT>
-constexpr ::std::pair<SsizeT, SsizeT> FirstShellSortGap(SsizeT len) {
-    SsizeT n = 0;
-    for (int j = 1; j < 8; ++j) {
-        n += kCiuraGaps[j] < len;
-    }
-    SsizeT gap = kCiuraGaps[static_cast<int>(n)];
-    if (n == 7) {
-        // The loop condition is equivalent to `floor(2.25 * gap) < len`, which can be written as
-        // `gap * 2 < len - floor(0.25 * gap)`. We can check the equivalence for each case `len - floor(0.25 * gap)` is
-        // even or odd.
-        while (gap < (len - gap / 4 + 1) / 2) {
-            gap = gap * 2 + gap / 4;
-            ++n;
-        }
-    }
-    return {gap, n};
-}
-
-/**
- * @brief Find the n'th gap from Ciura's gap sequence.
- *
- * @param n
- *   @pre n >= 0
- * @return gap
- *   @post gap >= 1
- */
-template <typename SsizeT>
-constexpr SsizeT NthShellSortGap(SsizeT n) {
-    if (n < 8) {
-        return kCiuraGaps[static_cast<int>(n)];
-    }
-    SsizeT i = 7;
-    SsizeT gap = kCiuraGaps[7];
-    do {
-        gap = gap * 2 + gap / 4;
-    } while (++i < n);
-    return gap;
-}
-
-/**
- * @brief Sort data by Shell sorting with Ciura's gap sequence. Sorting is unstable.
- *
- * The sequence is extended by repeatedly applying `x \mapsto floor(2.25 * x)` to the last pre-computed element 701.
- * https://en.wikipedia.org/wiki/Shellsort#Computational_complexity
- *
- * Though we also considered Tokuda's sequence, this is abandoned since computing the sequence without floating-number
- * is prone to overflow.
+ * @brief Sort data by heapsort.
  *
  * @param data
  * @param len
@@ -1128,23 +1068,41 @@ constexpr SsizeT NthShellSortGap(SsizeT n) {
  * @param iter_comp
  */
 template <typename Iterator, typename Comp, typename Proj>
-SAYHISORT_CONSTEXPR_SWAP void ShellSort(Iterator data, diff_t<Iterator> len, IterComp<Comp, Proj> iter_comp) {
-    auto [gap, n] = FirstShellSortGap(len);
+SAYHISORT_CONSTEXPR_SWAP void HeapSort(Iterator data, diff_t<Iterator> len, IterComp<Comp, Proj> iter_comp) {
+    auto left = [](diff_t<Iterator> i) -> diff_t<Iterator> { return i * 2 + 1; };
+    auto right = [](diff_t<Iterator> i) -> diff_t<Iterator> { return i * 2 + 2; };
+    auto parent = [](diff_t<Iterator> i) -> diff_t<Iterator> { return (i - 1) / 2; };
+    auto parent_end = [](diff_t<Iterator> i) -> diff_t<Iterator> { return i / 2; };  // parent(i - 1) + 1
 
+    diff_t<Iterator> start = parent_end(len) - 1;
     while (true) {
-        diff_t<Iterator> i = gap;
-        do {
-            for (diff_t<Iterator> j = i; j >= gap; j -= gap) {
-                if (!iter_comp(data + j, data + (j - gap))) {
-                    break;
-                }
-                iter_swap(data + (j - gap), data + j);
-            }
-        } while (++i < len);
-        if (!n) {
+        // shift down
+        diff_t<Iterator> cur = start;
+        while (cur < parent(len)) {  // right(cur) < len
+            diff_t<Iterator> l = left(cur);
+            diff_t<Iterator> r = right(cur);
+            cur = iter_comp(data + l, data + r) ? r : l;
+        }
+        if (cur < parent_end(len)) {  // left(cur) < len
+            cur = left(cur);
+        }
+        while (iter_comp(data + cur, data + start)) {
+            cur = parent(cur);
+        }
+        while (cur > start) {
+            iter_swap(data + cur, data + start);
+            cur = parent(cur);
+        }
+        // create a heap
+        if (start) {
+            --start;
+            continue;
+        }
+        // pop from a heap
+        if (!--len) {
             break;
         }
-        gap = NthShellSortGap(--n);
+        iter_swap(data, data + len);
     }
 }
 
@@ -1474,7 +1432,7 @@ SAYHISORT_CONSTEXPR_SWAP Iterator Sort(Iterator first, Iterator last, IterComp<C
                 } while (back_data != buf);
                 ctrl.forward = true;
             }
-            ShellSort(buf, old_buf_len, iter_comp);
+            HeapSort(buf, old_buf_len, iter_comp);
         }
     } while (ctrl.log2_num_seqs);
 
