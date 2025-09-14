@@ -646,49 +646,37 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
         return;
     }
 
-    diff_t<Iterator> l_runlength{};
+    diff_t<Iterator> l_runlength = 0;
     diff_t<Iterator> r_runlength{};
     diff_t<Iterator> num_rl_pairs{};
 
-    auto rotate_runs = [&](Iterator cur) {
-        if (!r_runlength) {
-            l_runlength = 0;
-            return;
-        }
-        if (++num_rl_pairs % 2 == 0) {
-            l_runlength = 0;
-            r_runlength = 0;
-            return;
-        }
-        Iterator l_run = cur - l_runlength;
-        Iterator r_run = l_run - r_runlength;
-        Rotate(r_run, l_run, cur);
-        if (num_rl_pairs == 1) {
-            mid_key = cur - r_runlength;
-        }
-        l_runlength = 0;
-        r_runlength = 0;
-    };
-
     do {
-        l_runlength = 0;
         r_runlength = 0;
         num_rl_pairs = 0;
 
-        bool was_left = false;
         Iterator cur = imit;
-        do {
-            bool is_left = iter_comp(cur, mid_key);
-            if (was_left && !is_left) {
-                rotate_runs(cur);
+        while (true) {
+            if (cur == imit + imit_len || !iter_comp(cur, mid_key)) {
+                if (l_runlength) {
+                    if (++num_rl_pairs % 2) {
+                        Iterator l_run = cur - l_runlength;
+                        Iterator r_run = l_run - r_runlength;
+                        Rotate(r_run, l_run, cur);
+                        if (num_rl_pairs == 1) {
+                            mid_key = cur - r_runlength;
+                        }
+                    }
+                    l_runlength = 0;
+                    r_runlength = 0;
+                }
+                if (cur == imit + imit_len) {
+                    break;
+                }
+                ++r_runlength;
+            } else {
+                l_runlength += !!r_runlength;
             }
-            l_runlength += is_left;
-            r_runlength += !is_left;
-            was_left = is_left;
-        } while (++cur != imit + imit_len);
-
-        if (was_left) {
-            rotate_runs(cur);
+            ++cur;
         }
     } while (num_rl_pairs > 1);
 }
