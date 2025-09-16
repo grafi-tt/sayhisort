@@ -1,3 +1,8 @@
+cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW)
+endif()
+
 enable_testing()
 
 add_executable(
@@ -39,7 +44,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 endif()
 
 add_library(
-  sayhisort_bench_runner STATIC
+  sayhisort_bench_runner OBJECT
   sayhisort_bench_runner.cc
   sayhisort_bench_runner.h
 )
@@ -48,7 +53,7 @@ target_compile_features(sayhisort_bench_runner PRIVATE cxx_std_23)
 target_compile_definitions(sayhisort_bench_runner PRIVATE SAYHISORT_DISABLE_PROFILE)
 
 add_library(
-  sayhisort_profile_bench_runner STATIC
+  sayhisort_profile_bench_runner OBJECT
   sayhisort_bench_runner.cc
   sayhisort_bench_runner.h
 )
@@ -56,7 +61,7 @@ target_link_libraries(sayhisort_profile_bench_runner sayhisort)
 target_compile_features(sayhisort_profile_bench_runner PRIVATE cxx_std_23)
 
 add_library(
-  stablesort_bench_runner STATIC
+  stablesort_bench_runner OBJECT
   stablesort_bench_runner.cc
   stablesort_bench_runner.h
 )

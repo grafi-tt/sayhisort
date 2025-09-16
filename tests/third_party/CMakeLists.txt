@@ -25,7 +25,7 @@ if(SAYHISORT_THIRDPARTY_BENCH)
   set(CONTENT_NAME ${CONTENT_NAME} grailsort)
 
   add_library(
-    grailsort_bench_runner STATIC
+    grailsort_bench_runner OBJECT
     grailsort_bench_runner.cc
     grailsort_bench_runner.h
   )
@@ -44,7 +44,7 @@ if(SAYHISORT_THIRDPARTY_BENCH)
   set(CONTENT_NAME ${CONTENT_NAME} wikisort)
 
   add_library(
-    wikisort_bench_runner STATIC
+    wikisort_bench_runner OBJECT
     wikisort_bench_runner.cc
     wikisort_bench_runner.h
   )
@@ -62,7 +62,7 @@ if(SAYHISORT_THIRDPARTY_BENCH)
   set(CONTENT_NAME ${CONTENT_NAME} octosort)
 
   add_library(
-    octosort_bench_runner STATIC
+    octosort_bench_runner OBJECT
     octosort_bench_runner.c
     octosort_bench_runner.h
   )
@@ -80,7 +80,7 @@ if(SAYHISORT_THIRDPARTY_BENCH)
   set(CONTENT_NAME ${CONTENT_NAME} logsort)
 
   add_library(
-    logsort_bench_runner STATIC
+    logsort_bench_runner OBJECT
     logsort_bench_runner.c
     logsort_bench_runner.h
   )
