@@ -99,8 +99,8 @@ TEST(SayhiSortTest, Rotate) {
     std::vector<int> data(32);
     std::vector<int> expected(32);
 
-    for (int l : {30, 31, 32}) {
-        for (int i = 0; i <= l; ++i) {
+    for (int l : {2, 42, 123}) {
+        for (int i = 1; i < l; ++i) {
             std::iota(data.begin(), data.begin() + l, 0);
             Rotate(data.begin(), data.begin() + i, data.begin() + l);
             std::iota(expected.begin() + l - i, expected.begin() + l, 0);

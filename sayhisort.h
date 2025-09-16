@@ -247,19 +247,15 @@ constexpr SsizeT OverApproxSqrt(SsizeT x) {
  *
  * @param first
  * @param middle
- *   @pre first <= middle
+ *   @pre first < middle
  * @param last
- *   @pre middle <= last
+ *   @pre middle < last
  */
 template <typename Iterator>
 SAYHISORT_CONSTEXPR_SWAP void Rotate(Iterator first, Iterator middle, Iterator last) {
     diff_t<Iterator> l_len = middle - first;
     diff_t<Iterator> r_len = last - middle;
     diff_t<Iterator> len = l_len + r_len;
-
-    if (!l_len || !r_len) {
-        return;
-    }
 
     // Helix Rotation
     // description available: https://github.com/scandum/rotate#helix-rotation
@@ -1120,9 +1116,11 @@ SAYHISORT_CONSTEXPR_SWAP diff_t<Iterator> CollectKeys(Iterator first, Iterator l
         Iterator inspos = BinarySearch<true>(keys, keys_last, cur, iter_comp);
         if (inspos == keys_last || iter_comp(cur, inspos)) {
             // Rotate keys forward so that insertion works in O(num_keys)
-            Rotate(keys, keys_last, cur);
-            keys += cur - keys_last;
-            inspos += cur - keys_last;
+            if (cur - keys_last) {
+                Rotate(keys, keys_last, cur);
+                keys += cur - keys_last;
+                inspos += cur - keys_last;
+            }
             // Insert the new key
             for (Iterator tmp = cur; tmp > inspos; --tmp) {
                 iter_swap(tmp, tmp - 1);
@@ -1132,7 +1130,9 @@ SAYHISORT_CONSTEXPR_SWAP diff_t<Iterator> CollectKeys(Iterator first, Iterator l
         }
     } while (num_desired_keys && ++cur < last);
 
-    Rotate(first, keys, keys_last);
+    if (keys - first) {
+        Rotate(first, keys, keys_last);
+    }
     return keys_last - keys;
 }
 
