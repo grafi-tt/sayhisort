@@ -41,9 +41,9 @@ sahisort::sort(R&& range, Comp comp = {}, Proj proj = {});
 
 ## Benchmark
 
-![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (GCC 15.2.0)](bench_result/gcc.yml)
+![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (GCC 15.2.0)](bench_result/gcc.png)
 
-![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (Clang 21.1.0)](bench_result/clang.yml)
+![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (Clang 21.1.0)](bench_result/clang.png)
 
 Other block merge sort implementations [WikiSort](https://github.com/BonzaiThePenguin/WikiSort/), [octosort](https://github.com/scandum/octosort) and [GrailSort](https://github.com/Mrrl/GrailSort) uses a pre-allocated buffer that stores 512 items. The buffer is claimed to be crucial for performance, however, Sayhisort is very competitive.
 
