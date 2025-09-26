@@ -20,7 +20,6 @@
 #include "third_party/wikisort_bench_runner.h"
 #endif
 
-
 int main() {
     using namespace sayhisort::test;
 
@@ -32,10 +31,9 @@ int main() {
         #name, name                                                            \
     }
     static std::array kBenchData{
-        BENCHDATA(Random),          BENCHDATA(RandomFew), BENCHDATA(MostlyDescending),
-        BENCHDATA(MostlyAscending), BENCHDATA(Ascending), BENCHDATA(Descending),
-        BENCHDATA(Equal),           BENCHDATA(Jittered),  BENCHDATA(MostlyEqual),
-        BENCHDATA(Append),          BENCHDATA(SqrtKeys),
+        BENCHDATA(Random),          BENCHDATA(RandomSqrtKeys),   BENCHDATA(RandomFewKeys),
+        BENCHDATA(MostlyAscending), BENCHDATA(MostlyDescending), BENCHDATA(MostlyEqual),
+        BENCHDATA(Ascending),       BENCHDATA(Descending),       BENCHDATA(Equal),
     };
 
     std::vector<uint64_t> data(kSize);
@@ -46,6 +44,11 @@ int main() {
 
         std::mt19937_64 tmpgen = gen;
         fn(data.data(), kSize, tmpgen);
+        RunStableSort(data);
+        std::copy(data.begin(), data.end(), expected.begin());
+
+        tmpgen = gen;
+        fn(data.data(), kSize, tmpgen);
         {
             SAYHISORT_PERF_TRACE("sayhisort_profile");
             RunSayhiSortProfile(data);
@@ -53,15 +56,10 @@ int main() {
         Report(std::cout, "sayhisort_profile", true);
         Report(std::cout);
         PopReportIndent();
-
-        tmpgen = gen;
-        fn(data.data(), kSize, tmpgen);
-        {
-            SAYHISORT_PERF_TRACE("std::stable_sort");
-            RunStableSort(data);
+        if (data != expected) {
+            std::cout << "Result check failed!" << std::endl;
+            return 1;
         }
-        std::copy(data.begin(), data.end(), expected.begin());
-        Report(std::cout, "std::stable_sort");
 
         tmpgen = gen;
         fn(data.data(), kSize, tmpgen);
@@ -76,18 +74,6 @@ int main() {
         }
 
 #ifdef SAYHISORT_THIRDPARTY_BENCH
-        tmpgen = gen;
-        fn(data.data(), kSize, tmpgen);
-        {
-            SAYHISORT_PERF_TRACE("grailsort");
-            RunGrailSort(data);
-        }
-        Report(std::cout, "grailsort");
-        if (data != expected) {
-            std::cout << "Result check failed!" << std::endl;
-            return 1;
-        }
-
         tmpgen = gen;
         fn(data.data(), kSize, tmpgen);
         {
@@ -112,6 +98,32 @@ int main() {
             return 1;
         }
 
+        tmpgen = gen;
+        fn(data.data(), kSize, tmpgen);
+        {
+            SAYHISORT_PERF_TRACE("grailsort");
+            RunGrailSort(data);
+        }
+        Report(std::cout, "grailsort");
+        if (data != expected) {
+            std::cout << "Result check failed!" << std::endl;
+            return 1;
+        }
+#endif
+
+        tmpgen = gen;
+        fn(data.data(), kSize, tmpgen);
+        {
+            SAYHISORT_PERF_TRACE("std::stable_sort");
+            RunStableSort(data);
+        }
+        Report(std::cout, "std::stable_sort");
+        if (data != expected) {
+            std::cout << "Result check failed!" << std::endl;
+            return 1;
+        }
+
+#ifdef SAYHISORT_THIRDPARTY_BENCH
         tmpgen = gen;
         fn(data.data(), kSize, tmpgen);
         {

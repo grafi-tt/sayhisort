@@ -41,7 +41,16 @@ sahisort::sort(R&& range, Comp comp = {}, Proj proj = {});
 
 ## Benchmark
 
-TODO: Take comprehensive data and show result. Benchmark code is now working.
+You can also run the benchmark by yourself as follows.
+
+```sh
+mkdir build
+pushd build
+cmake -DSAYHISORT_THIRDPARTY_BENCH=ON -GNinja ..
+popd
+ninja -C build
+build/test/sayhisort_bench
+```
 
 ## Similar projects
 
