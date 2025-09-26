@@ -1,8 +1,8 @@
 # SayhiSort
 
-**Fast and portable block merge sort implementation** written in C++17, inspired by [GrailSort](https://github.com/Mrrl/GrailSort). It's in-place, stable and runs in O(N log(N)) wort-case time complexity. The interface is compatible to `std::sort`. When compiled as C++20 or later, it's also compatible to `std::ranges::sort`.
+**Fast, portable and easy-to-use block merge sort implementation** written in C++17, inspired by [GrailSort](https://github.com/Mrrl/GrailSort). It's in-place, stable and runs in O(N log(N)) worst-case time complexity. The interface is compatible to `std::sort`. When compiled as C++20 or later, it's also compatible to `std::ranges::sort`.
 
-The implementation is **purely swap-based**. It means **no item is constructed** at runtime. Items neither default-constructible nor move-constructible are allowed, as long as they are swappable. In contrast, other implementations usually come with fixed-size buffer to cache items. Despite the absence of cache, it has **competitive performance**.
+The implementation is **purely swap-based**. It means **no item is constructed** at runtime. Items neither default-constructible nor move-constructible are allowed, as long as they are swappable. Despite the absence of any static buffer, it shows **state-of-the-art performance**.
 
 Substantial effort is made for portability and security. **No floating point number** is used, and the code is carefully written and tested to avoid overflow in any integer-like type. The code has meticulous comments that clarify mathematical invariants.
 
@@ -41,15 +41,33 @@ sahisort::sort(R&& range, Comp comp = {}, Proj proj = {});
 
 ## Benchmark
 
-You can also run the benchmark by yourself as follows.
+![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (GCC 15.2.0)](bench_result/gcc.yml)
+
+![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (Clang 21.1.0)](bench_result/clang.yml)
+
+Other block merge sort implementations [WikiSort](https://github.com/BonzaiThePenguin/WikiSort/), [octosort](https://github.com/scandum/octosort) and [GrailSort](https://github.com/Mrrl/GrailSort) uses a pre-allocated buffer that stores 512 items. The buffer is claimed to be crucial for performance, however, Sayhisort is very competitive.
+
+You may notice SayhiSort poorly performs on already sorted data compared to WikiSort and octosort. Still SayhiSort can handle those data much faster than random data, so the author believes there's no problem at all.
+
+The performance of [Logsort](https://github.com/aphitorite/Logsort) is noteworthy. It's basically a variant of Quicksort, using novel tagging technique to ensure stability. You need some caution since its worst-case time complexity is O(N^2).
+
+Raw benchmark result is available in [`bench_result`](bench_result/) directory. You can also run the benchmark by yourself as follows.
 
 ```sh
 mkdir build
 pushd build
-cmake -DSAYHISORT_THIRDPARTY_BENCH=ON -GNinja ..
+CC=gcc CXX=g++ cmake -DSAYHISORT_THIRDPARTY_BENCH=ON -GNinja ..
 popd
 ninja -C build
-build/test/sayhisort_bench
+mkdir build_clang
+pushd build_clang
+CC=clang CXX=clang++ cmake -DSAYHISORT_THIRDPARTY_BENCH=ON -GNinja ..
+popd
+ninja -C build_clang
+build/test/sayhisort_bench > bench_result/gcc.yml
+build_clang/test/sayhisort_bench > bench_result/clang.yml
+cd bench_result
+./plot.py
 ```
 
 ## Similar projects
@@ -66,11 +84,11 @@ build/test/sayhisort_bench
 
 * https://github.com/aphitorite/Logsort
 
-  Quicksort with stable partitioning. IIUC it's worst-case time complexity is O(N^2) due to simple pivot selection. It's partioning algorithm, which assigns bits to sequences' arrangement, is still very elegant.
+  Quicksort with stable partitioning, which is empirically very fast. Its partitioning algorithm, which interprets sequences' arrangement as tag bits, is very elegant. While it has O(N^2) worst-case time complexity and requires a buffer to hold log2(N) items, arguably there's room of improvements.
 
 ## Algorithm detail
 
-It's the variant of bottom-up block merge sort that
+Sayhisort is a variant of bottom-up block merge sort that
 
 * search (approximately) 2√N unique keys for imitation buffer and data buffer at first, and
 * alternately apply left-to-right merge and right-to-left merge to skip needless buffer movement, if data buffer is available.
@@ -81,7 +99,7 @@ While all algorithm code is written by the author, many ideas are given from oth
 
 Its overhead heavily depends on input data. If the data has unique keys slightly less that 2√N, it performs worst.
 
-Though it's hard to eliminate the bottleneck with no auxiliary buffer, only marginal performance drop is observed. On the `SqrtKey` benchmark, SayhiSort still performs par to `std::stable_sort` and outperforms other block merge sort implementations.
+It's hard to eliminate the bottleneck with no pre-allocated buffer, so marginal performance drop is observed. While Sayhisort's performance is still not bad, it isn't the fastest on the `RandomSqrtKey` benchmark.
 
 ### Sorting blocks
 
@@ -105,15 +123,15 @@ When the data buffer isn't available, in-place merge algorithm is required. The 
 * find the index `j` such in `xs[i] <= ys[j]` by binary searching `ys`, and
 * rotate `xs[i:]` and `ys[:j]`.
 
-The computational complexity is still linear, since the algorithm is used only if the number of unique keys is small. In practice, however, in-place merge algorithm is slower than standard one. Sayhisort avoids any auxiliary buffer, so it resorts to in-place merge in many case. This weakpoint is observed in `RandomFew` benchmark.
+The computational complexity is still linear, since the algorithm is used only if the number of unique keys is small. In practice, however, in-place merge algorithm can be slow. Sayhisort avoids any pre-allocated buffer, so it resorts to in-place merge in many case. Therefore SayhiSort doesn't 
 
 ### Sorting short sequences
 
 It takes small but non-negligible time.
 
-When the sequence length is less than or equals to 8, odd-even sort is used. It's stable and parallelizable by superscalar execution.
+When the sequence length is less than or equals to 8, odd-even sort is used. It's stable and parallelizable by superscalar execution. Specialized odd-even sort functions are dispatched by a heavily optimized loop
 
-The loop dispatching specialized odd-even sort function is heavily optimized. The author is reluctant to further optimization, because it likely bloats up inlined code size.
+The author is reluctant to further optimization, because it likely bloats up inlined code size.
 
 ### Sorting unique keys
 

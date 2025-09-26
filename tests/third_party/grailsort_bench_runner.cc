@@ -16,5 +16,5 @@ static inline int sort_comp(const uint64_t* a, const uint64_t* b) {
 #include <GrailSort.h>
 
 void RunGrailSort(std::vector<uint64_t>& data) {
-    GrailSort(data.data(), data.size());
+    GrailSortWithBuffer(data.data(), data.size());
 }
