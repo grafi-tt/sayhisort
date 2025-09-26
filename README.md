@@ -4,7 +4,7 @@
 
 The implementation is **purely swap-based**. It means **no item is constructed** at runtime. Items neither default-constructible nor move-constructible are allowed, as long as they are swappable. Despite the absence of any static buffer, it shows **state-of-the-art performance**.
 
-Substantial effort is made for portability and security. **No floating point number** is used, and the code is carefully written and tested to avoid overflow in any integer-like type. The code has meticulous comments that clarify mathematical invariants.
+Substantial effort is made for portability and security. **No floating point number** is used, and the code is carefully written and tested to avoid overflow in any integer-like index type. The code has meticulous comments to clarify mathematical invariants.
 
 Its name derives from GrailSort, in honor of its auhor [Andrey Astrelin](https://superliminal.com/andrey/biography.html) rest in peace. Pronunciation of “say hi” sounds like the Japanese word 「聖杯（せいはい）」, which means grail.
 
@@ -19,8 +19,7 @@ Iterator sahisort::sort(Iterator first, Sentinel last, Comp comp = {});
 
 ```
 
-Interface compatible to `std::ranges::sort` is constrained by concepts. To use the following interface, you need to compile `sayhisort.h` as C++20 or later.
-
+To use the interface compatible to `std::ranges::sort`, you need to compile `sayhisort.h` as C++20 or later. The interface is constrained by concepts.
 
 ```cpp
 template <std::random_access_iterator I, std::sentinel_for<I> S,
@@ -45,11 +44,11 @@ sahisort::sort(R&& range, Comp comp = {}, Proj proj = {});
 
 ![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (Clang 21.1.0)](bench_result/clang.png)
 
-Other block merge sort implementations [WikiSort](https://github.com/BonzaiThePenguin/WikiSort/), [octosort](https://github.com/scandum/octosort) and [GrailSort](https://github.com/Mrrl/GrailSort) uses a pre-allocated buffer that stores 512 items. The buffer is claimed to be crucial for performance, however, Sayhisort is very competitive.
+Other block merge sort implementations ([WikiSort](https://github.com/BonzaiThePenguin/WikiSort/), [octosort](https://github.com/scandum/octosort) and [GrailSort](https://github.com/Mrrl/GrailSort)) uses a pre-allocated buffer that stores 512 items. Though the buffer is claimed to be crucial for performance, SayhiSort exhibits competitive speed.
 
-You may notice SayhiSort poorly performs on already sorted data compared to WikiSort and octosort. Still SayhiSort can handle those data much faster than random data, so the author believes there's no problem at all.
+You may notice SayhiSort performs poorly on some data, compared to WikiSort and octosort. This shows whether each algorithm is tuned to already sorted data. Since SayhiSort is still fast on those data, the author believes there's no problem at all.
 
-The performance of [Logsort](https://github.com/aphitorite/Logsort) is noteworthy. It's basically a variant of Quicksort, using novel tagging technique to ensure stability. You need some caution since its worst-case time complexity is O(N^2).
+[Logsort](https://github.com/aphitorite/Logsort)'s excellent performance is noteworthy. The algorithm is completely different to other ones based on merge sort. It's basically a variant of quicksort, using novel tagging technique to ensure stability. Regardless of practical performance, you need some caution since its worst-case time complexity is O(N^2).
 
 Raw benchmark result is available in [`bench_result`](bench_result/) directory. You can also run the benchmark by yourself as follows.
 
@@ -84,7 +83,7 @@ cd bench_result
 
 * https://github.com/aphitorite/Logsort
 
-  Quicksort with stable partitioning, which is empirically very fast. Its partitioning algorithm, which interprets sequences' arrangement as tag bits, is very elegant. While it has O(N^2) worst-case time complexity and requires a buffer to hold log2(N) items, arguably there's room of improvements.
+  Quicksort with stable partitioning, which is empirically very fast. Its partitioning algorithm, which interprets sequences' arrangement as tag bits, is very elegant. While it has O(N^2) worst-case time complexity and requires a buffer to hold log2(N) items, arguably there's room of further improvement.
 
 ## Algorithm detail
 
@@ -99,7 +98,7 @@ While all algorithm code is written by the author, many ideas are given from oth
 
 Its overhead heavily depends on input data. If the data has unique keys slightly less that 2√N, it performs worst.
 
-It's hard to eliminate the bottleneck with no pre-allocated buffer, so marginal performance drop is observed. While Sayhisort's performance is still not bad, it isn't the fastest on the `RandomSqrtKey` benchmark.
+It's hard to eliminate the bottleneck with no pre-allocated buffer, so marginal performance drop is observed. While Sayhisort's performance is still not bad, it isn't the fastest on `RandomSqrtKey` benchmark.
 
 ### Sorting blocks
 
@@ -123,7 +122,7 @@ When the data buffer isn't available, in-place merge algorithm is required. The 
 * find the index `j` such in `xs[i] <= ys[j]` by binary searching `ys`, and
 * rotate `xs[i:]` and `ys[:j]`.
 
-The computational complexity is still linear, since the algorithm is used only if the number of unique keys is small. In practice, however, in-place merge algorithm can be slow. Sayhisort avoids any pre-allocated buffer, so it resorts to in-place merge in many case. Therefore SayhiSort doesn't 
+The computational complexity is still linear, since the algorithm is used only if the number of unique keys is small. In practice, however, in-place merge algorithm can be a bit slow. Sayhisort avoids any pre-allocated buffer, so it resorts to in-place merge in many case. Therefore it shows mediocre peformance on `RandomFewKeys` benchmark.
 
 ### Sorting short sequences
 
