@@ -28,14 +28,15 @@ def load_result(f):
 
 
 def plot_data(filename, libs, benches, table, compiler):
-    dpi = 96
-    fig, ax = plt.subplots(figsize=(1024/dpi, 600/dpi))
+    dpi = 144 
+    fig, ax = plt.subplots(figsize=(1280/dpi, 800/dpi))
     plt.rcParams["font.family"] = ["M PLUS 2"]
     plt.xticks(fontfamily="M PLUS 2")
 
     ax.set_ymargin(0.02)
     ax.set_title(compiler, fontfamily="M PLUS 2")
     ax.set_xlabel("Elapsed time (ms, shorter is better)", fontfamily="M PLUS 2")
+    ax.set_xlim(0, 140)
 
     yticks = np.arange(len(benches))
     ax.set_yticks(yticks, benches, fontfamily="M PLUS Code Latin 60")
@@ -51,7 +52,7 @@ def plot_data(filename, libs, benches, table, compiler):
         ax.barh(yticks + barcenter, table[i], height=barheight, label=lib, color=tab20c[c])
 
     plt.rcParams["font.family"] = ["M PLUS Code Latin 60"]
-    ax.legend()
+    ax.legend(fontsize=11)
     fig.tight_layout()
     plt.savefig(filename, dpi=dpi)
 
