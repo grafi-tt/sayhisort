@@ -1,6 +1,6 @@
 # SayhiSort
 
-**Fast, portable and easy-to-use block merge sort implementation** written in C++17, inspired by [GrailSort](https://github.com/Mrrl/GrailSort). It's **in-place**, **stable** and runs in **O(N log(N))** worst-case time complexity. Its interface is compatible to `std::sort` and `std::range::sort` (C++20).
+**Fast, portable and easy-to-use block merge sort implementation** written in C++17, inspired by [GrailSort](https://github.com/Mrrl/GrailSort). It's **in-place, stable and runs in O(N log(N)) worst-case time complexity**. Its interface is compatible to `std::sort` and `std::range::sort` (C++20).
 
 **Items have to be just comparable and swappable.** They can be neither default-constructible nor move-constructible. The implementation doesn't use any pre-allocated buffer to store items, contrary to other block merge sort implementations. Despite the absence of the buffer, it shows **state-of-the-art performance**.
 
