@@ -1,8 +1,8 @@
 # SayhiSort
 
-**Fast, portable and easy-to-use block merge sort implementation** written in C++17, inspired by [GrailSort](https://github.com/Mrrl/GrailSort). It's in-place, stable and runs in O(N log(N)) worst-case time complexity. The interface is compatible to `std::sort`. When compiled as C++20 or later, it's also compatible to `std::ranges::sort`.
+**Fast, portable and easy-to-use block merge sort implementation** written in C++17, inspired by [GrailSort](https://github.com/Mrrl/GrailSort). It's **in-place**, **stable** and runs in **O(N log(N))** worst-case time complexity. The interface is compatible to `std::sort`. When compiled as C++20 or later, it's also compatible to `std::ranges::sort`.
 
-The implementation is **purely swap-based**. It means **no item is constructed** at runtime. Items neither default-constructible nor move-constructible are allowed, as long as they are swappable. Despite the absence of any static buffer, it shows **state-of-the-art performance**.
+The implementation purely consists of comparisons and swaps. It means **no item is constructed** at runtime. Items neither default-constructible nor move-constructible are allowed, as long as they are comparable and swappable. Despite the absence of any static buffer, it shows **state-of-the-art performance**.
 
 Substantial effort is made for portability and security. **No floating point number** is used, and the code is carefully written and tested to avoid overflow in any integer-like index type. The code has meticulous comments to clarify mathematical invariants.
 
@@ -44,7 +44,7 @@ sahisort::sort(R&& range, Comp comp = {}, Proj proj = {});
 
 ![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (Clang 21.1.0)](bench_result/clang.png)
 
-Other block merge sort implementations ([WikiSort](https://github.com/BonzaiThePenguin/WikiSort/), [octosort](https://github.com/scandum/octosort) and [GrailSort](https://github.com/Mrrl/GrailSort)) uses a pre-allocated buffer that stores 512 items. Though the buffer is claimed to be crucial for performance, SayhiSort exhibits competitive speed.
+Note that other block merge sort implementations ([WikiSort](https://github.com/BonzaiThePenguin/WikiSort/), [octosort](https://github.com/scandum/octosort) and [GrailSort](https://github.com/Mrrl/GrailSort)) uses a pre-allocated buffer that stores 512 items. Though the buffer is claimed to be crucial for performance, SayhiSort exhibits competitive speed.
 
 You may notice SayhiSort performs poorly on some data, compared to WikiSort and octosort. This shows whether each algorithm is tuned to already sorted data. Since SayhiSort is still fast on those data, the author believes there's no problem at all.
 
