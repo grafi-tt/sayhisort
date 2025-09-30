@@ -1,16 +1,16 @@
 # SayhiSort
 
-**Fast, portable and easy-to-use block merge sort implementation** written in C++17, inspired by [GrailSort](https://github.com/Mrrl/GrailSort). It's **in-place**, **stable** and runs in **O(N log(N))** worst-case time complexity. The interface is compatible to `std::sort`. When compiled as C++20 or later, it's also compatible to `std::ranges::sort`.
+**Fast, portable and easy-to-use block merge sort implementation** written in C++17, inspired by [GrailSort](https://github.com/Mrrl/GrailSort). It's **in-place**, **stable** and runs in **O(N log(N))** worst-case time complexity. Its interface is compatible to `std::sort` and `std::range::sort` (C++20).
 
-The implementation purely consists of comparisons and swaps. It means **no item is constructed** at runtime. Items neither default-constructible nor move-constructible are allowed, as long as they are comparable and swappable. Despite the absence of any static buffer, it shows **state-of-the-art performance**.
+**Items have to be just comparable and swappable.** They can be neither default-constructible nor move-constructible. The implementation doesn't use any pre-allocated buffer to store items, contrary to other block merge sort implementations. Despite the absence of the buffer, it shows **state-of-the-art performance**.
 
-Substantial effort is made for portability and security. **No floating point number** is used, and the code is carefully written and tested to avoid overflow in any integer-like index type. The code has meticulous comments to clarify mathematical invariants.
+Substantial effort is made for portability and security. **No floating point number** is used, and the code is carefully written and tested to avoid overflow in any integer-like index type. There are meticulous comments to clarify mathematical invariants.
 
-Its name derives from GrailSort, in honor of its auhor [Andrey Astrelin](https://superliminal.com/andrey/biography.html) rest in peace. Pronunciation of “say hi” sounds like the Japanese word 「聖杯（せいはい）」, which means grail.
+Its name derives from GrailSort, in honor of its author [Andrey Astrelin](https://superliminal.com/andrey/biography.html) rest in peace. Pronunciation of “say hi” sounds like the Japanese word 「聖杯（せいはい）」, which means grail.
 
 ## Usage
 
-It's header-only C++ library, so just including `sayhisort.h` is fine. You can also import CMake external project. It provides `sayhisort::sort` function.
+It's header-only C++ library, so just including `sayhisort.h` is fine. You can also import CMake external project. It provides `sayhisort::sort` function, which is compatible to `std::sort`.
 
 
 ```cpp
@@ -44,13 +44,13 @@ sahisort::sort(R&& range, Comp comp = {}, Proj proj = {});
 
 ![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (Clang 21.1.0)](bench_result/clang.png)
 
-Note that other block merge sort implementations ([WikiSort](https://github.com/BonzaiThePenguin/WikiSort/), [octosort](https://github.com/scandum/octosort) and [GrailSort](https://github.com/Mrrl/GrailSort)) uses a pre-allocated buffer that stores 512 items. Though the buffer is claimed to be crucial for performance, SayhiSort exhibits competitive speed.
+Note that other block merge sort implementations ([WikiSort](https://github.com/BonzaiThePenguin/WikiSort/), [octosort](https://github.com/scandum/octosort) and [GrailSort](https://github.com/Mrrl/GrailSort)) use a pre-allocated buffer that stores 512 items. Though the buffer is claimed to be crucial for performance, SayhiSort exhibits competitive speed.
 
 You may notice SayhiSort performs poorly on some data, compared to WikiSort and octosort. This shows whether each algorithm is tuned to already sorted data. Since SayhiSort is still fast on those data, the author believes there's no problem at all.
 
-[Logsort](https://github.com/aphitorite/Logsort)'s excellent performance is noteworthy. The algorithm is completely different to other ones based on merge sort. It's basically a variant of quicksort, using novel tagging technique to ensure stability. Regardless of practical performance, you need some caution since its worst-case time complexity is O(N^2).
+[Logsort](https://github.com/aphitorite/Logsort)'s excellent performance is noteworthy. The algorithm is completely different to other ones based on merge sort. It's basically a variant of quicksort, using novel tagging technique to ensure stability. In spite of the practical performance, you need some caution since its worst-case time complexity is O(N^2).
 
-Raw benchmark result is available in [`bench_result`](bench_result/) directory. You can also run the benchmark by yourself as follows.
+Raw benchmark result is available in [`bench_result`](bench_result/) directory. You can run the benchmark by yourself as follows.
 
 ```sh
 mkdir build
@@ -58,13 +58,15 @@ pushd build
 CC=gcc CXX=g++ cmake -DSAYHISORT_THIRDPARTY_BENCH=ON -GNinja ..
 popd
 ninja -C build
+build/test/sayhisort_bench > bench_result/gcc.yml
+
 mkdir build_clang
 pushd build_clang
 CC=clang CXX=clang++ cmake -DSAYHISORT_THIRDPARTY_BENCH=ON -GNinja ..
 popd
 ninja -C build_clang
-build/test/sayhisort_bench > bench_result/gcc.yml
 build_clang/test/sayhisort_bench > bench_result/clang.yml
+
 cd bench_result
 ./plot.py
 ```
@@ -83,11 +85,11 @@ cd bench_result
 
 * https://github.com/aphitorite/Logsort
 
-  Quicksort with stable partitioning, which is empirically very fast. Its partitioning algorithm, which interprets sequences' arrangement as tag bits, is very elegant. While it has O(N^2) worst-case time complexity and requires a buffer to hold log2(N) items, arguably there's room of further improvement.
+  Quicksort with stable partitioning, which is empirically very fast. Its partitioning algorithm, which interprets sequences' arrangement as tag bits, is very elegant. While it has O(N^2) worst-case time complexity and requires a buffer to hold log2(N) items, arguably there's rooms of further improvements.
 
 ## Algorithm detail
 
-Sayhisort is a variant of bottom-up block merge sort that
+SayhiSort is a variant of bottom-up block merge sort that
 
 * search (approximately) 2√N unique keys for imitation buffer and data buffer at first, and
 * alternately apply left-to-right merge and right-to-left merge to skip needless buffer movement, if data buffer is available.
@@ -98,21 +100,21 @@ While all algorithm code is written by the author, many ideas are given from oth
 
 Its overhead heavily depends on input data. If the data has unique keys slightly less that 2√N, it performs worst.
 
-It's hard to eliminate the bottleneck with no pre-allocated buffer, so marginal performance drop is observed. While Sayhisort's performance is still not bad, it isn't the fastest on `RandomSqrtKey` benchmark.
+It's hard to eliminate the bottleneck without a pre-allocated buffer, so marginal performance drop is observed. Thus SayhiSort isn't the fastest on `RandomSqrtKey` benchmark, while its performance is still not that bad.
 
 ### Sorting blocks
 
 It takes quite noticeable time.
 
-Each of two sequences to merge, those length is len, are divided at most `sqrt(len) / sqrt(2)` blocks. The blocks are merged in-place by the algorithm based on selection-sort. The merge algorithm is similar to basic one used in merge sort, but it uses selection sort to search the smallest block in the left sequence.
+When two sequences are merged, each sequence is divided to approximately `sqrt(len) / 2` blocks, where `len` is the sum length of two sequences. The blocks are merged in-place. The merge algorithm is similar to basic merge sort, but it uses selection sort to search the smallest block in the left sequence.
 
-The algorithm is quite basic on block merge sort. Though some micro-optimizations were tried, the result had been inconclusive. Seemingly complex code is harmful due to register pressure. At now there is no idea for further speed-up.
+This algorithm is quite basic in block merge sort. Though some micro-optimizations were tried, the result had been inconclusive. At now there is no idea for further speed-up.
 
 ### Merging blocks
 
 It's the most time-consuming routine.
 
-For the case data buffer is available, basically textbook merge algorithm is used. Current implementation applies [cross merge](https://github.com/scandum/quadsort#cross-merge) technique for optimization.
+In the case data buffer is available, basically textbook merge algorithm is used. Current implementation applies [cross merge](https://github.com/scandum/quadsort#cross-merge) technique for optimization.
 
 Some adaptive merge logic can significantly improve performance, since the length of two sequences `xs` and `ys` can differ. Depending on data, `ys` can be much longer than `xs`.
 
@@ -122,13 +124,13 @@ When the data buffer isn't available, in-place merge algorithm is required. The 
 * find the index `j` such in `xs[i] <= ys[j]` by binary searching `ys`, and
 * rotate `xs[i:]` and `ys[:j]`.
 
-The computational complexity is still linear, since the algorithm is used only if the number of unique keys is small. In practice, however, in-place merge algorithm can be a bit slow. Sayhisort avoids any pre-allocated buffer, so it resorts to in-place merge in many case. Therefore it shows mediocre peformance on `RandomFewKeys` benchmark.
+The computational complexity is still linear, since the algorithm is used only if the number of unique keys is small. In practice, however, in-place merge algorithm is a bit slow. SayhiSort avoids any pre-allocated buffer, so it frequently resorts to in-place. Therefore it shows mediocre performance on `RandomFewKeys` benchmark.
 
 ### Sorting short sequences
 
 It takes small but non-negligible time.
 
-When the sequence length is less than or equals to 8, odd-even sort is used. It's stable and parallelizable by superscalar execution. Specialized odd-even sort functions are dispatched by a heavily optimized loop
+When the sequence length is less than or equals to 8, the implementation uses odd-even sort, which is stable and parallelizable by superscalar execution. To sort many short sequences, a heavily optimized loop dispatches specialized odd-even sort functions.
 
 The author is reluctant to further optimization, because it likely bloats up inlined code size.
 
@@ -136,17 +138,17 @@ The author is reluctant to further optimization, because it likely bloats up inl
 
 Its cost is negligible at now, so it isn't worth of micro-optimization.
 
-To de-interleave imitation buffer, bin-sorting is used if the data buffer can be used as a auxiliary space. Otherwise novel O(K logK) algorithm is used, where K is the number of unique keys collected. This algorithm iteratively rotate skewed parts. See [comments](https://github.com/grafi-tt/sayhisort/blob/1a5833f27aaeeb9c463a971ceabd35f51af4c9a9/sayhisort.h#L476-L485) for detail.
+To de-interleave imitation buffer, bin-sorting is used if the data buffer can be used as a auxiliary space. Otherwise novel O(K log(K)) algorithm is used, where K is the number of unique keys collected. This algorithm iteratively rotate skewed parts. See [comments](https://github.com/grafi-tt/sayhisort/blob/1a5833f27aaeeb9c463a971ceabd35f51af4c9a9/sayhisort.h#L476-L485) for detail.
 
-The data buffer is sorted by heapsort.
+The data buffer is sorted by heapsort. Its solid computational complexity gives comfort to the author, even though Shell sort may perform well.
 
 ### Rotation sub-algorithm detail
 
-Uses [Helix rotation](https://github.com/scandum/rotate#helix-rotation) for large data, because of it's simple control flow and memory cache memory friendliness. Switches to triple reversal when data becomes small, to avoid integer modulo operation in Helix rotation.
+Uses [Helix rotation](https://github.com/scandum/rotate#helix-rotation) for large data, because of it's simple control flow and cache memory friendliness. Switches to triple reversal when the length becomes small, to avoid integer modulo operation in Helix rotation.
 
 ### Binary search sub-algorithm detail
 
-Uses [monobound binary search](https://github.com/scandum/binary_search). In general, the number of comparison to identify an item from N choices is at most ceil(log2(N)). It always performs this fixed number of comparisons. Though there maybe a redundant comparison, branch prediction improvement certainly wins.
+Uses [monobound binary search](https://github.com/scandum/binary_search). In general, the number of comparisons to identify an item from N choices is at most ceil(log2(N)). The routine always performs this fixed number of comparisons. Though there is a redundant comparison, its simple loop, friendly to branch prediction, certainly wins.
 
 ### Optimal sequence division technique
 
