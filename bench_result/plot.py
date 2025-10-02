@@ -63,7 +63,7 @@ def main():
 
     with open("gcc.yml") as f:
         libs, benches, table = load_result(f)
-        plot_data("gcc.png", libs, benches, table, "Benchmark on Ryzen 9 9950X 1.5M items of 64bit integers (GCC 15.2.0)")
+        plot_data("gcc.png", libs, benches, table, "Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (GCC 15.2.0)")
 
     with open("clang.yml") as f:
         libs, benches, table = load_result(f)
