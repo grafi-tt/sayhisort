@@ -1249,9 +1249,8 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
         // We don't need to check `num_blocks < max_numblocks` since it's ensured by `seq_len <= buffearble_len`.
         num_blocks = ((seq_len - 1) / ctrl.buf_len + 1) * 2;
     } else {
-        // Limit the number of blocks by `sqrt(2 * seq_len)`. Though this specific limit isn't carefully optimized
-        // at now, it must be O(`sqrt(seq_len)`) to assure `InterleaveBlocks` runs in O(`seq_len`) time complexity.
-        // Note that changing constant factor affects to the following validity proofs.
+        // Limit the number of blocks by `sqrt(2 * seq_len)`. It must be O(`sqrt(seq_len)`) to assure that
+        // `InterleaveBlocks` runs in O(`seq_len`) time complexity.
         SsizeT limit_num_blocks = seq_len / OverApproxSqrt(seq_len * 2) * 2;
         num_blocks = max_num_blocks < limit_num_blocks ? max_num_blocks : limit_num_blocks;
     }
@@ -1346,13 +1345,19 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
     // holds. Using (c) and (d), we have
     //
     //   (e):  num_blocks / 2 <= ceil(sqrt(seq_len) / sqrt(2)) .
-    //                        <= (sqrt(seq_len) / sqrt(2)) + 1
     //
     // Thanks to (e), it's easy to see that the following (subprop) is enough to prove (proposition).
     //
-    //   (subprop):  sqrt(seq_len) >= (sqrt(seq_len) / sqrt(2)) + 1
+    //   (subprop):  sqrt(seq_len) >= ceil(sqrt(seq_len) / sqrt(2)) .
     //
-    // As the function requires `seq_len >= 5`, (subprop) is always satisfied. Thus (proposition) is true.
+    // As the function requires `seq_len >= 5`, we show subprop for the cases
+    //
+    //   (1): 5 <= seq_len <= 11 , and
+    //   (2): seq_len >= 12 .
+    //
+    // For the case (1), subprop can be shown by exahsitive search. For the case (2), we have
+    // `sqrt(seq_len) >= sqrt(seq_len) / sqrt(2) + 1`. Thus (subprop) is satisfied.
+    //
     // Therefore We have proven `residual_len >= 2`.
 
     SsizeT residual_len = seq_len - block_len * (num_blocks / 2 - 1);
