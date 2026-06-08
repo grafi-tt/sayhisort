@@ -31,13 +31,13 @@ add_executable(
   sayhisort_test_util.cc
   sayhisort_test_util.h
 )
-target_compile_features(sayhisort_bench PRIVATE cxx_std_23)
+target_compile_features(sayhisort_bench PRIVATE cxx_std_20)
 add_test(NAME sayhisort_bench COMMAND $<TARGET_FILE:sayhisort_bench>)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   target_compile_options(sayhisort_test PRIVATE -std=c++17 -Wall -Wextra -Wpedantic -Werror)
   target_compile_options(sayhisort_cpp20_test PRIVATE -std=c++20 -Wall -Wextra -Wpedantic -Werror)
-  target_compile_options(sayhisort_bench PRIVATE -std=c++23 -Wall -Wextra -Wpedantic -Werror -O3 -march=native)
+  target_compile_options(sayhisort_bench PRIVATE -std=c++20 -Wall -Wextra -Wpedantic -Werror -O3 -march=native)
 endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
   target_compile_options(sayhisort_bench PRIVATE /Zc:preprocessor)
@@ -49,7 +49,7 @@ add_library(
   sayhisort_bench_runner.h
 )
 target_link_libraries(sayhisort_bench_runner sayhisort)
-target_compile_features(sayhisort_bench_runner PRIVATE cxx_std_23)
+target_compile_features(sayhisort_bench_runner PRIVATE cxx_std_20)
 target_compile_definitions(sayhisort_bench_runner PRIVATE SAYHISORT_DISABLE_PROFILE)
 
 add_library(
@@ -58,7 +58,7 @@ add_library(
   sayhisort_bench_runner.h
 )
 target_link_libraries(sayhisort_profile_bench_runner sayhisort)
-target_compile_features(sayhisort_profile_bench_runner PRIVATE cxx_std_23)
+target_compile_features(sayhisort_profile_bench_runner PRIVATE cxx_std_20)
 
 add_library(
   stablesort_bench_runner OBJECT
@@ -67,8 +67,8 @@ add_library(
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  target_compile_options(sayhisort_bench_runner PRIVATE -std=c++23 -Wall -Wextra -Wpedantic -Werror -O3 -march=native)
-  target_compile_options(sayhisort_profile_bench_runner PRIVATE -std=c++23 -Wall -Wextra -Wpedantic -Werror -O3 -march=native)
+  target_compile_options(sayhisort_bench_runner PRIVATE -std=c++20 -Wall -Wextra -Wpedantic -Werror -O3 -march=native)
+  target_compile_options(sayhisort_profile_bench_runner PRIVATE -std=c++20 -Wall -Wextra -Wpedantic -Werror -O3 -march=native)
   target_compile_options(stablesort_bench_runner PRIVATE -std=c++17 -Wall -Wextra -Wpedantic -Werror -O3 -march=native)
 endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")

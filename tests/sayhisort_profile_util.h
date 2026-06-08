@@ -1,7 +1,7 @@
 #ifndef SAYHISORT_PROFILE_UTIL_H
 #define SAYHISORT_PROFILE_UTIL_H
 
-// Requires C++23.
+// Requires C++20.
 // Generalized code isn't directly related to sayhisort logic.
 // Just playing to create handy micro profiling utility.
 
@@ -119,7 +119,6 @@ void RegisterStat(std::string_view key, std::pair<StatT, bool>& value) {
 template <std::size_t N>
 struct StaticString {
     static inline constexpr std::size_t size = N == 0 ? 1 : N;
-    constexpr StaticString() : invalid{true} {}
     constexpr StaticString(auto&&) : invalid{true} {}
     constexpr StaticString(const char (&s)[size]) : invalid{false} {
         for (std::size_t i = 0; i < size; ++i) {
@@ -170,7 +169,7 @@ template <typename StatT, StaticString K>
 class StatAccessor {
 public:
     constexpr StatT* get(std::string_view key) {
-        if consteval {
+        if (std::is_constant_evaluated()) {
             return nullptr;
         } else {
             auto& [stat, disabled] = store_.value(key);
@@ -210,13 +209,9 @@ private:
 #define SAYHISORT_GENSYM(name) SAYHISORT_CONCAT(_sayhisort_macro_##name##_, __LINE__)
 
 // Detect string literal by https://stackoverflow.com/a/75151972
-#define SAYHISORT_GET_STAT(key, StatT)                                                                      \
-    ::sayhisort::test::StatAccessor<StatT,                                                                  \
-                                    std::is_same_v<decltype(key), const char (&)[sizeof(key)]>&& requires { \
-                                        std::type_identity_t<char[sizeof(key) + std::size_t{1}]>{key};      \
-                                    } ? ::sayhisort::test::StaticString<sizeof(key)>{key}                   \
-                                      : ::sayhisort::test::StaticString<sizeof(key)>{}>{}                   \
-        .get(std::is_constant_evaluated() ? std::string_view{} : std::string_view{key})
+#define SAYHISORT_GET_STAT(key, StatT)                                                               \
+    ::sayhisort::test::StatAccessor<StatT, ::sayhisort::test::StaticString<sizeof(key)>{key}>{}.get( \
+        std::is_constant_evaluated() ? std::string_view{} : std::string_view{key})
 
 template <Stat S, Action<S> A>
 constexpr void Record(S* stat, const A& act) {
