@@ -119,18 +119,23 @@ void RegisterStat(std::string_view key, std::pair<StatT, bool>& value) {
 template <std::size_t N>
 struct StaticString {
     static inline constexpr std::size_t size = N == 0 ? 1 : N;
-    constexpr StaticString(auto&&) : invalid{true} {}
-    constexpr StaticString(const char (&s)[size]) : invalid{false} {
+    constexpr StaticString(auto&&) {}
+    constexpr StaticString(const char (&s)[size]) {
         for (std::size_t i = 0; i < size; ++i) {
             data[i] = s[i];
         }
     }
+    constexpr static bool invalid() { return N == 0; }
     constexpr std::string_view view() const { return std::string_view{data, size - 1}; }
-    bool invalid;
     char data[size] = {};
 };
 
-template <typename StatT, StaticString K, bool = K.invalid>
+StaticString(auto&&) -> StaticString<0>;
+
+template <std::size_t N>
+StaticString(const char (&s)[N]) -> StaticString<N>;
+
+template <typename StatT, StaticString K, bool = K.invalid()>
 class StatStore {
     // zero-overhead impl
 public:
@@ -208,9 +213,8 @@ private:
 
 #define SAYHISORT_GENSYM(name) SAYHISORT_CONCAT(_sayhisort_macro_##name##_, __LINE__)
 
-// Detect string literal by https://stackoverflow.com/a/75151972
-#define SAYHISORT_GET_STAT(key, StatT)                                                               \
-    ::sayhisort::test::StatAccessor<StatT, ::sayhisort::test::StaticString<sizeof(key)>{key}>{}.get( \
+#define SAYHISORT_GET_STAT(key, StatT)                                                  \
+    ::sayhisort::test::StatAccessor<StatT, ::sayhisort::test::StaticString{key}>{}.get( \
         std::is_constant_evaluated() ? std::string_view{} : std::string_view{key})
 
 template <Stat S, Action<S> A>
