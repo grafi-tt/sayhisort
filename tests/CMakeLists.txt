@@ -50,12 +50,12 @@ add_library(
 )
 target_link_libraries(sayhisort_bench_runner sayhisort)
 target_compile_features(sayhisort_bench_runner PRIVATE cxx_std_20)
-target_compile_definitions(sayhisort_bench_runner PRIVATE SAYHISORT_DISABLE_PROFILE)
 
 add_library(
   sayhisort_profile_bench_runner OBJECT
-  sayhisort_bench_runner.cc
-  sayhisort_bench_runner.h
+  sayhisort_profile_bench_runner.cc
+  sayhisort_profile_bench_runner.h
+  sayhisort_profile_util.h
 )
 target_link_libraries(sayhisort_profile_bench_runner sayhisort)
 target_compile_features(sayhisort_profile_bench_runner PRIVATE cxx_std_20)

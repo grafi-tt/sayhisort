@@ -11,6 +11,7 @@
 #include "sayhisort_test_util.h"
 
 #include "sayhisort_bench_runner.h"
+#include "sayhisort_profile_bench_runner.h"
 #include "stablesort_bench_runner.h"
 
 #ifdef SAYHISORT_THIRDPARTY_BENCH

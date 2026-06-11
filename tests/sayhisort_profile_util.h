@@ -194,22 +194,8 @@ private:
  * Internal low-level API
  */
 
-#define SAYHISORT_EXPAND(a) a
 #define SAYHISORT_CONCAT(a, b) SAYHISORT_CONCAT_HELPER(a, b)
 #define SAYHISORT_CONCAT_HELPER(a, b) a##b
-
-#define SAYHISORT_DEFINED_DISABLE_PROFILE      \
-    SAYHISORT_DEFINED_DISABLE_PROFILE_HELPER0( \
-        SAYHISORT_CONCAT(SAYHISORT_DEFINED_DISABLE_PROFILE_X_, SAYHISORT_DISABLE_PROFILE), 1)
-#define SAYHISORT_DEFINED_DISABLE_PROFILE_HELPER0(x, ...) SAYHISORT_DEFINED_DISABLE_PROFILE_HELPER1(x, __VA_ARGS__)
-#define SAYHISORT_DEFINED_DISABLE_PROFILE_HELPER1(y, flag, ...) flag
-#define SAYHISORT_DEFINED_DISABLE_PROFILE_X_SAYHISORT_DISABLE_PROFILE 42, 0
-
-#define SAYHISORT_IFNDEF_DISABLE_PROFILE(name, ...) \
-    SAYHISORT_EXPAND(                               \
-        SAYHISORT_CONCAT(SAYHISORT_IFNDEF_DISABLE_PROFILE_, SAYHISORT_DEFINED_DISABLE_PROFILE)(name, __VA_ARGS__))
-#define SAYHISORT_IFNDEF_DISABLE_PROFILE_0(name, ...) name(__VA_ARGS__)
-#define SAYHISORT_IFNDEF_DISABLE_PROFILE_1(name, ...)
 
 #define SAYHISORT_GENSYM(name) SAYHISORT_CONCAT(_sayhisort_macro_##name##_, __LINE__)
 
@@ -251,16 +237,9 @@ private:
  * Public API
  */
 
-// To disable profile:
-//   #define SAYHISORT_DISABLE_PROFILE
-// To re-enable profile:
-//   #undef SAYHISORT_DISABLE_PROFILE
+#define SAYHISORT_RECORD(key, StatT, act) Record(SAYHISORT_GET_STAT(key, StatT), act)
 
-#define SAYHISORT_RECORD(...) SAYHISORT_IFNDEF_DISABLE_PROFILE(SAYHISORT_RECORD_IMPL, __VA_ARGS__)
-#define SAYHISORT_RECORD_IMPL(key, StatT, act) Record(SAYHISORT_GET_STAT(key, StatT), act)
-
-#define SAYHISORT_SCOPED_RECORDER(...) SAYHISORT_IFNDEF_DISABLE_PROFILE(SAYHISORT_SCOPED_RECORDER_IMPL, __VA_ARGS__)
-#define SAYHISORT_SCOPED_RECORDER_IMPL(key, StatT, TraceActionT)                                                \
+#define SAYHISORT_SCOPED_RECORDER(key, StatT, TraceActionT)                                                     \
     [[maybe_unused]] ::sayhisort::test::ScopedRecorder<StatT, TraceActionT> SAYHISORT_GENSYM(scoped_recorder) { \
         SAYHISORT_GET_STAT(key, StatT)                                                                          \
     }
