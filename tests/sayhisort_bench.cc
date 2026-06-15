@@ -24,6 +24,8 @@
 int main() {
     using namespace sayhisort::test;
 
+    YamlReporter reporter(std::cout);
+
     constexpr int seed = 42;
     constexpr uint64_t kSize = 1500000;
 
@@ -40,7 +42,7 @@ int main() {
     std::vector<uint64_t> data(kSize);
     std::vector<uint64_t> expected(kSize);
     for (auto [name, fn] : kBenchData) {
-        Report(std::cout, name, true);
+        reporter.push_key(name);
         const std::mt19937_64 gen = GetRNG(seed, {"SayhiSortBench", "::", name});
 
         std::mt19937_64 tmpgen = gen;
@@ -54,9 +56,9 @@ int main() {
             SAYHISORT_PERF_TRACE("sayhisort_profile");
             RunSayhiSortProfile(data);
         }
-        Report(std::cout, "sayhisort_profile", true);
-        Report(std::cout);
-        PopReportIndent();
+        Report(reporter, "sayhisort_profile", true);
+        Report(reporter);
+        reporter.pop();
         if (data != expected) {
             std::cout << "Result check failed!" << std::endl;
             return 1;
@@ -68,7 +70,7 @@ int main() {
             SAYHISORT_PERF_TRACE("sayhisort");
             RunSayhiSort(data);
         }
-        Report(std::cout, "sayhisort");
+        Report(reporter, "sayhisort");
         if (data != expected) {
             std::cout << "Result check failed!" << std::endl;
             return 1;
@@ -81,7 +83,7 @@ int main() {
             SAYHISORT_PERF_TRACE("wikisort");
             RunWikiSort(data);
         }
-        Report(std::cout, "wikisort");
+        Report(reporter, "wikisort");
         if (data != expected) {
             std::cout << "Result check failed!" << std::endl;
             return 1;
@@ -93,7 +95,7 @@ int main() {
             SAYHISORT_PERF_TRACE("octosort");
             RunOctoSort(data.data(), kSize);
         }
-        Report(std::cout, "octosort");
+        Report(reporter, "octosort");
         if (data != expected) {
             std::cout << "Result check failed!" << std::endl;
             return 1;
@@ -105,7 +107,7 @@ int main() {
             SAYHISORT_PERF_TRACE("grailsort");
             RunGrailSort(data);
         }
-        Report(std::cout, "grailsort");
+        Report(reporter, "grailsort");
         if (data != expected) {
             std::cout << "Result check failed!" << std::endl;
             return 1;
@@ -118,7 +120,7 @@ int main() {
             SAYHISORT_PERF_TRACE("std::stable_sort");
             RunStableSort(data);
         }
-        Report(std::cout, "std::stable_sort");
+        Report(reporter, "std::stable_sort");
         if (data != expected) {
             std::cout << "Result check failed!" << std::endl;
             return 1;
@@ -131,14 +133,14 @@ int main() {
             SAYHISORT_PERF_TRACE("logsort");
             RunLogSort(data.data(), kSize);
         }
-        Report(std::cout, "logsort");
+        Report(reporter, "logsort");
         if (data != expected) {
             std::cout << "Result check failed!" << std::endl;
             return 1;
         }
 #endif
 
-        PopReportIndent();
+        reporter.pop();
     }
 
     return 0;

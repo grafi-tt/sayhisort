@@ -25,58 +25,29 @@ namespace sayhisort::test {
  * Public type interface
  */
 
-class EntityWriter {
+class Reporter {
 public:
-    EntityWriter(std::ostream& os) : os_{os} {}
-
-    template <typename... NameT, typename... ValueT>
-    void operator()(std::tuple<NameT...> name, std::tuple<ValueT...> value);
-
-    template <typename NameT, typename ValueT>
-    void operator()(const NameT& name, const ValueT& value) {
-        this->operator()(std::forward_as_tuple(name), std::forward_as_tuple(value));
-    }
-
-private:
-    std::ostream& os_;
+    virtual ~Reporter() = default;
+    virtual void write_entity(void (*name_writer)(std::ostream& os, const void* name), const void* name,
+                              void (*value_writer)(std::ostream& os, const void* value), const void* value) = 0;
+    virtual void push_key(std::string_view key) = 0;
+    virtual void pop() = 0;
 };
 
-template <typename S>
-concept Stat = std::equality_comparable<S> && requires(S s, EntityWriter write_entity) {
-    S{};
-    s.report(write_entity);
+template <typename StatT>
+concept Stat = std::equality_comparable<StatT> && requires(const StatT& s, Reporter& reporter) {
+    StatT{};
+    s.report(reporter);
 };
 
-template <typename A, typename S>
-concept Action = requires(const A& a, S s) { s.update(a); };
+template <typename ActionT, typename StatT>
+concept Action = requires(const ActionT& a, StatT s) { s.update(a); };
 
-template <typename T, typename S>
-concept TraceAction = requires(T t, S s) {
+template <typename TraceActionT, typename StatT>
+concept TraceAction = requires(TraceActionT t, StatT s) {
     t.begin();
     s.update(t.end());
 };
-
-/**
- * Internal core to report stats
- */
-
-inline std::size_t g_report_indent = 0;
-
-inline std::ostream& WriteReportIndent(std::ostream& os, std::size_t offset = 0) {
-    for (std::size_t i = 0; i < g_report_indent + offset; ++i) {
-        os << "  ";
-    }
-    return os;
-}
-
-template <typename... NameT, typename... ValueT>
-void EntityWriter::operator()(std::tuple<NameT...> name, std::tuple<ValueT...> value) {
-    WriteReportIndent(os_, 1);
-    std::apply([this](const auto&... args) { (os_ << ... << args); }, name);
-    os_ << ": ";
-    std::apply([this](const auto&... args) { (os_ << ... << args); }, value);
-    os_ << "\n";
-}
 
 /**
  * Internal core to process polymorphic stats
@@ -85,7 +56,7 @@ void EntityWriter::operator()(std::tuple<NameT...> name, std::tuple<ValueT...> v
 struct StatEntry {
     void* stat;
     bool* disabled;
-    void (*reporter)(void*, EntityWriter);
+    void (*report)(Reporter&, void*);
     bool (*is_empty)(const void*);
 };
 
@@ -98,12 +69,12 @@ inline void RegisterStatImpl(std::string_view key, StatEntry entry) {
     GetStatRegistry().emplace(key, entry);
 }
 
-template <typename StatT>
+template <Stat StatT>
 void RegisterStat(std::string_view key, std::pair<StatT, bool>& value) {
     RegisterStatImpl(key, {&value.first, &value.second,
-                           [](void* p, EntityWriter write_entity) {
+                           [](Reporter& reporter, void* p) {
                                StatT& s = *static_cast<StatT*>(p);
-                               s.report(write_entity);
+                               s.report(reporter);
                                s = StatT{};
                            },
                            [](const void* p) {
@@ -273,45 +244,81 @@ inline void DisableRecords(std::string_view key) {
     EnableRecords(key, false);
 }
 
-inline void Report(std::ostream& os) {
-    EntityWriter write_entity{os};
+inline void Report(Reporter& reporter) {
     const std::string* old_key = nullptr;
     for (const auto& [key, entry] : GetStatRegistry()) {
         if (!entry.is_empty(entry.stat)) {
             if (!old_key || *old_key != key) {
-                WriteReportIndent(os) << key << ":\n";
+                if (old_key) {
+                    reporter.pop();
+                }
+                reporter.push_key(key);
                 old_key = &key;
             }
-            entry.reporter(entry.stat, write_entity);
+            entry.report(reporter, entry.stat);
         }
     }
-    os.flush();
+    if (old_key) {
+        reporter.pop();
+    }
 }
 
-inline void Report(std::ostream& os, std::string_view key, bool push_indent = false) {
-    EntityWriter write_entity{os};
-    WriteReportIndent(os) << key << ":\n";
+inline void Report(Reporter& reporter, std::string_view key, bool push = false) {
+    reporter.push_key(key);
     auto& registry = GetStatRegistry();
     auto [it0, it1] = registry.equal_range(key);
     while (it0 != it1) {
         auto& entry = it0++->second;
-        entry.reporter(entry.stat, write_entity);
+        entry.report(reporter, entry.stat);
     }
-    g_report_indent += push_indent;
-}
-
-inline void PopReportIndent() {
-    --g_report_indent;
+    if (!push) {
+        reporter.pop();
+    }
 }
 
 /**
  * High-level util to trace execution time
  */
 
+class YamlReporter : public Reporter {
+public:
+    YamlReporter(std::ostream& os) : os_{os} {}
+
+    void write_entity(void (*name_writer)(std::ostream& os, const void* name), const void* name,
+                      void (*value_writer)(std::ostream& os, const void* value), const void* value) override {
+        for (size_t i = 0; i < indent_; ++i) {
+            os_ << "  ";
+        }
+        name_writer(os_, name);
+        os_ << ": ";
+        value_writer(os_, value);
+        os_ << "\n";
+    }
+
+    void push_key(std::string_view key) override {
+        for (size_t i = 0; i < indent_; ++i) {
+            os_ << "  ";
+        }
+        os_ << key << ":\n";
+        ++indent_;
+    }
+
+    void pop() { --indent_; }
+
+private:
+    std::ostream& os_;
+    std::size_t indent_ = 0;
+};
+
 class SumTime {
 public:
     void update(uint64_t ns) { sum_ += ns; }
-    void report(EntityWriter write_entity) const { write_entity("elapsed_time_ms", sum_ / (1000.0 * 1000.0)); }
+    void report(Reporter& reporter) const {
+        double value = sum_ / (1000.0 * 1000.0);
+        reporter.write_entity(
+            [](std::ostream& os, const void* name) { os << static_cast<const char*>(name); }, "elapsed_time_ms",
+            [](std::ostream& os, const void* value) { os << *static_cast<const double*>(value); }, &value);
+    }
     friend auto operator<=>(SumTime, SumTime) = default;
 
 private:
