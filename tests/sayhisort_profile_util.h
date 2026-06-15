@@ -303,7 +303,7 @@ public:
         ++indent_;
     }
 
-    void pop() { --indent_; }
+    void pop() override { --indent_; }
 
 private:
     std::ostream& os_;
