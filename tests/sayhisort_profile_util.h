@@ -102,25 +102,24 @@ struct StaticString {
 };
 
 StaticString(auto&&) -> StaticString<0>;
-
 template <std::size_t N>
 StaticString(const char (&s)[N]) -> StaticString<N>;
 
-template <typename StatT, StaticString K, bool = K.invalid()>
+template <Stat StatT, StaticString K, bool = K.invalid()>
 class StatStore {
     // zero-overhead impl
 public:
     std::pair<StatT, bool>& value(std::string_view) { return value_; }
 
 private:
-    template <typename, StaticString>
+    template <Stat, StaticString>
     friend class StatAccessor;
 
     StatStore() { RegisterStat<StatT>(K.view(), value_); }
     std::pair<StatT, bool> value_{};
 };
 
-template <typename StatT, StaticString K>
+template <Stat StatT, StaticString K>
 class StatStore<StatT, K, true> {
     // dynamic key impl
 public:
@@ -134,14 +133,14 @@ public:
     }
 
 private:
-    template <typename, StaticString>
+    template <Stat, StaticString>
     friend class StatAccessor;
 
     StatStore() {}
     std::map<std::string, std::pair<StatT, bool>, std::less<>> stat_map_;
 };
 
-template <typename StatT, StaticString K>
+template <Stat StatT, StaticString K>
 class StatAccessor {
 public:
     constexpr StatT* get(std::string_view key) {
