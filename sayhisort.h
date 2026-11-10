@@ -208,8 +208,8 @@ using diff_t = typename ::std::iterator_traits<Iterator>::difference_type;
  * @return r
  *   @post r = 3, if x = 8
  *   @post r = 4, if 9 <= x <= 16 (exhaustively checked by test)
- *   @post r < sqrt(x) * 1.25, if x > 16 (exhaustively checked for x < 28 by test, and
- *                                        mathematically shown for x >= 28 in code comments)
+ *   @post sqrt(x) <= r < sqrt(x) * 1.25, if x > 16 (exhaustively checked for x < 28 by test, and
+ *                                                   mathematically shown for x >= 28 in code comments)
  *         This is rough bound required for algorithm correctness. Actual value is much more precise.
  */
 template <typename SsizeT>
