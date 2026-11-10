@@ -93,25 +93,38 @@ ReversedIterator(Iterator) -> ReversedIterator<Iterator>;
 
 struct VoidProj {};
 
-template <typename Comp, typename Proj, bool = std::is_final_v<Comp> || std::is_final_v<Proj>>
+/**
+ * @brief Comparator of elements pointed by iterators, applying projection.
+ *
+ * To benefit from EBO, `Comp` and `Proj` are inherited if both are empty and non-final class types, and neither
+ * is a base of the other (otherwise they become ambiguous bases). Other function objects (function pointers,
+ * member pointers, final classes and stateful objects) are held as members.
+ */
+template <typename Comp, typename Proj,
+          bool = !(std::is_empty_v<Comp> && !std::is_final_v<Comp> && std::is_empty_v<Proj> && !std::is_final_v<Proj> &&
+                   !std::is_base_of_v<Comp, Proj> && !std::is_base_of_v<Proj, Comp>)>
 struct IterComp : Comp, Proj {
     constexpr IterComp(Comp comp, Proj proj) : Comp{comp}, Proj{proj} {}
 
     template <typename Iterator, bool strict = true>
     constexpr bool operator()(Iterator lhs, Iterator rhs, std::bool_constant<strict> = {}) {
+        Comp& comp = *this;
+        Proj& proj = *this;
         if constexpr (strict) {
-            return Comp::operator()(Proj::operator()(*lhs), Proj::operator()(*rhs));
+            return std::invoke(comp, std::invoke(proj, *lhs), std::invoke(proj, *rhs));
         } else {
-            return !Comp::operator()(Proj::operator()(*rhs), Proj::operator()(*lhs));
+            return !std::invoke(comp, std::invoke(proj, *rhs), std::invoke(proj, *lhs));
         }
     }
     template <typename Iterator, bool strict = true>
     constexpr bool operator()(ReversedIterator<Iterator> lhs, ReversedIterator<Iterator> rhs,
                               std::bool_constant<strict> = {}) {
+        Comp& comp = *this;
+        Proj& proj = *this;
         if constexpr (strict) {
-            return Comp::operator()(Proj::operator()(*rhs), Proj::operator()(*lhs));
+            return std::invoke(comp, std::invoke(proj, *rhs), std::invoke(proj, *lhs));
         } else {
-            return !Comp::operator()(Proj::operator()(*lhs), Proj::operator()(*rhs));
+            return !std::invoke(comp, std::invoke(proj, *lhs), std::invoke(proj, *rhs));
         }
     }
 };
@@ -149,19 +162,21 @@ struct IterComp<Comp, VoidProj, false> : Comp {
 
     template <typename Iterator, bool strict = true>
     constexpr bool operator()(Iterator lhs, Iterator rhs, std::bool_constant<strict> = {}) {
+        Comp& comp = *this;
         if constexpr (strict) {
-            return Comp::operator()(*lhs, *rhs);
+            return std::invoke(comp, *lhs, *rhs);
         } else {
-            return !Comp::operator()(*rhs, *lhs);
+            return !std::invoke(comp, *rhs, *lhs);
         }
     }
     template <typename Iterator, bool strict = true>
     constexpr bool operator()(ReversedIterator<Iterator> lhs, ReversedIterator<Iterator> rhs,
                               std::bool_constant<strict> = {}) {
+        Comp& comp = *this;
         if constexpr (strict) {
-            return Comp::operator()(*rhs, *lhs);
+            return std::invoke(comp, *rhs, *lhs);
         } else {
-            return !Comp::operator()(*lhs, *rhs);
+            return !std::invoke(comp, *lhs, *rhs);
         }
     }
 };

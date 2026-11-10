@@ -37,6 +37,10 @@ std::mt19937_64 GetPerTestRNG() {
 
 struct FinalLess final : public std::less<int> {};
 
+bool LessInt(int x, int y) { return x < y; }
+int NegateInt(int x) { return -x; }
+bool LessDiv4(int x, int y) { return (x >> 2) < (y >> 2); }
+
 TEST(SayhiSortTest, IterComp) {
     std::vector ary{0, 1, 2};
     auto it = ary.begin();
@@ -64,6 +68,18 @@ TEST(SayhiSortTest, IterComp) {
     EXPECT_FALSE(gt_noebo(it, it + 1));
     EXPECT_FALSE(gt_noebo(it + 1, it + 1));
     EXPECT_TRUE(gt_noebo(it + 2, it + 1));
+
+    IterComp lt_fnptr{&LessInt, VoidProj{}};
+    static_assert(!std::is_empty_v<decltype(lt_fnptr)>);
+    EXPECT_TRUE(lt_fnptr(it, it + 1));
+    EXPECT_FALSE(lt_fnptr(it + 1, it + 1));
+    EXPECT_FALSE(lt_fnptr(it + 2, it + 1));
+
+    IterComp gt_fnptr{&LessInt, &NegateInt};
+    static_assert(!std::is_empty_v<decltype(gt_fnptr)>);
+    EXPECT_FALSE(gt_fnptr(it, it + 1));
+    EXPECT_FALSE(gt_fnptr(it + 1, it + 1));
+    EXPECT_TRUE(gt_fnptr(it + 2, it + 1));
 }
 
 TEST(SayhiSortTest, OverApproxSqrt) {
@@ -749,6 +765,24 @@ TEST(SayhiSortTest, SortAPI) {
     sayhisort::sort(ary.begin(), ary.end());
     std::stable_sort(expected.begin(), expected.end());
     EXPECT_EQ(ary, expected);
+}
+
+TEST(SayhiSortTest, SortFunctionPointer) {
+    SsizeT ary_len = 1024;
+    std::vector<int> ary(ary_len);
+    std::vector<int> expected(ary_len);
+
+    auto rng = GetPerTestRNG();
+
+    for (SsizeT i = 0; i < ary_len; ++i) {
+        std::iota(ary.begin(), ary.begin() + i, 0);
+        std::fill(ary.begin() + i, ary.end(), static_cast<int>(ary_len));
+        std::shuffle(ary.begin(), ary.begin() + i, rng);
+        std::copy(ary.begin(), ary.end(), expected.begin());
+        sayhisort::sort(ary.begin(), ary.begin() + i, &LessDiv4);
+        std::stable_sort(expected.begin(), expected.begin() + i, &LessDiv4);
+        EXPECT_EQ(ary, expected) << i;
+    }
 }
 
 #ifdef __GNUC__
