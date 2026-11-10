@@ -802,8 +802,8 @@ SAYHISORT_CONSTEXPR_SWAP void MergeBlocking(Iterator imit, Iterator& buf, Iterat
  *
  * The algorithm simulates real-number division. That is, when an array with its length `L` is
  * divided to `n` sequences, `i`-th sequence is the slice of the following range:
- *   [ floor(i * (L/n)) , floor((i+1) * (L/N)) ) .
- * Since `N` is power of 2, we can exactly compute the range by tracking the fractional part by an integer.
+ *   [ floor(i * (L/n)) , floor((i+1) * (L/n)) ) .
+ * Since `n` is power of 2, we can exactly compute the range by tracking the fractional part by an integer.
  */
 template <typename SsizeT, bool forward = true>
 struct SequenceDivider {
