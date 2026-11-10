@@ -25,7 +25,6 @@
 namespace sayhisort {
 
 namespace detail {
-namespace {
 
 using ::std::iter_swap;
 
@@ -1457,7 +1456,6 @@ SAYHISORT_CONSTEXPR_SWAP Iterator Sort(Iterator first, Iterator last, IterComp<C
     return last;
 }
 
-}  // namespace
 }  // namespace detail
 
 #if __cpp_concepts >= 201707L && __cpp_lib_concepts >= 201907L && __cpp_lib_ranges >= 201911L
