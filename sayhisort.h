@@ -1087,7 +1087,9 @@ SAYHISORT_CONSTEXPR_SWAP void HeapSort(Iterator data, diff_t<Iterator> len, Iter
         if (cur < len / 2) {  // left(cur) < len
             cur = left(cur);
         }
-        while (iter_comp(data + cur, data + start)) {
+        // `cur > start` is redundant for valid comparators, since `comp(x, x)` is false. It prevents an infinite loop
+        // when an invalid reflexive comparator (e.g. `<=`) is given.
+        while (cur > start && iter_comp(data + cur, data + start)) {
             cur = parent(cur);
         }
         while (cur > start) {
@@ -1188,9 +1190,9 @@ struct MergeSortControl {
      *
      *   bufferable_len >= (OverApproxSqrt(len)^2 - OverApproxSqrt(len)) / 2
      *                  =  (OverApproxSqrt(len)^2 - (num_keys + 2) / 2) / 2
-     *                  >= (len - (num_keys + 2) / 2) / 2 .
+     *                  >= (len - (num_keys / 2) - 1) / 2 .
      *
-     * As `num_keys >= 2`, we have `bufferable_len * 2 >= len - num_keys / 2 - 1 >= len - num_keys`.
+     * As `num_keys >= 2`, we have `bufferable_len * 2 >= len - (num_keys / 2) - 1 >= len - num_keys`.
      * Thus buffering is enabled until the last merge level, ensuring O(len) time complexity for each merge level.
      *
      */
