@@ -123,18 +123,18 @@ struct IterComp<Comp, Proj, true> {
     template <typename Iterator, bool strict = true>
     constexpr bool operator()(Iterator lhs, Iterator rhs, std::bool_constant<strict> = {}) {
         if constexpr (strict) {
-            return comp_(proj_(*lhs), proj_(*rhs));
+            return std::invoke(comp_, std::invoke(proj_, *lhs), std::invoke(proj_, *rhs));
         } else {
-            return !comp_(proj_(*rhs), proj_(*lhs));
+            return !std::invoke(comp_, std::invoke(proj_, *rhs), std::invoke(proj_, *lhs));
         }
     }
     template <typename Iterator, bool strict = true>
     constexpr bool operator()(ReversedIterator<Iterator> lhs, ReversedIterator<Iterator> rhs,
                               std::bool_constant<strict> = {}) {
         if constexpr (strict) {
-            return comp_(proj_(*rhs), proj_(*lhs));
+            return std::invoke(comp_, std::invoke(proj_, *rhs), std::invoke(proj_, *lhs));
         } else {
-            return !comp_(proj_(*lhs), proj_(*rhs));
+            return !std::invoke(comp_, std::invoke(proj_, *lhs), std::invoke(proj_, *rhs));
         }
     }
 
@@ -173,18 +173,18 @@ struct IterComp<Comp, VoidProj, true> {
     template <typename Iterator, bool strict = true>
     constexpr bool operator()(Iterator lhs, Iterator rhs, std::bool_constant<strict> = {}) {
         if constexpr (strict) {
-            return comp_(*lhs, *rhs);
+            return std::invoke(comp_, *lhs, *rhs);
         } else {
-            return !comp_(*rhs, *lhs);
+            return !std::invoke(comp_, *rhs, *lhs);
         }
     }
     template <typename Iterator, bool strict = true>
     constexpr bool operator()(ReversedIterator<Iterator> lhs, ReversedIterator<Iterator> rhs,
                               std::bool_constant<strict> = {}) {
         if constexpr (strict) {
-            return comp_(*rhs, *lhs);
+            return std::invoke(comp_, *rhs, *lhs);
         } else {
-            return !comp_(*lhs, *rhs);
+            return !std::invoke(comp_, *lhs, *rhs);
         }
     }
 
