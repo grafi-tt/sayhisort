@@ -1154,14 +1154,31 @@ struct MergeSortControl {
      * We don't record the leftmost and rightmost block into the imitation buffer (due to remainder handling).
      * Therefore the number of blocks is at most `imit_len + 2`.
      *
-     * The value `bufferable_len` is the maximum length of sequences, that can be block-merged with buffering.
+     * The value `bufferable_len` is the maximum length of a sequence, that can be block-merged with buffering.
      * Imitation buffer holds permutation of blocks in the two sequences which will be block-merged, and
      * merge buffer must be large enough to store a block. So it's defined by
      *
      *   bufferable_len = (imit_len + 2) / 2 * buf_len .
      *
-     * When `num_keys = num_desired_key`, `imit_len + 2 >= sqrt(len)` and `buf_len >= sqrt(len)` holds.
-     * Therefore buffering is enabled until the last merge level, ensuring O(len) time complexity for each merge level.
+     * When `num_keys = num_desired_key`, where `num_desired_key = 2 * OverApproxSqrt(len) - 2`,
+     *
+     *   (imit_len + 2) / 2 =  floor(OverApproxSqrt(len) / 2)
+     *                      >= (OverApproxSqrt(len) - 1) / 2, and
+     *
+     *   buf_len = num_desired_key - imit_len
+     *           = (num_desired_key + 2) - (imit_len + 2)
+     *           = 2 * OverApproxSqrt(len) - floor(OverApproxSqrt(len) / 2) * 2
+     *           >= OverApproxSqrt(len) .
+     *
+     * In this case
+     *
+     *   bufferable_len >= (OverApproxSqrt(len)^2 - OverApproxSqrt(len)) / 2
+     *                  =  (OverApproxSqrt(len)^2 - (num_keys + 2) / 2) / 2
+     *                  >= (len - (num_keys + 2) / 2) / 2 .
+     *
+     * As `num_keys >= 2`, we have `bufferable_len * 2 >= len - num_keys / 2 - 1 >= len - num_keys`.
+     * Thus buffering is enabled until the last merge level, ensuring O(len) time complexity for each merge level.
+     *
      */
     constexpr MergeSortControl(SsizeT num_keys, SsizeT data_len) : data_len{data_len} {
         if (num_keys) {
@@ -1249,7 +1266,7 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
     SsizeT max_num_blocks = ctrl.imit_len + 2;
     SsizeT num_blocks{};
     if (ctrl.buf_len) {
-        // We don't need to check `num_blocks < max_numblocks` since it's ensured by `seq_len <= buffearble_len`.
+        // We don't need to check `num_blocks < max_numblocks` since it's ensured by `seq_len <= bufferable_len`.
         num_blocks = ((seq_len - 1) / ctrl.buf_len + 1) * 2;
     } else {
         // Limit the number of blocks by `sqrt(2 * seq_len)`. It must be O(`sqrt(seq_len)`) to assure that
