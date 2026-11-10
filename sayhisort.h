@@ -1266,7 +1266,7 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
     SsizeT max_num_blocks = ctrl.imit_len + 2;
     SsizeT num_blocks{};
     if (ctrl.buf_len) {
-        // We don't need to check `num_blocks < max_numblocks` since it's ensured by `seq_len <= bufferable_len`.
+        // We don't need to check `num_blocks <= max_numblocks` since it's ensured by `seq_len <= bufferable_len`.
         num_blocks = ((seq_len - 1) / ctrl.buf_len + 1) * 2;
     } else {
         // Limit the number of blocks by `sqrt(2 * seq_len)`. It must be O(`sqrt(seq_len)`) to assure that
