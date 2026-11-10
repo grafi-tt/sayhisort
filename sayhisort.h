@@ -206,27 +206,31 @@ using diff_t = typename ::std::iterator_traits<Iterator>::difference_type;
  * @param x
  *   @pre x >= 8
  * @return r
- *   @post sqrt(x) <= r < x / 2
  *   @post r = 3, if x = 8
- *   @post r = 4, if 9 <= x <= 16 (exhaustively checked)
- *   @post r < sqrt(x) * 1.25, if x > 16 (exhaustively checked for x < 28, and mathematically shown for x >= 28)
+ *   @post r = 4, if 9 <= x <= 16 (exhaustively checked by test)
+ *   @post r < sqrt(x) * 1.25, if x > 16 (exhaustively checked for x < 28 by test, and
+ *                                        mathematically shown for x >= 28 in code comments)
+ *         This is rough bound required for algorithm correctness. Actual value is much more precise.
  */
 template <typename SsizeT>
 constexpr SsizeT OverApproxSqrt(SsizeT x) {
     // https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Binary_estimates
+    //
     // Find a number `n`, so that `x` can be represented as `x = a * 2^{2n}` where `a` in [0.5, 2.0).
     SsizeT n = 1;
-    for (SsizeT p = x; p >= 8; p /= 4) {
+    SsizeT p = x;
+    do {
         ++n;
-    }
+        p /= 4;
+    } while (p >= 8);
 
-    // `r0 = ceil((0.5 + 0.5 * a) * 2^n) = 2^{n-1} + ceil(x * 2^{-(n+1)})`, which is an over-approx of `sqrt(x)` .
+    // `r0 = 2^{n-1} + ceil(x * 2^{-(n+1)}) = ceil((0.5 + 0.5 * a) * 2^n)`, which is an over-approx of `sqrt(x)` .
     //
     // We can bound `r0` using the well-known formula:
     //
     //   sqrt(x) <= (0.5 + 0.5 * a) * 2^n <= (1.5/sqrt(2)) * sqrt(x) .
     //
-    // The bound of `r0` is
+    // The upper bound of `r0` is
     //
     //   r0 <= (0.5 + 0.5 * a) * 2^n + 1
     //      <= (1.5 / sqrt(2)) * sqrt(x) + 1
@@ -1056,9 +1060,8 @@ SAYHISORT_CONSTEXPR_SWAP void HeapSort(Iterator data, diff_t<Iterator> len, Iter
     auto left = [](diff_t<Iterator> i) -> diff_t<Iterator> { return i * 2 + 1; };
     auto right = [](diff_t<Iterator> i) -> diff_t<Iterator> { return i * 2 + 2; };
     auto parent = [](diff_t<Iterator> i) -> diff_t<Iterator> { return (i - 1) / 2; };
-    auto parent_end = [](diff_t<Iterator> i) -> diff_t<Iterator> { return i / 2; };  // parent(i - 1) + 1
 
-    diff_t<Iterator> start = parent_end(len) - 1;
+    diff_t<Iterator> start = parent(len - 1);
     while (true) {
         // shift down
         diff_t<Iterator> cur = start;
@@ -1067,7 +1070,7 @@ SAYHISORT_CONSTEXPR_SWAP void HeapSort(Iterator data, diff_t<Iterator> len, Iter
             diff_t<Iterator> r = right(cur);
             cur = iter_comp(data + l, data + r) ? r : l;
         }
-        if (cur < parent_end(len)) {  // left(cur) < len
+        if (cur < len / 2) {  // left(cur) < len
             cur = left(cur);
         }
         while (iter_comp(data + cur, data + start)) {
@@ -1145,15 +1148,15 @@ struct MergeSortControl {
      *   @pre data_len > 8
      * @post 5 <= this->seq_len <= 8
      *
-     * The space of unique keys are divided by imitation buffer (recording block permutation) and
+     * The space consists of unique keys is divided by imitation buffer (recording block permutation) and
      * merge buffer (holding merged block elements). So `num_keys = imit_len + buf_len` will holds.
      *
      * We don't record the leftmost and rightmost block into the imitation buffer (due to remainder handling).
      * Therefore the number of blocks is at most `imit_len + 2`.
      *
-     * The value `bufferable_len` is the maximum length of a sequence, that can be merged with buffering.
-     * Imitation buffer holds permutation of blocks in the two sequences which will be merged, and buffer must be
-     * large enough to store a block. So it's defined by
+     * The value `bufferable_len` is the maximum length of sequences, that can be block-merged with buffering.
+     * Imitation buffer holds permutation of blocks in the two sequences which will be block-merged, and
+     * merge buffer must be large enough to store a block. So it's defined by
      *
      *   bufferable_len = (imit_len + 2) / 2 * buf_len .
      *
@@ -1162,7 +1165,7 @@ struct MergeSortControl {
      */
     constexpr MergeSortControl(SsizeT num_keys, SsizeT data_len) : data_len{data_len} {
         if (num_keys) {
-            // Prove that
+            // Need to ensure that
             //
             //   (1) imit_len >= 2 ,
             //   (2) buf_len >= imit_len + 2 ,
@@ -1376,13 +1379,15 @@ SAYHISORT_CONSTEXPR_SWAP Iterator Sort(Iterator first, Iterator last, IterComp<C
     Iterator imit = first;
     diff_t<Iterator> num_keys = 0;
     if (len > 16) {
-        // When `len > 16`, `OverApproxSqrt(len) < sqrt(len) * 1.25` is assured. So we have
+        // We show that `len - num_desired_keys > 8`.
+        //
+        // Since `len > 16`, `OverApproxSqrt(len) < sqrt(len) * 1.25` is assured. So we have
         //
         //   len - num_desired_keys = len - 2 * OverApproxSqrt(len) + 2
         //                          > len - 2 * sqrt(len) * 1.25 + 2
         //                          = (sqrt(len) - 2.5) * sqrt(len) + 2 .
         //
-        // As `sqrt(len) > 4`, therefore, `len - num_desired_keys > 8` holds
+        // As `sqrt(len) > 4`, `len - num_desired_keys > 8` holds.
         diff_t<Iterator> num_desired_keys = 2 * OverApproxSqrt(len) - 2;
         num_keys = CollectKeys(first, last, num_desired_keys, iter_comp);
         if (num_keys < 8) {
