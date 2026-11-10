@@ -96,10 +96,9 @@ TEST(SayhiSortTest, OverApproxSqrt) {
 }
 
 TEST(SayhiSortTest, Rotate) {
-    std::vector<int> data(32);
-    std::vector<int> expected(32);
-
     for (int l : {2, 42, 123}) {
+        std::vector<int> data(l);
+        std::vector<int> expected(l);
         for (int i = 1; i < l; ++i) {
             std::iota(data.begin(), data.begin() + l, 0);
             Rotate(data.begin(), data.begin() + i, data.begin() + l);
