@@ -493,7 +493,7 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iter
  *
  * @param imit
  * @param blocks
- *   @pre [imit, imit + num_blocks) and [blocks, bloks + num_blocks * block_len) are non-overlapping
+ *   @pre [imit, imit + imit_len) and [blocks, blocks + num_blocks * block_len) are non-overlapping
  * @param imit_len
  *   @pre imit_len is a non-negative multiple of 2
  * @param block_len
