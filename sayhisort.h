@@ -1462,7 +1462,7 @@ SAYHISORT_CONSTEXPR_SWAP Iterator Sort(Iterator first, Iterator last, IterComp<C
 
 #if __cpp_concepts >= 201707L && __cpp_lib_concepts >= 201907L && __cpp_lib_ranges >= 201911L
 
-template <::std::random_access_iterator I, ::std::sentinel_for<I> S, typename Comp = ::std::ranges::less,
+template <::std::random_access_iterator I, ::std::sized_sentinel_for<I> S, typename Comp = ::std::ranges::less,
           typename Proj = ::std::identity>
     requires ::std::indirectly_swappable<I> && ::std::indirect_strict_weak_order<Comp, ::std::projected<I, Proj>>
 SAYHISORT_CONSTEXPR_SWAP I sort(I first, S last, Comp comp = {}, Proj proj = {}) {
