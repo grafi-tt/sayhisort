@@ -45,13 +45,13 @@ TEST(SayhiSortTest, IterComp) {
     std::vector ary{0, 1, 2};
     auto it = ary.begin();
 
-    IterComp lt_ebo{std::less<int>{}, VoidProj{}};
+    IterComp lt_ebo{std::less<int>{}, Identity{}};
     static_assert(std::is_empty_v<decltype(lt_ebo)>);
     EXPECT_TRUE(lt_ebo(it, it + 1));
     EXPECT_FALSE(lt_ebo(it + 1, it + 1));
     EXPECT_FALSE(lt_ebo(it + 2, it + 1));
 
-    IterComp lt_noebo{FinalLess{}, VoidProj{}};
+    IterComp lt_noebo{FinalLess{}, Identity{}};
     static_assert(!std::is_empty_v<decltype(lt_noebo)>);
     EXPECT_TRUE(lt_noebo(it, it + 1));
     EXPECT_FALSE(lt_noebo(it + 1, it + 1));
@@ -69,8 +69,8 @@ TEST(SayhiSortTest, IterComp) {
     EXPECT_FALSE(gt_noebo(it + 1, it + 1));
     EXPECT_TRUE(gt_noebo(it + 2, it + 1));
 
-    IterComp lt_fnptr{&LessInt, VoidProj{}};
-    static_assert(!std::is_empty_v<decltype(lt_fnptr)>);
+    IterComp lt_fnptr{&LessInt, Identity{}};
+    static_assert(sizeof(lt_fnptr) == sizeof(&LessInt));
     EXPECT_TRUE(lt_fnptr(it, it + 1));
     EXPECT_FALSE(lt_fnptr(it + 1, it + 1));
     EXPECT_FALSE(lt_fnptr(it + 2, it + 1));
@@ -132,11 +132,11 @@ TEST(SayhiSortTest, BinarySearch) {
         for (int j = -1; j <= i; ++j) {
             data[16] = j;
             auto it =
-                BinarySearch<true>(data.begin(), data.begin() + i, data.begin() + 16, IterComp{Compare{}, VoidProj{}});
+                BinarySearch<true>(data.begin(), data.begin() + i, data.begin() + 16, IterComp{Compare{}, Identity{}});
             SsizeT idx = it - data.begin();
             EXPECT_EQ(idx, std::max(0, j));
             it =
-                BinarySearch<false>(data.begin(), data.begin() + i, data.begin() + 16, IterComp{Compare{}, VoidProj{}});
+                BinarySearch<false>(data.begin(), data.begin() + i, data.begin() + 16, IterComp{Compare{}, Identity{}});
             idx = it - data.begin();
             EXPECT_EQ(idx, std::min(j + 1, i));
         }
@@ -203,7 +203,7 @@ TEST(SayhiSortTest, MergeWithBuf) {
             std::sort(ys, ys_last, Compare{});
 
             auto [buf_expected, xs_consumed_expected, rest_expected] = naive_impl(buf, xs, ys, ys_last, Compare{});
-            auto [xs_consumed, rest] = MergeWithBuf<false>(buf, xs, ys, ys_last, IterComp{Compare{}, VoidProj{}});
+            auto [xs_consumed, rest] = MergeWithBuf<false>(buf, xs, ys, ys_last, IterComp{Compare{}, Identity{}});
 
             EXPECT_EQ(ary, expected) << "xs_len=" << xs_len << " ys_len=" << ys_len;
             EXPECT_EQ(buf, buf_expected);
@@ -268,7 +268,7 @@ TEST(SayhiSortTest, MergeWithoutBuf) {
             std::sort(ys, ys_last, Compare{});
 
             auto [xs_consumed_expected, rest_expected] = naive_impl(xs, ys, ys_last, Compare{});
-            auto [xs_consumed, rest] = MergeWithoutBuf<false>(xs, ys, ys_last, IterComp{Compare{}, VoidProj{}});
+            auto [xs_consumed, rest] = MergeWithoutBuf<false>(xs, ys, ys_last, IterComp{Compare{}, Identity{}});
 
             EXPECT_EQ(ary, expected) << "xs_len=" << xs_len << " ys_len=" << ys_len;
             EXPECT_EQ(rest, rest_expected);
@@ -345,7 +345,7 @@ TEST(SayhiSortTest, InterleaveBlocks) {
             std::copy(ary.begin(), ary.end(), expected.begin());
             Iterator mid_key_expected = naive_impl(imit, blocks, num_blocks, block_len, Compare{});
             std::swap_ranges(ary.begin(), ary.end(), expected.begin());
-            Iterator mid_key = InterleaveBlocks(imit, blocks, num_blocks, block_len, IterComp{Compare{}, VoidProj{}});
+            Iterator mid_key = InterleaveBlocks(imit, blocks, num_blocks, block_len, IterComp{Compare{}, Identity{}});
 
             EXPECT_EQ(ary, expected);
             EXPECT_EQ(mid_key - imit, mid_key_expected - imit);
@@ -382,11 +382,11 @@ TEST(SayhiSortTest, DeinterleaveImitation) {
             }
             std::fill(imit_last, buf, 100);
             if (use_buf) {
-                DeinterleaveImitation(imit, imit_len, buf, mid_key, IterComp{Compare{}, VoidProj{}});
+                DeinterleaveImitation(imit, imit_len, buf, mid_key, IterComp{Compare{}, Identity{}});
             }
             std::fill(buf, ary.end(), 200);
             if (!use_buf) {
-                DeinterleaveImitation(imit, imit_len, mid_key, IterComp{Compare{}, VoidProj{}});
+                DeinterleaveImitation(imit, imit_len, mid_key, IterComp{Compare{}, Identity{}});
             }
 
             std::iota(expected.begin(), expected.begin() + imit_len, 0);
@@ -429,12 +429,12 @@ TEST(SayhiSortTest, MergeAdjacentBlocks) {
             std::sort(rseq, rseq_last, Compare{});
 
             Iterator mid_key = InterleaveBlocks(imit, lseq + p.first_block_len, p.num_blocks - 2, p.block_len,
-                                                IterComp{Compare{}, VoidProj{}});
+                                                IterComp{Compare{}, Identity{}});
             if (has_buf) {
-                MergeAdjacentBlocks<true>(imit, buf, lseq, p, mid_key, IterComp{Compare{}, VoidProj{}});
+                MergeAdjacentBlocks<true>(imit, buf, lseq, p, mid_key, IterComp{Compare{}, Identity{}});
                 EXPECT_EQ(buf, ary.end() - buf_len);
             } else {
-                MergeAdjacentBlocks<false>(imit, buf, lseq, p, mid_key, IterComp{Compare{}, VoidProj{}});
+                MergeAdjacentBlocks<false>(imit, buf, lseq, p, mid_key, IterComp{Compare{}, Identity{}});
                 Rotate(buf, lseq, ary.end());
             }
 
@@ -481,10 +481,10 @@ TEST(SayhiSortTest, MergeBlocking) {
             std::sort(rseq, rseq_last, Compare{});
 
             if (has_buf) {
-                MergeBlocking<true>(imit, buf, lseq, p, IterComp{Compare{}, VoidProj{}});
+                MergeBlocking<true>(imit, buf, lseq, p, IterComp{Compare{}, Identity{}});
                 EXPECT_EQ(buf, ary.end() - buf_len);
             } else {
-                MergeBlocking<false>(imit, buf, lseq, p, IterComp{Compare{}, VoidProj{}});
+                MergeBlocking<false>(imit, buf, lseq, p, IterComp{Compare{}, Identity{}});
                 Rotate(buf, lseq, ary.end());
             }
 
@@ -532,7 +532,7 @@ TEST(SayhiSortTest, MergeOneLevel) {
         std::fill(expected.end() - buf_len, expected.end(), 42);
 
         MergeOneLevel<true, true>(ary.begin(), ary.begin() + imit_len, data, 150, {SsizeT{599}, SsizeT{2}}, p,
-                                  IterComp{comp, VoidProj{}});
+                                  IterComp{comp, Identity{}});
         EXPECT_EQ(ary, expected);
     };
 
@@ -559,7 +559,7 @@ TEST(SayhiSortTest, MergeOneLevel) {
         std::stable_sort(edata + 299, edata + 599, comp);
 
         MergeOneLevel<true, false>(ary.begin(), ary.end(), ary.end() - buf_len, 150, {SsizeT{599}, SsizeT{2}}, p,
-                                   IterComp{comp, VoidProj{}});
+                                   IterComp{comp, Identity{}});
         EXPECT_EQ(ary, expected);
     };
 
@@ -579,7 +579,7 @@ TEST(SayhiSortTest, Sort0To8) {
     for (int len = 0; len <= 8; ++len) {
         std::iota(ary.begin(), ary.end(), 0);
         std::shuffle(ary.begin(), ary.begin() + len, rng);
-        Sort0To8(ary.begin(), len, IterComp{Compare{}, VoidProj{}});
+        Sort0To8(ary.begin(), len, IterComp{Compare{}, Identity{}});
         EXPECT_EQ(ary, expected) << len;
     }
 }
@@ -591,7 +591,7 @@ TEST(SayhiSortTest, HeapSort) {
         std::vector<int> data(sz);
         std::iota(data.begin(), data.end(), 0);
         std::shuffle(data.begin(), data.end(), rng);
-        HeapSort(data.begin(), sz, IterComp{Compare{}, VoidProj{}});
+        HeapSort(data.begin(), sz, IterComp{Compare{}, Identity{}});
 
         std::vector<int> expected(sz);
         std::iota(expected.begin(), expected.end(), 0);
@@ -634,7 +634,7 @@ TEST(SayhiSortTest, CollectKeys) {
         auto gen = [&]() { return std::uniform_int_distribution<int>{0, k}(rng); };
         std::generate(ary.begin(), ary.end(), gen);
         SsizeT expected_num_keys = naive_impl(ary.begin(), ary.end(), num_desired_keys, Compare{});
-        SsizeT num_keys = CollectKeys(ary.begin(), ary.end(), num_desired_keys, IterComp{Compare{}, VoidProj{}});
+        SsizeT num_keys = CollectKeys(ary.begin(), ary.end(), num_desired_keys, IterComp{Compare{}, Identity{}});
         EXPECT_EQ(num_keys, expected_num_keys);
         EXPECT_EQ(ary, expected);
     }
