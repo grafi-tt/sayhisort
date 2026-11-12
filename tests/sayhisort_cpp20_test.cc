@@ -44,8 +44,12 @@ struct Item {
     friend bool operator==(const Item& lhs, const Item& rhs) { return lhs.key == rhs.key && lhs.id == rhs.id; }
 };
 
-bool LessInt(int x, int y) { return x < y; }
-int KeyOf(const Item& item) { return item.key; }
+bool LessInt(int x, int y) {
+    return x < y;
+}
+int KeyOf(const Item& item) {
+    return item.key;
+}
 
 TEST(SayhiSortTest, SortCpp20Invocables) {
     size_t ary_len = 1000;

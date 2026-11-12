@@ -37,9 +37,15 @@ std::mt19937_64 GetPerTestRNG() {
 
 struct FinalLess final : public std::less<int> {};
 
-bool LessInt(int x, int y) { return x < y; }
-int NegateInt(int x) { return -x; }
-bool LessDiv4(int x, int y) { return (x >> 2) < (y >> 2); }
+bool LessInt(int x, int y) {
+    return x < y;
+}
+int NegateInt(int x) {
+    return -x;
+}
+bool LessDiv4(int x, int y) {
+    return (x >> 2) < (y >> 2);
+}
 
 // function objects related by inheritance, used as both Comp and Proj
 struct LessAndNegate {
