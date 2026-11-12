@@ -101,38 +101,22 @@ struct Identity {
     }
 };
 
-// Helper to deal with inheritance btw Comp and Proj
-template <typename Comp, typename Proj, bool = std::is_base_of_v<Comp, Proj>, bool = std::is_base_of_v<Proj, Comp>>
-struct EboCtor : Comp, Proj {
-    constexpr EboCtor(Comp comp, Proj proj) : Comp{comp}, Proj{proj} {}
-};
-
-template <typename Comp, typename Proj, bool IsProjBase>
-struct EboCtor<Comp, Proj, true, IsProjBase> : Proj {
-    constexpr EboCtor(Comp, Proj proj) : Proj{proj} {}
-};
-
-template <typename Comp, typename Proj>
-struct EboCtor<Comp, Proj, false, true> : Comp {
-    constexpr EboCtor(Comp comp, Proj) : Comp{comp} {}
-};
-
 /**
  * @brief Comparator of elements pointed by iterators, applying projection.
  *
- * To benefit from EBO, `Comp` and `Proj` are inherited if they are empty and non-final class types. Other function
- * objects (function pointers, member pointers, final classes and stateful objects) are held as members. If one of
- * `Comp` and `Proj` is a base of the other, `EboCtor` inherits only the derived one. `Comp` is not inherited if
- * such a base is inaccessible or ambiguous, since `Comp` or `Proj` could not be referred from `*this`.
+ * To benefit from EBO, each of `Comp` and `Proj` is inherited if it is an empty and non-final class type. Other
+ * function objects (function pointers, member pointers, final classes and stateful objects) are held as members.
+ * If `Comp` and `Proj` are the same class or one is a base of the other, EBO is disabled for both, since inheriting
+ * both makes ambiguous (or even inaccessible) bases. Such a case is unusual and need not be optimized.
  */
 // EBO applied for both Comp and Proj
-template <typename Comp, typename Proj,  //
-          bool = std::is_empty_v<Comp> && !std::is_final_v<Comp> &&
-                 std::is_base_of_v<Comp, Proj> == std::is_convertible_v<Proj*, Comp*> &&
-                 std::is_base_of_v<Proj, Comp> == std::is_convertible_v<Comp*, Proj*>,
-          bool = std::is_empty_v<Proj> && !std::is_final_v<Proj>>
-struct IterComp : EboCtor<Comp, Proj> {
-    constexpr IterComp(Comp comp, Proj proj) : EboCtor<Comp, Proj>{comp, proj} {}
+template <typename Comp, typename Proj,
+          bool = std::is_empty_v<Comp> && !std::is_final_v<Comp> && !std::is_base_of_v<Comp, Proj> &&
+                 !std::is_base_of_v<Proj, Comp>,
+          bool = std::is_empty_v<Proj> && !std::is_final_v<Proj> && !std::is_base_of_v<Comp, Proj> &&
+                 !std::is_base_of_v<Proj, Comp>>
+struct IterComp : Comp, Proj {
+    constexpr IterComp(Comp comp, Proj proj) : Comp{comp}, Proj{proj} {}
     template <typename Iterator, bool strict = true>
     constexpr bool operator()(Iterator lhs, Iterator rhs, std::bool_constant<strict> = {}) {
         Comp& comp = *this;

@@ -41,6 +41,32 @@ bool LessInt(int x, int y) { return x < y; }
 int NegateInt(int x) { return -x; }
 bool LessDiv4(int x, int y) { return (x >> 2) < (y >> 2); }
 
+// function objects related by inheritance, used as both Comp and Proj
+struct LessAndNegate {
+    bool operator()(int x, int y) const { return x < y; }
+    int operator()(int x) const { return -x; }
+};
+struct Negate {
+    int operator()(int x) const { return -x; }
+};
+struct NegatePublicLess : public std::less<int> {
+    int operator()(int x) const { return -x; }
+};
+struct NegatePrivateLess : private std::less<int> {
+    int operator()(int x) const { return -x; }
+};
+struct LessPublicNegate : public Negate {
+    bool operator()(int x, int y) const { return x < y; }
+};
+struct LessPrivateNegate : private Negate {
+    bool operator()(int x, int y) const { return x < y; }
+};
+struct Less1 : std::less<int> {};
+struct Less2 : std::less<int> {};
+struct NegateAmbiguousLess : Less1, Less2 {
+    int operator()(int x) const { return -x; }
+};
+
 TEST(SayhiSortTest, IterComp) {
     std::vector ary{0, 1, 2};
     auto it = ary.begin();
@@ -80,6 +106,43 @@ TEST(SayhiSortTest, IterComp) {
     EXPECT_FALSE(gt_fnptr(it, it + 1));
     EXPECT_FALSE(gt_fnptr(it + 1, it + 1));
     EXPECT_TRUE(gt_fnptr(it + 2, it + 1));
+
+    // EBO is disabled if Comp and Proj are the same class or one is a base of the other
+    IterComp gt_same{LessAndNegate{}, LessAndNegate{}};
+    static_assert(!std::is_empty_v<decltype(gt_same)>);
+    EXPECT_FALSE(gt_same(it, it + 1));
+    EXPECT_FALSE(gt_same(it + 1, it + 1));
+    EXPECT_TRUE(gt_same(it + 2, it + 1));
+
+    IterComp gt_proj_public{std::less<int>{}, NegatePublicLess{}};
+    static_assert(!std::is_empty_v<decltype(gt_proj_public)>);
+    EXPECT_FALSE(gt_proj_public(it, it + 1));
+    EXPECT_FALSE(gt_proj_public(it + 1, it + 1));
+    EXPECT_TRUE(gt_proj_public(it + 2, it + 1));
+
+    IterComp gt_proj_private{std::less<int>{}, NegatePrivateLess{}};
+    static_assert(!std::is_empty_v<decltype(gt_proj_private)>);
+    EXPECT_FALSE(gt_proj_private(it, it + 1));
+    EXPECT_FALSE(gt_proj_private(it + 1, it + 1));
+    EXPECT_TRUE(gt_proj_private(it + 2, it + 1));
+
+    IterComp gt_comp_public{LessPublicNegate{}, Negate{}};
+    static_assert(!std::is_empty_v<decltype(gt_comp_public)>);
+    EXPECT_FALSE(gt_comp_public(it, it + 1));
+    EXPECT_FALSE(gt_comp_public(it + 1, it + 1));
+    EXPECT_TRUE(gt_comp_public(it + 2, it + 1));
+
+    IterComp gt_comp_private{LessPrivateNegate{}, Negate{}};
+    static_assert(!std::is_empty_v<decltype(gt_comp_private)>);
+    EXPECT_FALSE(gt_comp_private(it, it + 1));
+    EXPECT_FALSE(gt_comp_private(it + 1, it + 1));
+    EXPECT_TRUE(gt_comp_private(it + 2, it + 1));
+
+    IterComp gt_proj_ambiguous{std::less<int>{}, NegateAmbiguousLess{}};
+    static_assert(!std::is_empty_v<decltype(gt_proj_ambiguous)>);
+    EXPECT_FALSE(gt_proj_ambiguous(it, it + 1));
+    EXPECT_FALSE(gt_proj_ambiguous(it + 1, it + 1));
+    EXPECT_TRUE(gt_proj_ambiguous(it + 2, it + 1));
 }
 
 TEST(SayhiSortTest, OverApproxSqrt) {
