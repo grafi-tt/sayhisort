@@ -725,7 +725,7 @@ struct BlockingParam {
 
 template <bool has_buf, typename Iterator, typename Comp, typename Proj>
 SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, Iterator blocks,
-                                                  BlockingParam<diff_t<Iterator>> p, Iterator mid_key,
+                                                  const BlockingParam<diff_t<Iterator>>& p, Iterator mid_key,
                                                   IterComp<Comp, Proj> iter_comp) {
     diff_t<Iterator> num_remained_blocks = p.num_blocks;
 
@@ -809,7 +809,7 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
 
 template <bool has_buf, typename Iterator, typename Comp, typename Proj>
 SAYHISORT_CONSTEXPR_SWAP void MergeBlocking(Iterator imit, Iterator& buf, Iterator blocks,
-                                            BlockingParam<diff_t<Iterator>> p, IterComp<Comp, Proj> iter_comp) {
+                                            const BlockingParam<diff_t<Iterator>>& p, IterComp<Comp, Proj> iter_comp) {
     // Skip interleaving the first block and the last one, those may have shorter length.
     diff_t<Iterator> imit_len = p.num_blocks - 2;
     Iterator mid_key = InterleaveBlocks(imit, blocks + p.first_block_len, imit_len, p.block_len, iter_comp);
