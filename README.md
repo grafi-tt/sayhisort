@@ -15,7 +15,7 @@ It's header-only C++ library, so just including `sayhisort.h` is fine. You can a
 
 ```cpp
 template <typename Iterator, typename Sentinel, typename Comp = std::less<>>
-Iterator sahisort::sort(Iterator first, Sentinel last, Comp comp = {});
+Iterator sayhisort::sort(Iterator first, Sentinel last, Comp comp = {});
 
 ```
 
@@ -27,7 +27,7 @@ template <std::random_access_iterator I, std::sentinel_for<I> S,
     requires std::indirectly_swappable<I> &&
              std::indirect_strict_weak_order<Comp, std::projected<I, Proj>>
 constexpr I
-sahisort::sort(I first, S last, Comp comp = {}, Proj proj = {});
+sayhisort::sort(I first, S last, Comp comp = {}, Proj proj = {});
 
 template <std::ranges::random_access_range R,
          typename Comp = std::ranges::less, typename Proj = std::identity>
@@ -35,7 +35,7 @@ template <std::ranges::random_access_range R,
              std::indirect_strict_weak_order<
                  Comp, std::projected<std::ranges::iterator_t<R>, Proj>>
 constexpr std::ranges::borrowed_iterator_t<R>
-sahisort::sort(R&& range, Comp comp = {}, Proj proj = {});
+sayhisort::sort(R&& range, Comp comp = {}, Proj proj = {});
 ```
 
 ## Benchmark
