@@ -249,7 +249,7 @@ using diff_t = typename ::std::iterator_traits<Iterator>::difference_type;
  *   @post r = 4, if 9 <= x <= 16 (exhaustively checked by test)
  *   @post sqrt(x) <= r < sqrt(x) * 1.25, if x > 16 (exhaustively checked for x < 28 by test, and
  *                                                   mathematically shown for x >= 28 in code comments)
- *         This is rough bound required for algorithm correctness. Actual value is much more precise.
+ *         This is a rough bound required for algorithm correctness. Actual value is much more precise.
  */
 template <typename SsizeT>
 constexpr SsizeT OverApproxSqrt(SsizeT x) {
@@ -280,8 +280,8 @@ constexpr SsizeT OverApproxSqrt(SsizeT x) {
 
     // Apply Newton's method (also known as Heron's method) and take ceil.
     // https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Heron's_method
-    // As `r0` is an over-aprrox, the method returns refiend over-approx value `r`,
-    // which satisifies `sqrt(x) <= r <= r0`.
+    // As `r0` is an over-approx, the method returns a refined over-approx value `r`,
+    // which satisfies `sqrt(x) <= r <= r0`.
     return (r0 + (x - 1) / r0) / 2 + 1;
 }
 
@@ -355,7 +355,7 @@ SAYHISORT_CONSTEXPR_SWAP void Rotate(Iterator first, Iterator middle, Iterator l
 }
 
 /**
- * @brief Search key from sorted sequence.
+ * @brief Search for key in sorted sequence.
  *
  * @param first
  *   @pre first < last
@@ -399,7 +399,7 @@ struct MergeResult {
  * When xs or ys becomes empty, the function returns which of xs or ys is fully consumed, as well as
  * the iterator to the rest data.
  *
- * The sequence ys cannot be longer the the length of the buffer (because buffer overrun isn't checked.)
+ * The sequence ys cannot be longer than the length of the buffer (because buffer overrun isn't checked.)
  *
  * @param buf
  *   @pre buf < xs. We let buf_len = xs - buf.
@@ -508,7 +508,7 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Itera
  * @param iter_comp
  * @note For better performance, `xs` shouldn't be longer than `ys`.
  *       The time complexity is `O((m + log(n)) * min(m, n, j, k) + n)`, where
- *       `m` and `n` are the lengthes of `xs` and `ys`, whereas `j` and `k` are
+ *       `m` and `n` are the lengths of `xs` and `ys`, whereas `j` and `k` are
  *       the numbers of unique keys in `xs` and `ys`.
  */
 template <bool is_xs_from_right, typename Iterator, typename Comp, typename Proj>
@@ -518,7 +518,7 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iter
         // Seek xs so that xs[0] > ys[0]
         xs = BinarySearch<is_xs_from_right>(xs, ys, ys, iter_comp);
         if (xs == ys) return {true, ys};
-        // Insert xs to ys
+        // Insert xs into ys
         Iterator ys_upper = ys + 1;
         if (ys_upper != ys_last) {
             ys_upper = BinarySearch<!is_xs_from_right>(ys_upper, ys_last, xs, iter_comp);
@@ -642,7 +642,7 @@ template <typename Iterator, typename Comp, typename Proj>
 SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterator> imit_len, Iterator buf,
                                                     Iterator mid_key, IterComp<Comp, Proj> iter_comp) {
     // Bin-sort like algorithm based on partitioning.
-    // Same algorithm founds in HolyGrailsort.
+    // The same algorithm is found in HolyGrailsort.
     // https://github.com/HolyGrailSortProject/Holy-Grailsort/blob/ccfcc4315c6ccafbca5f6a51886710898a06c8a1/Holy%20Grail%20Sort/Java/Summer%20Dragonfly%20et%20al.'s%20Rough%20Draft/src/holygrail/HolyGrailSort.java#L1328-L1330
     if (!imit_len) {
         return;
@@ -683,12 +683,12 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
     // We colour each key by whether they are from left or right.
     // Then we can see the imitation buffer as a sequence of runs with alternating colour.
     //
-    // In one iteration, the algorithm rotate pairs of (right, left)-runs alternately.
+    // In one iteration, the algorithm rotates pairs of (right, left)-runs alternately.
     // When no such a pair is found, all keys are properly sorted.
-    // Each iteration halves the number of pairs, So the alogirithm works in O(N log N), where
+    // Each iteration halves the number of pairs, so the algorithm works in O(N log N), where
     // N is size of `imit`.
     //
-    // The idea to rotate pairs of runs of is borrowed from HolyGrailsort's algorithm.
+    // The idea to rotate pairs of runs is borrowed from HolyGrailsort's algorithm.
     // https://github.com/HolyGrailSortProject/Holy-Grailsort/blob/ccfcc4315c6ccafbca5f6a51886710898a06c8a1/Holy%20Grail%20Sort/Java/Summer%20Dragonfly%20et%20al.'s%20Rough%20Draft/src/holygrail/HolyGrailSort.java#L1373-L1376
     if (!imit_len) {
         return;
@@ -772,7 +772,7 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
         if (xs != last_block_before_ys) {
             if constexpr (has_buf) {
                 if (num_remained_blocks) {
-                    // Safely skip continuing blocks those have the same origin.
+                    // Safely skip continuing blocks that have the same origin.
                     // Blocks are sorted by the first elements, so we can safely seek to
                     // the position `last_block_before_ys + 1`.
                     // The sequence `xs` won't be empty, since `block_len >= 2`.
@@ -785,7 +785,7 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
                     // Safely skip continuing blocks as done in `has_buf` case.
                     xs = last_block_before_ys + 1;
                 } else if (ys - xs > p.last_block_len) {
-                    // Ensure that of `xs` is not longer than `ys`. This is crucial to ensure time complexity due to
+                    // Ensure that `xs` is not longer than `ys`. This is crucial to ensure time complexity due to
                     // implementation of `MergeWithoutBuf`.
                     Rotate(xs, ys, ys_last);
                     ys = xs + p.last_block_len;
@@ -828,7 +828,7 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
 template <bool has_buf, typename Iterator, typename Comp, typename Proj>
 SAYHISORT_CONSTEXPR_SWAP void MergeBlocking(Iterator imit, Iterator& buf, Iterator blocks,
                                             const BlockingParam<diff_t<Iterator>>& p, IterComp<Comp, Proj> iter_comp) {
-    // Skip interleaving the first block and the last one, those may have shorter length.
+    // Skip interleaving the first block and the last one, which may have shorter length.
     diff_t<Iterator> imit_len = p.num_blocks - 2;
     Iterator mid_key = InterleaveBlocks(imit, blocks + p.first_block_len, imit_len, p.block_len, iter_comp);
 
@@ -846,10 +846,10 @@ SAYHISORT_CONSTEXPR_SWAP void MergeBlocking(Iterator imit, Iterator& buf, Iterat
 //
 
 /**
- * @brief Helper to evenly divide array those length may not be power of 2
+ * @brief Helper to evenly divide an array whose length may not be a power of 2
  *
  * The algorithm simulates real-number division. That is, when an array with its length `L` is
- * divided to `n` sequences, `i`-th sequence is the slice of the following range:
+ * divided into `n` sequences, the `i`-th sequence is the slice of the following range:
  *   [ floor(i * (L/n)) , floor((i+1) * (L/n)) ) .
  * Since `n` is power of 2, we can exactly compute the range by tracking the fractional part by an integer.
  */
@@ -978,8 +978,8 @@ SAYHISORT_CONSTEXPR_SWAP void SortLeaves(Iterator data, diff_t<Iterator> seq_len
         data += len;
     } while (!seq_div.IsEnd());
 #else
-    // Apply optimization similar to thread-code technique https://en.wikipedia.org/wiki/Threaded_code
-    // Though branch miss-prediction isn't a problem, it reduces the number of branch instructions without
+    // Apply optimization similar to threaded code technique https://en.wikipedia.org/wiki/Threaded_code
+    // Though branch misprediction isn't a problem, it reduces the number of branch instructions without
     // duplicating template instantiation of OddEvenSort<n>.
     enum Dispatcher {
         Len4,
@@ -1205,8 +1205,8 @@ struct MergeSortControl {
      *   @pre data_len > 8
      * @post 5 <= this->seq_len <= 8
      *
-     * The space consists of unique keys is divided by imitation buffer (recording block permutation) and
-     * merge buffer (holding merged block elements). So `num_keys = imit_len + buf_len` will holds.
+     * The space consisting of unique keys is divided by imitation buffer (recording block permutation) and
+     * merge buffer (holding merged block elements). So `num_keys = imit_len + buf_len` holds.
      *
      * We don't record the leftmost and rightmost block into the imitation buffer (due to remainder handling).
      * Therefore the number of blocks is at most `imit_len + 2`.
@@ -1255,7 +1255,7 @@ struct MergeSortControl {
             //           >= (num_keys + 2) / 2
             //           >= imit_len + 2 .
             //
-            // Using (1) and (2), we can show (3) as folows:
+            // Using (1) and (2), we can show (3) as follows:
             //
             //     bufferable_len = (imit_len + 2) / 2 * buf_len
             //                    >= (imit_len + 2) * (imit_len + 2) / 2
@@ -1333,10 +1333,10 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
     }
 
     // Proof that `block_len >= 3`.
-    // (NOTE: probably tighter bound is possible. For the sake of algorithm correctness `block_len >= 2` is enough.)
+    // (NOTE: probably a tighter bound is possible. For the sake of algorithm correctness `block_len >= 2` is enough.)
     //
     // If `buf_len = 0`, it's easy to see `block_len` is over-approx of `sqrt(2 * seq_len)`, since `limit_num_blocks`
-    // must be a multple of 2 and under-approx of `sqrt(2 * seq_len)`. As `seq_len >= 5`, we have `block_len >= 3`.
+    // must be a multiple of 2 and under-approx of `sqrt(2 * seq_len)`. As `seq_len >= 5`, we have `block_len >= 3`.
     //
     // Otherwise, we first note that
     //
@@ -1363,7 +1363,7 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
     // Thus `block_len >= 3` follows, as `block_len` is an integer.
     SsizeT block_len = (seq_len - 1) / (num_blocks / 2) + 1;
 
-    // We need to proof `residual_len >= 2` to assure that all blocks have positive length.
+    // We need to prove `residual_len >= 2` to assure that all blocks have positive length.
     // (Note that `residual_len` may be decremented once in `MergeOneLevel`.)
     //
     // Proof:
@@ -1400,7 +1400,7 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
     //
     // which is equivalent to (lemma). Thus the lemma is proven.
     //
-    // To proof `residual_len >= 2`, let `N = seq_len` and `m = num_blocks / 2`. Now it's enough to show that
+    // To prove `residual_len >= 2`, let `N = seq_len` and `m = num_blocks / 2`. Now it's enough to show that
     //
     //   (proposition):  seq_len >= (num_blocks / 2) ** 2 ,
     //   (*):            seq_len >= 2 , and
@@ -1432,10 +1432,10 @@ constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>
     //   (1): 5 <= seq_len <= 11 , and
     //   (2): seq_len >= 12 .
     //
-    // For the case (1), subprop can be shown by exahsitive search. For the case (2), we have
+    // For the case (1), subprop can be shown by exhaustive search. For the case (2), we have
     // `sqrt(seq_len) >= sqrt(seq_len) / sqrt(2) + 1`. Thus (subprop) is satisfied.
     //
-    // Therefore We have proven `residual_len >= 2`.
+    // Therefore we have proven `residual_len >= 2`.
 
     SsizeT residual_len = seq_len - block_len * (num_blocks / 2 - 1);
 
