@@ -22,6 +22,15 @@
 #define SAYHISORT_CONSTEXPR_SWAP
 #endif
 
+// Disable vectorization of the following loop.
+#if defined(__clang__)
+#define SAYHISORT_NOVECTOR _Pragma("clang loop vectorize(disable) interleave(disable)")
+#elif defined(__GNUC__) && __GNUC__ >= 14
+#define SAYHISORT_NOVECTOR _Pragma("GCC novector")
+#else
+#define SAYHISORT_NOVECTOR
+#endif
+
 namespace sayhisort {
 
 namespace detail {
@@ -293,9 +302,14 @@ SAYHISORT_CONSTEXPR_SWAP void Rotate(Iterator first, Iterator middle, Iterator l
 
     // Helix Rotation
     // description available: https://github.com/scandum/rotate#helix-rotation
+    //
+    // Vectorization of the swapping loops is disabled, since the logic isn't designed for vectorization and its
+    // performance gets unstable. E.g. the swapped ranges overlap with a short distance if one chunk is short, which
+    // makes vectorized code by GCC much slower due to store-to-load forwarding failure.
     while (len > 64) {
         if (l_len <= r_len) {
             diff_t<Iterator> rem = r_len % l_len;
+            SAYHISORT_NOVECTOR
             do {
                 iter_swap(first++, middle++);
             } while (middle != last);
@@ -308,6 +322,7 @@ SAYHISORT_CONSTEXPR_SWAP void Rotate(Iterator first, Iterator middle, Iterator l
             r_len = rem;
         } else {
             diff_t<Iterator> rem = l_len % r_len;
+            SAYHISORT_NOVECTOR
             do {
                 iter_swap(--last, --middle);
             } while (middle != first);
@@ -325,12 +340,15 @@ SAYHISORT_CONSTEXPR_SWAP void Rotate(Iterator first, Iterator middle, Iterator l
     Iterator f = first;
     Iterator m = middle;
     Iterator l = last;
+    SAYHISORT_NOVECTOR
     while (f < --m) {
         iter_swap(f++, m);
     }
+    SAYHISORT_NOVECTOR
     while (middle < --l) {
         iter_swap(middle++, l);
     }
+    SAYHISORT_NOVECTOR
     while (first < --last) {
         iter_swap(first++, last);
     }
@@ -1523,5 +1541,7 @@ SAYHISORT_CONSTEXPR_SWAP Iterator sort(Iterator first, Sentinel last, Comp comp 
 #ifdef SAYHISORT_H_PERF_TRACE_STUB
 #undef SAYHISORT_PERF_TRACE
 #endif
+
+#undef SAYHISORT_NOVECTOR
 
 #endif  // SAYHISORT_H
