@@ -23,6 +23,13 @@ target_compile_features(sayhisort_cpp20_test PRIVATE cxx_std_20)
 add_test(NAME sayhisort_cpp20_test COMMAND $<TARGET_FILE:sayhisort_cpp20_test>)
 
 add_executable(
+  sayhisort_random_test
+  sayhisort_random_test.cc
+  sayhisort_fuzz_util.h
+)
+add_test(NAME sayhisort_random_test COMMAND $<TARGET_FILE:sayhisort_random_test>)
+
+add_executable(
   sayhisort_bench
   sayhisort_bench.cc
   sayhisort_bench_data.cc
@@ -37,6 +44,7 @@ add_test(NAME sayhisort_bench COMMAND $<TARGET_FILE:sayhisort_bench>)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   target_compile_options(sayhisort_test PRIVATE -std=c++17 -Wall -Wextra -Wpedantic -Werror)
   target_compile_options(sayhisort_cpp20_test PRIVATE -std=c++20 -Wall -Wextra -Wpedantic -Werror)
+  target_compile_options(sayhisort_random_test PRIVATE -std=c++17 -Wall -Wextra -Wpedantic -Werror)
   target_compile_options(sayhisort_bench PRIVATE -std=c++20 -Wall -Wextra -Wpedantic -Werror -O3 -march=native)
 endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
@@ -88,6 +96,36 @@ target_link_libraries(
   sayhisort
   GTest::gtest_main
 )
+target_link_libraries(sayhisort_random_test PRIVATE sayhisort)
+
+if(SAYHISORT_ENABLE_FUZZER)
+  if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message(FATAL_ERROR "SAYHISORT_ENABLE_FUZZER requires Clang")
+  endif()
+  add_executable(
+    sayhisort_fuzzer
+    sayhisort_fuzzer.cc
+    sayhisort_fuzz_util.h
+  )
+  target_compile_options(sayhisort_fuzzer PRIVATE -std=c++17 -Wall -Wextra -Wpedantic -Werror -fsanitize=fuzzer)
+  target_link_libraries(sayhisort_fuzzer PRIVATE sayhisort -fsanitize=fuzzer)
+endif()
+
+# Apply sanitizers to test targets
+if(SAYHISORT_SANITIZE)
+  if(NOT (CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
+    message(FATAL_ERROR "SAYHISORT_SANITIZE requires GCC or Clang")
+  endif()
+  set(SANITIZE_FLAGS -fsanitize=${SAYHISORT_SANITIZE} -fno-sanitize-recover=all -fno-omit-frame-pointer)
+  set(SANITIZE_TARGETS sayhisort_test sayhisort_cpp20_test sayhisort_random_test)
+  if(SAYHISORT_ENABLE_FUZZER)
+    list(APPEND SANITIZE_TARGETS sayhisort_fuzzer)
+  endif()
+  foreach(target IN LISTS SANITIZE_TARGETS)
+    target_compile_options(${target} PRIVATE ${SANITIZE_FLAGS})
+    target_link_libraries(${target} PRIVATE ${SANITIZE_FLAGS})
+  endforeach()
+endif()
 
 target_link_libraries(sayhisort_bench PRIVATE
   sayhisort

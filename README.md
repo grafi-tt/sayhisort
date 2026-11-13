@@ -71,6 +71,30 @@ cd bench_result
 ./plot.py
 ```
 
+## Testing
+
+Unit tests and a randomized test are run by CTest. The randomized test compares the result with `std::stable_sort` on various inputs, using an iterator that detects out-of-bounds access.
+
+```sh
+cmake -B build -GNinja
+ninja -C build
+ctest --test-dir build
+```
+
+Sanitizers can be applied to the tests with GCC or Clang.
+
+```sh
+cmake -B build_asan -GNinja -DSAYHISORT_SANITIZE=address,undefined
+```
+
+A [libFuzzer](https://llvm.org/docs/LibFuzzer.html) target is also available with Clang.
+
+```sh
+CC=clang CXX=clang++ cmake -B build_fuzz -GNinja -DSAYHISORT_ENABLE_FUZZER=ON -DSAYHISORT_SANITIZE=address,undefined
+ninja -C build_fuzz sayhisort_fuzzer
+build_fuzz/tests/sayhisort_fuzzer -max_total_time=60
+```
+
 ## Similar projects
 
 ### Block merge sort
