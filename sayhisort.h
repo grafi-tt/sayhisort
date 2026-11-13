@@ -1530,8 +1530,10 @@ template <::std::ranges::random_access_range R, typename Comp = ::std::ranges::l
              ::std::indirect_strict_weak_order<Comp, ::std::projected<::std::ranges::iterator_t<R>, Proj>>
 SAYHISORT_CONSTEXPR_SWAP ::std::ranges::borrowed_iterator_t<R> sort(R&& range, Comp comp = {}, Proj proj = {}) {
     auto first = ::std::ranges::begin(range);
-    auto last = ::std::ranges::end(range);
-    return detail::Sort(first, first + (last - first), detail::IterComp{comp, proj});
+    // The sentinel may not be sized (e.g. `std::views::take_while`), so find the end iterator in the same way as
+    // `std::ranges::sort`.
+    auto last = ::std::ranges::next(first, ::std::ranges::end(range));
+    return detail::Sort(first, last, detail::IterComp{comp, proj});
 }
 
 #else

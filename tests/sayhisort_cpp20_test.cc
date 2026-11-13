@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <functional>
 #include <numeric>
+#include <ranges>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -71,6 +72,32 @@ TEST(SayhiSortTest, SortCpp20Invocables) {
     // function pointer comparator and function pointer projection
     work = ary;
     sayhisort::sort(work.begin(), work.end(), &LessInt, &KeyOf);
+    EXPECT_EQ(work, expected);
+}
+
+TEST(SayhiSortTest, SortCpp20NonSizedSentinel) {
+    size_t sorted_len = 1000;
+    size_t ary_len = 1100;
+    std::vector<Item> ary(ary_len);
+
+    auto rng = GetPerTestRNG();
+
+    // Items before the first negative key are sorted.
+    for (size_t i = 0; i < ary_len; ++i) {
+        ary[i] = {static_cast<int>(rng() % 100), static_cast<int>(i)};
+    }
+    ary[sorted_len].key = -1;
+    std::vector<Item> expected = ary;
+    std::stable_sort(expected.begin(), expected.begin() + sorted_len,
+                     [](const Item& x, const Item& y) { return x.key < y.key; });
+
+    std::vector<Item> work = ary;
+    auto prefix = work | std::views::take_while([](const Item& item) { return item.key >= 0; });
+    static_assert(std::ranges::random_access_range<decltype(prefix)>);
+    static_assert(
+        !std::sized_sentinel_for<std::ranges::sentinel_t<decltype(prefix)>, std::ranges::iterator_t<decltype(prefix)>>);
+    auto it = sayhisort::sort(prefix, {}, &Item::key);
+    EXPECT_EQ(it, work.begin() + sorted_len);
     EXPECT_EQ(work, expected);
 }
 
