@@ -22,7 +22,7 @@ Iterator sayhisort::sort(Iterator first, Sentinel last, Comp comp = {});
 To use the interface compatible to `std::ranges::sort`, you need to compile `sayhisort.h` as C++20 or later. The interface is constrained by concepts.
 
 ```cpp
-template <std::random_access_iterator I, std::sentinel_for<I> S,
+template <std::random_access_iterator I, std::sized_sentinel_for<I> S,
           typename Comp = std::ranges::less, typename Proj = std::identity>
     requires std::indirectly_swappable<I> &&
              std::indirect_strict_weak_order<Comp, std::projected<I, Proj>>
