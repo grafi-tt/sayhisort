@@ -930,13 +930,20 @@ SAYHISORT_CONSTEXPR_SWAP void MergeOneLevel(Iterator imit, Iterator buf, Iterato
  */
 template <int len, typename Iterator, typename Comp, typename Proj, int i = 0>
 SAYHISORT_CONSTEXPR_SWAP void OddEvenSort(Iterator data, IterComp<Comp, Proj> iter_comp) {
+    // Fully unroll passes for trivially copyable items. Otherwise compare and swap are typically heavy, so unrolling
+    // only bloats code.
+    constexpr bool unroll = std::is_trivially_copyable_v<typename std::iterator_traits<Iterator>::value_type>;
     if constexpr (i < len) {
-        for (diff_t<Iterator> j = i % 2; j < len - 1; j += 2) {
-            if (iter_comp(data + (j + 1), data + j)) {
-                iter_swap(data + j, data + (j + 1));
+        for (int k = i; k < (unroll ? i + 1 : len); ++k) {
+            for (diff_t<Iterator> j = k % 2; j < len - 1; j += 2) {
+                if (iter_comp(data + (j + 1), data + j)) {
+                    iter_swap(data + j, data + (j + 1));
+                }
             }
         }
-        OddEvenSort<len, Iterator, Comp, Proj, i + 1>(data, iter_comp);
+        if constexpr (unroll) {
+            OddEvenSort<len, Iterator, Comp, Proj, i + 1>(data, iter_comp);
+        }
     }
 }
 
