@@ -99,6 +99,12 @@ TEST(SayhiSortTest, SortCpp20NonSizedSentinel) {
     auto it = sayhisort::sort(prefix, {}, &Item::key);
     EXPECT_EQ(it, work.begin() + sorted_len);
     EXPECT_EQ(work, expected);
+
+    // iterator and non-sized sentinel
+    work = ary;
+    it = sayhisort::sort(prefix.begin(), prefix.end(), {}, &Item::key);
+    EXPECT_EQ(it, work.begin() + sorted_len);
+    EXPECT_EQ(work, expected);
 }
 
 }  // namespace
