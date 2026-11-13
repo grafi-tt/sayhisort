@@ -40,9 +40,9 @@ sahisort::sort(R&& range, Comp comp = {}, Proj proj = {});
 
 ## Benchmark
 
-![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (GCC 15.2.0)](bench_result/gcc.png)
+![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (GCC 16.2.1)](bench_result/gcc.png)
 
-![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (Clang 21.1.0)](bench_result/clang.png)
+![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (Clang 23.1.4)](bench_result/clang.png)
 
 Note that other block merge sort implementations ([WikiSort](https://github.com/BonzaiThePenguin/WikiSort/), [octosort](https://github.com/scandum/octosort) and [GrailSort](https://github.com/Mrrl/GrailSort)) use a pre-allocated buffer that stores 512 items. Though the buffer is claimed to be crucial for performance, SayhiSort exhibits competitive speed.
 
@@ -58,14 +58,14 @@ pushd build
 CC=gcc CXX=g++ cmake -DSAYHISORT_THIRDPARTY_BENCH=ON -GNinja ..
 popd
 ninja -C build
-build/test/sayhisort_bench > bench_result/gcc.yml
+build/tests/sayhisort_bench > bench_result/gcc.yml
 
 mkdir build_clang
 pushd build_clang
 CC=clang CXX=clang++ cmake -DSAYHISORT_THIRDPARTY_BENCH=ON -GNinja ..
 popd
 ninja -C build_clang
-build_clang/test/sayhisort_bench > bench_result/clang.yml
+build_clang/tests/sayhisort_bench > bench_result/clang.yml
 
 cd bench_result
 ./plot.py

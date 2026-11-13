@@ -63,11 +63,11 @@ def main():
 
     with open("gcc.yml") as f:
         libs, benches, table = load_result(f)
-        plot_data("gcc.png", libs, benches, table, "Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (GCC 15.2.0)")
+        plot_data("gcc.png", libs, benches, table, "Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (GCC 16.2.1)")
 
     with open("clang.yml") as f:
         libs, benches, table = load_result(f)
-        plot_data("clang.png", libs, benches, table, "Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (Clang 21.1.0)")
+        plot_data("clang.png", libs, benches, table, "Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (Clang 23.1.4)")
 
 
 if __name__ == "__main__":
