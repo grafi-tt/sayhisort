@@ -688,6 +688,9 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
     // Each iteration halves the number of pairs, so the algorithm works in O(N log N), where
     // N is size of `imit`.
     //
+    // If the number of pairs doesn't decrease, the comparator must be inconsistent. The loop is aborted in that case
+    // to ensure termination.
+    //
     // The idea to rotate pairs of runs is borrowed from HolyGrailsort's algorithm.
     // https://github.com/HolyGrailSortProject/Holy-Grailsort/blob/ccfcc4315c6ccafbca5f6a51886710898a06c8a1/Holy%20Grail%20Sort/Java/Summer%20Dragonfly%20et%20al.'s%20Rough%20Draft/src/holygrail/HolyGrailSort.java#L1373-L1376
     if (!imit_len) {
@@ -696,9 +699,12 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
 
     diff_t<Iterator> l_runlength = 0;
     diff_t<Iterator> r_runlength{};
-    diff_t<Iterator> num_rl_pairs{};
+    // Initialized with an upper bound, since there are at most `imit_len / 2` pairs.
+    diff_t<Iterator> num_rl_pairs = imit_len;
+    diff_t<Iterator> old_num_rl_pairs{};
 
     do {
+        old_num_rl_pairs = num_rl_pairs;
         r_runlength = 0;
         num_rl_pairs = 0;
 
@@ -726,7 +732,7 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
             }
             ++cur;
         }
-    } while (num_rl_pairs > 1);
+    } while (num_rl_pairs > 1 && num_rl_pairs < old_num_rl_pairs);
 }
 
 //

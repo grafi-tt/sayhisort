@@ -467,6 +467,23 @@ TEST(SayhiSortTest, DeinterleaveImitation) {
     }
 }
 
+TEST(SayhiSortTest, DeinterleaveImitationInconsistentComparator) {
+    SsizeT imit_len = 256;
+    std::vector<int> ary(imit_len);
+    auto rng = GetPerTestRNG();
+    auto random_less = [&rng](int, int) { return rng() % 2 != 0; };
+
+    for (int i = 0; i < 100; ++i) {
+        std::iota(ary.begin(), ary.end(), 0);
+        // Terminates, permuting the items
+        DeinterleaveImitation(ary.begin(), imit_len, ary.begin() + imit_len / 2, IterComp{random_less, Identity{}});
+        std::sort(ary.begin(), ary.end());
+        for (SsizeT j = 0; j < imit_len; ++j) {
+            EXPECT_EQ(ary[j], j);
+        }
+    }
+}
+
 TEST(SayhiSortTest, MergeAdjacentBlocks) {
     BlockingParam<SsizeT> params[] = {
         {6, 6, 5, 4},
