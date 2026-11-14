@@ -170,6 +170,12 @@ The data buffer is sorted by heapsort. Its solid computational complexity gives 
 
 Uses [Helix rotation](https://github.com/scandum/rotate#helix-rotation) for large data, because of its simple control flow and cache memory friendliness. Switches to triple reversal when the length becomes small, to avoid integer modulo operation in Helix rotation.
 
+The author noticed that the swapping loop in Helix rotation can be vectorized. The distance of its loop-carried dependence equals the length of the shorter chunk, so items can be swapped by SIMD instructions if the shorter chunk is at least as long as the vector width. An experiment showed that it makes rotation-heavy inputs such as `MostlyEqual` 5-12% faster. Nevertheless, SIMD isn't used for the following reasons.
+
+* Explicit vectorization requires detecting contiguous iterators, but `std::contiguous_iterator` is unavailable in C++17.
+* It makes the code more complex.
+* Auto-vectorization by compilers is unstable, since the dependence distance varies with the rotation width. GCC vectorizes the loop even if the distance is short and not a multiple of the vector width, which causes store-to-load forwarding failures. Clang doesn't use vectorized code if the swapped ranges overlap. Thus auto-vectorization is disabled for the loop.
+
 ### Binary search sub-algorithm detail
 
 Uses [monobound binary search](https://github.com/scandum/binary_search). In general, the number of comparisons to identify an item from N choices is at most ceil(log2(N)). The routine always performs this fixed number of comparisons. Though there is a redundant comparison, its simple loop, friendly to branch prediction, certainly wins.
