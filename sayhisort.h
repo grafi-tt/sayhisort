@@ -1152,9 +1152,10 @@ SAYHISORT_CONSTEXPR_SWAP void HeapSort(Iterator data, diff_t<Iterator> len, Iter
         if (cur < len / 2) {  // left(cur) < len
             cur = left(cur);
         }
-        // `cur > start` is redundant for valid comparators, since `comp(x, x)` is false. It prevents an infinite loop
-        // when an invalid reflexive comparator (e.g. `<=`) is given.
-        while (cur > start && iter_comp(data + cur, data + start)) {
+        while (iter_comp(data + cur, data + start)) {
+            if (cur <= start) {
+                return;  // bailout since invalid comparison operator given
+            }
             cur = parent(cur);
         }
         while (cur > start) {
