@@ -928,6 +928,7 @@ SAYHISORT_CONSTEXPR_SWAP void MergeOneLevel(Iterator imit, Iterator buf, Iterato
  * @brief Sort data by odd-even sort algorithm. Sorting is stable.
  *
  * It's suitable for small data. Data length is passed as a template argument for generating specialized code.
+ * This overload is for trivially copyable items. All passes are fully unrolled by recursion.
  *
  * @tparam len
  *   @pre len >= 0
@@ -935,20 +936,37 @@ SAYHISORT_CONSTEXPR_SWAP void MergeOneLevel(Iterator imit, Iterator buf, Iterato
  * @param iter_comp
  */
 template <int len, typename Iterator, typename Comp, typename Proj, int i = 0>
-SAYHISORT_CONSTEXPR_SWAP void OddEvenSort(Iterator data, IterComp<Comp, Proj> iter_comp) {
-    // Fully unroll passes for trivially copyable items. Otherwise compare and swap are typically heavy, so unrolling
-    // only bloats code.
-    constexpr bool unroll = std::is_trivially_copyable_v<typename std::iterator_traits<Iterator>::value_type>;
+SAYHISORT_CONSTEXPR_SWAP auto OddEvenSort(Iterator data, IterComp<Comp, Proj> iter_comp)
+    -> std::enable_if_t<std::is_trivially_copyable_v<typename std::iterator_traits<Iterator>::value_type>> {
     if constexpr (i < len) {
-        for (int k = i; k < (unroll ? i + 1 : len); ++k) {
-            for (diff_t<Iterator> j = k % 2; j < len - 1; j += 2) {
-                if (iter_comp(data + (j + 1), data + j)) {
-                    iter_swap(data + j, data + (j + 1));
-                }
+        for (diff_t<Iterator> j = i % 2; j < len - 1; j += 2) {
+            if (iter_comp(data + (j + 1), data + j)) {
+                iter_swap(data + j, data + (j + 1));
             }
         }
-        if constexpr (unroll) {
-            OddEvenSort<len, Iterator, Comp, Proj, i + 1>(data, iter_comp);
+        OddEvenSort<len, Iterator, Comp, Proj, i + 1>(data, iter_comp);
+    }
+}
+
+/**
+ * @brief Sort data by odd-even sort algorithm. Sorting is stable.
+ *
+ * This overload is for non-trivially copyable items. Compare and swap are typically heavy for them, so
+ * unrolling passes only bloats code.
+ *
+ * @tparam len
+ *   @pre len >= 0
+ * @param data
+ * @param iter_comp
+ */
+template <int len, typename Iterator, typename Comp, typename Proj>
+SAYHISORT_CONSTEXPR_SWAP auto OddEvenSort(Iterator data, IterComp<Comp, Proj> iter_comp)
+    -> std::enable_if_t<!std::is_trivially_copyable_v<typename std::iterator_traits<Iterator>::value_type>> {
+    for (int i = 0; i < len; ++i) {
+        for (diff_t<Iterator> j = i % 2; j < len - 1; j += 2) {
+            if (iter_comp(data + (j + 1), data + j)) {
+                iter_swap(data + j, data + (j + 1));
+            }
         }
     }
 }
