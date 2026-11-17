@@ -240,52 +240,6 @@ using diff_t = typename ::std::iterator_traits<Iterator>::difference_type;
 //
 
 /**
- * @brief Compute an over-approximation of sqrt(x)
- *
- * @param x
- *   @pre x >= 8
- * @return r
- *   @post r = 3, if x = 8
- *   @post r = 4, if 9 <= x <= 16 (exhaustively checked by test)
- *   @post sqrt(x) <= r < sqrt(x) * 1.25, if x > 16 (exhaustively checked for x < 28 by test, and
- *                                                   mathematically shown for x >= 28 in code comments)
- *         This is a rough bound required for algorithm correctness. Actual value is much more precise.
- */
-template <typename SsizeT>
-constexpr SsizeT OverApproxSqrt(SsizeT x) {
-    // https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Binary_estimates
-    //
-    // Find a number `n`, so that `x` can be represented as `x = a * 2^{2n}` where `a` in [0.5, 2.0).
-    SsizeT n = 1;
-    SsizeT p = x;
-    do {
-        ++n;
-        p /= 4;
-    } while (p >= 8);
-
-    // `r0 = 2^{n-1} + ceil(x * 2^{-(n+1)}) = ceil((0.5 + 0.5 * a) * 2^n)`, which is an over-approx of `sqrt(x)` .
-    //
-    // We can bound `r0` using the well-known formula:
-    //
-    //   sqrt(x) <= (0.5 + 0.5 * a) * 2^n <= (1.5/sqrt(2)) * sqrt(x) .
-    //
-    // The upper bound of `r0` is
-    //
-    //   r0 <= (0.5 + 0.5 * a) * 2^n + 1
-    //      <= (1.5 / sqrt(2)) * sqrt(x) + 1
-    //      = (1.5 / sqrt(2) + 1 / sqrt(x)) * sqrt(x) .
-    //
-    // For `x >= 28`, it's easy to check that `r0 < 1.25 * sqrt(x)`.
-    SsizeT r0 = (SsizeT{1} << (n - 1)) + ((x - 1) >> (n + 1)) + 1;
-
-    // Apply Newton's method (also known as Heron's method) and take ceil.
-    // https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Heron's_method
-    // As `r0` is an over-approx, the method returns a refined over-approx value `r`,
-    // which satisfies `sqrt(x) <= r <= r0`.
-    return (r0 + (x - 1) / r0) / 2 + 1;
-}
-
-/**
  * @brief Rotate two chunks split at `middle`
  *
  * @param first
@@ -850,6 +804,52 @@ SAYHISORT_CONSTEXPR_SWAP void MergeBlocking(Iterator imit, Iterator& buf, Iterat
 //
 // Blocking control
 //
+
+/**
+ * @brief Compute an over-approximation of sqrt(x)
+ *
+ * @param x
+ *   @pre x >= 8
+ * @return r
+ *   @post r = 3, if x = 8
+ *   @post r = 4, if 9 <= x <= 16 (exhaustively checked by test)
+ *   @post sqrt(x) <= r < sqrt(x) * 1.25, if x > 16 (exhaustively checked for x < 28 by test, and
+ *                                                   mathematically shown for x >= 28 in code comments)
+ *         This is a rough bound required for algorithm correctness. Actual value is much more precise.
+ */
+template <typename SsizeT>
+constexpr SsizeT OverApproxSqrt(SsizeT x) {
+    // https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Binary_estimates
+    //
+    // Find a number `n`, so that `x` can be represented as `x = a * 2^{2n}` where `a` in [0.5, 2.0).
+    SsizeT n = 1;
+    SsizeT p = x;
+    do {
+        ++n;
+        p /= 4;
+    } while (p >= 8);
+
+    // `r0 = 2^{n-1} + ceil(x * 2^{-(n+1)}) = ceil((0.5 + 0.5 * a) * 2^n)`, which is an over-approx of `sqrt(x)` .
+    //
+    // We can bound `r0` using the well-known formula:
+    //
+    //   sqrt(x) <= (0.5 + 0.5 * a) * 2^n <= (1.5/sqrt(2)) * sqrt(x) .
+    //
+    // The upper bound of `r0` is
+    //
+    //   r0 <= (0.5 + 0.5 * a) * 2^n + 1
+    //      <= (1.5 / sqrt(2)) * sqrt(x) + 1
+    //      = (1.5 / sqrt(2) + 1 / sqrt(x)) * sqrt(x) .
+    //
+    // For `x >= 28`, it's easy to check that `r0 < 1.25 * sqrt(x)`.
+    SsizeT r0 = (SsizeT{1} << (n - 1)) + ((x - 1) >> (n + 1)) + 1;
+
+    // Apply Newton's method (also known as Heron's method) and take ceil.
+    // https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Heron's_method
+    // As `r0` is an over-approx, the method returns a refined over-approx value `r`,
+    // which satisfies `sqrt(x) <= r <= r0`.
+    return (r0 + (x - 1) / r0) / 2 + 1;
+}
 
 template <typename SsizeT>
 struct MergeSortControl {
