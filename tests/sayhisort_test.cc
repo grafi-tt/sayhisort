@@ -584,6 +584,94 @@ TEST(SayhiSortTest, MergeBlocking) {
     }
 }
 
+TEST(SayhiSortTest, MergeSortControl) {
+    MergeSortControl<SsizeT> ctrl{8, 16};
+
+    EXPECT_EQ(ctrl.log2_num_seqs, 1);
+    EXPECT_EQ(ctrl.imit_len, 2);
+    EXPECT_EQ(ctrl.buf_len, 6);
+    EXPECT_EQ(ctrl.bufferable_len, 12);
+    EXPECT_EQ(ctrl.Next(), 6);
+    EXPECT_EQ(ctrl.imit_len, 8);
+    EXPECT_EQ(ctrl.buf_len, 0);
+    EXPECT_EQ(ctrl.log2_num_seqs, 0);
+
+    ctrl = {21, 123};
+    EXPECT_EQ(ctrl.log2_num_seqs, 4);
+    EXPECT_EQ(ctrl.imit_len, 8);
+    EXPECT_EQ(ctrl.buf_len, 13);
+    EXPECT_EQ(ctrl.seq_len, 8);
+    EXPECT_TRUE(ctrl.forward);
+    EXPECT_EQ(ctrl.Next(), 0);
+    EXPECT_EQ(ctrl.log2_num_seqs, 3);
+    EXPECT_EQ(ctrl.imit_len, 8);
+    EXPECT_EQ(ctrl.buf_len, 13);
+    EXPECT_EQ(ctrl.seq_len, 16);
+    EXPECT_FALSE(ctrl.forward);
+
+    ctrl = {22, 123};
+    EXPECT_EQ(ctrl.imit_len, 10);
+    EXPECT_EQ(ctrl.buf_len, 12);
+
+    ctrl = {47, 953};
+    EXPECT_EQ(ctrl.log2_num_seqs, 7);
+    EXPECT_EQ(ctrl.imit_len, 22);
+    EXPECT_EQ(ctrl.buf_len, 25);
+    EXPECT_EQ(ctrl.seq_len, 8);
+    EXPECT_EQ(ctrl.Next(), 0);
+    EXPECT_EQ(ctrl.seq_len, 15);
+    EXPECT_EQ(ctrl.Next(), 0);
+    EXPECT_EQ(ctrl.seq_len, 30);
+    EXPECT_EQ(ctrl.Next(), 0);
+    EXPECT_EQ(ctrl.seq_len, 60);
+    EXPECT_EQ(ctrl.Next(), 0);
+    EXPECT_EQ(ctrl.seq_len, 120);
+    EXPECT_EQ(ctrl.Next(), 0);
+    EXPECT_EQ(ctrl.seq_len, 239);
+    EXPECT_EQ(ctrl.Next(), 25);
+    EXPECT_EQ(ctrl.seq_len, 477);
+    EXPECT_EQ(ctrl.Next(), 0);
+    EXPECT_EQ(ctrl.seq_len, 953);
+}
+
+TEST(SayhiSortTest, DetermineBlocking) {
+    MergeSortControl<SsizeT> ctrl{47, 953};
+    BlockingParam<SsizeT> p = DetermineBlocking(ctrl);
+    EXPECT_EQ(p.num_blocks, 2);
+    EXPECT_GE(p.first_block_len, 2);
+    EXPECT_LE(p.first_block_len, p.block_len);
+    ctrl.Next();
+    p = DetermineBlocking(ctrl);
+    EXPECT_EQ(p.num_blocks, 2);
+    EXPECT_GE(p.first_block_len, 2);
+    EXPECT_LE(p.first_block_len, p.block_len);
+    ctrl.Next();
+    p = DetermineBlocking(ctrl);
+    EXPECT_EQ(p.num_blocks, 4);
+    EXPECT_GE(p.first_block_len, 2);
+    EXPECT_LE(p.first_block_len, p.block_len);
+    ctrl.Next();
+    p = DetermineBlocking(ctrl);
+    EXPECT_EQ(p.num_blocks, 6);
+    EXPECT_GE(p.first_block_len, 2);
+    EXPECT_LE(p.first_block_len, p.block_len);
+    ctrl.Next();
+    p = DetermineBlocking(ctrl);
+    EXPECT_EQ(p.num_blocks, 10);
+    EXPECT_GE(p.first_block_len, 2);
+    EXPECT_LE(p.first_block_len, p.block_len);
+    ctrl.Next();
+    p = DetermineBlocking(ctrl);
+    EXPECT_EQ(p.num_blocks, 20);
+    EXPECT_GE(p.first_block_len, 2);
+    EXPECT_LE(p.first_block_len, p.block_len);
+    ctrl.Next();
+    p = DetermineBlocking(ctrl);
+    EXPECT_EQ(p.num_blocks, 30);
+    EXPECT_GE(p.first_block_len, 2);
+    EXPECT_LE(p.first_block_len, p.block_len);
+}
+
 TEST(SayhiSortTest, MergeOneLevel) {
     BlockingParam<SsizeT> p{16, 19, 17, 17};
     SsizeT imit_len = 14;
@@ -724,94 +812,6 @@ TEST(SayhiSortTest, CollectKeys) {
         EXPECT_EQ(num_keys, expected_num_keys);
         EXPECT_EQ(ary, expected);
     }
-}
-
-TEST(SayhiSortTest, MergeSortControl) {
-    MergeSortControl<SsizeT> ctrl{8, 16};
-
-    EXPECT_EQ(ctrl.log2_num_seqs, 1);
-    EXPECT_EQ(ctrl.imit_len, 2);
-    EXPECT_EQ(ctrl.buf_len, 6);
-    EXPECT_EQ(ctrl.bufferable_len, 12);
-    EXPECT_EQ(ctrl.Next(), 6);
-    EXPECT_EQ(ctrl.imit_len, 8);
-    EXPECT_EQ(ctrl.buf_len, 0);
-    EXPECT_EQ(ctrl.log2_num_seqs, 0);
-
-    ctrl = {21, 123};
-    EXPECT_EQ(ctrl.log2_num_seqs, 4);
-    EXPECT_EQ(ctrl.imit_len, 8);
-    EXPECT_EQ(ctrl.buf_len, 13);
-    EXPECT_EQ(ctrl.seq_len, 8);
-    EXPECT_TRUE(ctrl.forward);
-    EXPECT_EQ(ctrl.Next(), 0);
-    EXPECT_EQ(ctrl.log2_num_seqs, 3);
-    EXPECT_EQ(ctrl.imit_len, 8);
-    EXPECT_EQ(ctrl.buf_len, 13);
-    EXPECT_EQ(ctrl.seq_len, 16);
-    EXPECT_FALSE(ctrl.forward);
-
-    ctrl = {22, 123};
-    EXPECT_EQ(ctrl.imit_len, 10);
-    EXPECT_EQ(ctrl.buf_len, 12);
-
-    ctrl = {47, 953};
-    EXPECT_EQ(ctrl.log2_num_seqs, 7);
-    EXPECT_EQ(ctrl.imit_len, 22);
-    EXPECT_EQ(ctrl.buf_len, 25);
-    EXPECT_EQ(ctrl.seq_len, 8);
-    EXPECT_EQ(ctrl.Next(), 0);
-    EXPECT_EQ(ctrl.seq_len, 15);
-    EXPECT_EQ(ctrl.Next(), 0);
-    EXPECT_EQ(ctrl.seq_len, 30);
-    EXPECT_EQ(ctrl.Next(), 0);
-    EXPECT_EQ(ctrl.seq_len, 60);
-    EXPECT_EQ(ctrl.Next(), 0);
-    EXPECT_EQ(ctrl.seq_len, 120);
-    EXPECT_EQ(ctrl.Next(), 0);
-    EXPECT_EQ(ctrl.seq_len, 239);
-    EXPECT_EQ(ctrl.Next(), 25);
-    EXPECT_EQ(ctrl.seq_len, 477);
-    EXPECT_EQ(ctrl.Next(), 0);
-    EXPECT_EQ(ctrl.seq_len, 953);
-}
-
-TEST(SayhiSortTest, DetermineBlocking) {
-    MergeSortControl<SsizeT> ctrl{47, 953};
-    BlockingParam<SsizeT> p = DetermineBlocking(ctrl);
-    EXPECT_EQ(p.num_blocks, 2);
-    EXPECT_GE(p.first_block_len, 2);
-    EXPECT_LE(p.first_block_len, p.block_len);
-    ctrl.Next();
-    p = DetermineBlocking(ctrl);
-    EXPECT_EQ(p.num_blocks, 2);
-    EXPECT_GE(p.first_block_len, 2);
-    EXPECT_LE(p.first_block_len, p.block_len);
-    ctrl.Next();
-    p = DetermineBlocking(ctrl);
-    EXPECT_EQ(p.num_blocks, 4);
-    EXPECT_GE(p.first_block_len, 2);
-    EXPECT_LE(p.first_block_len, p.block_len);
-    ctrl.Next();
-    p = DetermineBlocking(ctrl);
-    EXPECT_EQ(p.num_blocks, 6);
-    EXPECT_GE(p.first_block_len, 2);
-    EXPECT_LE(p.first_block_len, p.block_len);
-    ctrl.Next();
-    p = DetermineBlocking(ctrl);
-    EXPECT_EQ(p.num_blocks, 10);
-    EXPECT_GE(p.first_block_len, 2);
-    EXPECT_LE(p.first_block_len, p.block_len);
-    ctrl.Next();
-    p = DetermineBlocking(ctrl);
-    EXPECT_EQ(p.num_blocks, 20);
-    EXPECT_GE(p.first_block_len, 2);
-    EXPECT_LE(p.first_block_len, p.block_len);
-    ctrl.Next();
-    p = DetermineBlocking(ctrl);
-    EXPECT_EQ(p.num_blocks, 30);
-    EXPECT_GE(p.first_block_len, 2);
-    EXPECT_LE(p.first_block_len, p.block_len);
 }
 
 TEST(SayhiSortTest, Sort) {

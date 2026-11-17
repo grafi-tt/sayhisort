@@ -848,6 +848,256 @@ SAYHISORT_CONSTEXPR_SWAP void MergeBlocking(Iterator imit, Iterator& buf, Iterat
 }
 
 //
+// Blocking control
+//
+
+template <typename SsizeT>
+struct MergeSortControl {
+    /**
+     * @param num_keys
+     *   @pre num_keys == 0 or num_keys >= 8
+     * @param data_len
+     *   @pre data_len > 8
+     * @post 5 <= this->seq_len <= 8
+     *
+     * The space consisting of unique keys is divided by imitation buffer (recording block permutation) and
+     * merge buffer (holding merged block elements). So `num_keys = imit_len + buf_len` holds.
+     *
+     * We don't record the leftmost and rightmost block into the imitation buffer (due to remainder handling).
+     * Therefore the number of blocks is at most `imit_len + 2`.
+     *
+     * The value `bufferable_len` is the maximum length of a sequence, that can be block-merged with buffering.
+     * Imitation buffer holds permutation of blocks in the two sequences which will be block-merged, and
+     * merge buffer must be large enough to store a block. So it's defined by
+     *
+     *   bufferable_len = (imit_len + 2) / 2 * buf_len .
+     *
+     * When `num_keys = num_desired_key`, where `num_desired_key = 2 * OverApproxSqrt(len) - 2`,
+     *
+     *   (imit_len + 2) / 2 =  floor(OverApproxSqrt(len) / 2)
+     *                      >= (OverApproxSqrt(len) - 1) / 2, and
+     *
+     *   buf_len = num_desired_key - imit_len
+     *           = (num_desired_key + 2) - (imit_len + 2)
+     *           = 2 * OverApproxSqrt(len) - floor(OverApproxSqrt(len) / 2) * 2
+     *           >= OverApproxSqrt(len) .
+     *
+     * In this case
+     *
+     *   bufferable_len >= (OverApproxSqrt(len)^2 - OverApproxSqrt(len)) / 2
+     *                  =  (OverApproxSqrt(len)^2 - (num_keys + 2) / 2) / 2
+     *                  >= (len - (num_keys / 2) - 1) / 2 .
+     *
+     * As `num_keys >= 2`, we have `bufferable_len * 2 >= len - (num_keys / 2) - 1 >= len - num_keys`.
+     * Thus buffering is enabled until the last merge level, ensuring O(len) time complexity for each merge level.
+     *
+     */
+    constexpr MergeSortControl(SsizeT num_keys, SsizeT data_len) : data_len{data_len} {
+        if (num_keys) {
+            // Need to ensure that
+            //
+            //   (1) imit_len >= 2 ,
+            //   (2) buf_len >= imit_len + 2 ,
+            //   (3) bufferable_len >= 8 .
+            //
+            // (1) is straightforward, because we require `num_keys >= 8`.
+            //
+            // To prove (2), we use `imit_len + 2 <= (num_keys + 2) / 2`, which is immediate from definition. Now we
+            // have
+            //
+            //   buf_len = num_keys - imit_len
+            //           = (num_keys + 2) - (imit_len + 2)
+            //           >= (num_keys + 2) / 2
+            //           >= imit_len + 2 .
+            //
+            // Using (1) and (2), we can show (3) as follows:
+            //
+            //     bufferable_len = (imit_len + 2) / 2 * buf_len
+            //                    >= (imit_len + 2) * (imit_len + 2) / 2
+            //                    >= 8 .
+            imit_len = (num_keys + 2) / 4 * 2 - 2;
+            buf_len = num_keys - imit_len;
+            bufferable_len = (imit_len + 2) / 2 * buf_len;
+        }
+
+        while ((data_len - 1) >> (log2_num_seqs + 3)) {
+            ++log2_num_seqs;
+        }
+        // Here `5 <= seq_len <= 8` holds.
+        // If `num_keys != 0`, we can safely adopt buffered merge logic at the first level.
+        // Since `bufferable_len >= 8` is assured, `seq_len <= bufferable_len` is always satisfied here.
+        seq_len = ((data_len - 1) >> log2_num_seqs) + 1;
+    }
+
+    constexpr SsizeT Next() {
+        --log2_num_seqs;
+        seq_len = ((data_len - 1) >> log2_num_seqs) + 1;
+
+        if (!buf_len) {
+            return 0;
+        }
+        forward = !forward;
+
+        if (log2_num_seqs == 0 || seq_len > bufferable_len) {
+            // No more buffered merge will be done. Need to clean up the buffer here.
+            SsizeT old_buf_len = buf_len;
+            imit_len += buf_len / 2 * 2;
+            buf_len = 0;
+            bufferable_len = 0;
+            return old_buf_len;
+        }
+        return 0;
+    }
+
+    /**
+     * imit_len is non-negative and multiple of 2.
+     * imit_len + buf_len = num_keys.
+     */
+    SsizeT imit_len = 0;
+    /**
+     * buf_len is non-negative.
+     * If buf_len > 0
+     *   - seq_len <= bufferable_len
+     *   - imit_len + 2 <= buf_len
+     */
+    SsizeT buf_len = 0;
+    //! bufferable_len = ((imit_len + 2) / 2) * buf_len
+    SsizeT bufferable_len = 0;
+    //! data_len > 8
+    SsizeT data_len;
+
+    SsizeT log2_num_seqs = 1;
+    SsizeT seq_len{};
+    bool forward = true;
+};
+
+template <typename SsizeT>
+constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>& ctrl) {
+    SsizeT seq_len = ctrl.seq_len;
+
+    SsizeT max_num_blocks = ctrl.imit_len + 2;
+    SsizeT num_blocks{};
+    if (ctrl.buf_len) {
+        // We don't need to check `num_blocks <= max_num_blocks` since it's ensured by `seq_len <= bufferable_len`.
+        num_blocks = ((seq_len - 1) / ctrl.buf_len + 1) * 2;
+    } else {
+        // Limit the number of blocks by `sqrt(2 * seq_len)`. It must be O(`sqrt(seq_len)`) to assure that
+        // `InterleaveBlocks` runs in O(`seq_len`) time complexity.
+        SsizeT limit_num_blocks = seq_len / OverApproxSqrt(seq_len * 2) * 2;
+        num_blocks = max_num_blocks < limit_num_blocks ? max_num_blocks : limit_num_blocks;
+    }
+
+    // Proof that `block_len >= 3`.
+    // (NOTE: probably a tighter bound is possible. For the sake of algorithm correctness `block_len >= 2` is enough.)
+    //
+    // If `buf_len = 0`, it's easy to see `block_len` is over-approx of `sqrt(2 * seq_len)`, since `limit_num_blocks`
+    // must be a multiple of 2 and under-approx of `sqrt(2 * seq_len)`. As `seq_len >= 5`, we have `block_len >= 3`.
+    //
+    // Otherwise, we first note that
+    //
+    //    ceil(seq_len / buf_len) <= seq_len / buf_len + 1
+    //                            = seq_len * (1 / buf_len + 1 / seq_len) .
+    //
+    // Using `buf_len >= imit_len + 2 >= 4` and `seq_len >= 5`, we also have
+    //
+    //    1 / buf_len + 1 / seq_len <= 1/4 + 1/5
+    //                              = 0.45 .
+    //
+    // Therefore
+    //
+    //    ceil(seq_len / buf_len) <= seq_len * 0.45
+    //
+    // holds.
+    //
+    // From the definition of `block_len`, we have
+    //
+    //   block_len = ceil(seq_len / ceil(seq_len / buf_len))
+    //             >= seq_len / ceil(seq_len / buf_len)
+    //             >= 1 / 0.45 .
+    //
+    // Thus `block_len >= 3` follows, as `block_len` is an integer.
+    SsizeT block_len = (seq_len - 1) / (num_blocks / 2) + 1;
+
+    // We need to prove `residual_len >= 2` to assure that all blocks have positive length.
+    // (Note that `residual_len` may be decremented once in `MergeOneLevel`.)
+    //
+    // Proof:
+    // We first show the following lemma. Let `N` and `m` be positive integers, such that
+    // `N >= m ** 2`, `N >= 2` and `m >= 1`.
+    //
+    //   (lemma):  N - ceil(N / m) * (m - 1) >= 2 .
+    //
+    // There are three cases.
+    //
+    //   (1):  m = 1 .
+    //   (2):  m >= 2, and N is a multiple of m .
+    //   (3):  m >= 2, and N isn't a multiple of m .
+    //
+    // If case (1) and (2), it's trivial to check that (lemma) holds.
+    // For case (3), we can use the following property:
+    //
+    //   ceil(N / m) <= (N / m) + ((m - 1) / m) .
+    //
+    // By multiplying `m` to left and right hand sides, we have
+    //
+    //   ceil(N / m) * m <= N + (m - 1) .
+    //
+    // So
+    //
+    //   ceil(N / m) * (m - 1) <= N + (m - 1) - ceil(N / m) .
+    //
+    // holds.
+    //
+    // Since `N >= (m ** 2) + 1` from (3), `ceil(N / m) >= m + 1` holds. Thus we have
+    //
+    //   ceil(N / m) * (m - 1) <= N + (m - 1) - (m + 1)
+    //                         =  N - 2 ,
+    //
+    // which is equivalent to (lemma). Thus the lemma is proven.
+    //
+    // To prove `residual_len >= 2`, let `N = seq_len` and `m = num_blocks / 2`. Now it's enough to show that
+    //
+    //   (proposition):  seq_len >= (num_blocks / 2) ** 2 ,
+    //   (*):            seq_len >= 2 , and
+    //   (**):           num_blocks / 2 >= 1 .
+    //
+    // Note that (*) and (**) are immediate from the function's requirement.
+    //
+    // When `buf_len = 0`, the definition of `limit_num_blocks` ensures that (proposition) is satisfied.
+    // For the case `buf_len > 0`, we use the following constraints.
+    //
+    //   (a):  imit_len + 2 <= buf_len .                   (by MergeSortControl)
+    //   (b):  seq_len <= (imit_len + 2) / 2 * buf_len .   (by MergeSortControl)
+    //   (c):  num_blocks / 2 = ceil(seq_len / buf_len) .  (by definition)
+    //
+    // From (a) and (b), we have `seq_len <= (buf_len ** 2) / 2`. Therefore
+    //
+    //   (d):  buf_len >= sqrt(2) * sqrt(seq_len)
+    //
+    // holds. Using (c) and (d), we have
+    //
+    //   (e):  num_blocks / 2 <= ceil(sqrt(seq_len) / sqrt(2)) .
+    //
+    // Thanks to (e), it's easy to see that the following (subprop) is enough to prove (proposition).
+    //
+    //   (subprop):  sqrt(seq_len) >= ceil(sqrt(seq_len) / sqrt(2)) .
+    //
+    // As the function requires `seq_len >= 5`, we show subprop for the cases
+    //
+    //   (1): 5 <= seq_len <= 11 , and
+    //   (2): seq_len >= 12 .
+    //
+    // For the case (1), subprop can be shown by exhaustive search. For the case (2), we have
+    // `sqrt(seq_len) >= sqrt(seq_len) / sqrt(2) + 1`. Thus (subprop) is satisfied.
+    //
+    // Therefore we have proven `residual_len >= 2`.
+
+    SsizeT residual_len = seq_len - block_len * (num_blocks / 2 - 1);
+
+    return {num_blocks, block_len, residual_len, residual_len};
+}
+
+//
 // Bottom-up merge sort logics
 //
 
@@ -1219,252 +1469,6 @@ SAYHISORT_CONSTEXPR_SWAP diff_t<Iterator> CollectKeys(Iterator first, Iterator l
         Rotate(first, keys, keys_last);
     }
     return keys_last - keys;
-}
-
-template <typename SsizeT>
-struct MergeSortControl {
-    /**
-     * @param num_keys
-     *   @pre num_keys == 0 or num_keys >= 8
-     * @param data_len
-     *   @pre data_len > 8
-     * @post 5 <= this->seq_len <= 8
-     *
-     * The space consisting of unique keys is divided by imitation buffer (recording block permutation) and
-     * merge buffer (holding merged block elements). So `num_keys = imit_len + buf_len` holds.
-     *
-     * We don't record the leftmost and rightmost block into the imitation buffer (due to remainder handling).
-     * Therefore the number of blocks is at most `imit_len + 2`.
-     *
-     * The value `bufferable_len` is the maximum length of a sequence, that can be block-merged with buffering.
-     * Imitation buffer holds permutation of blocks in the two sequences which will be block-merged, and
-     * merge buffer must be large enough to store a block. So it's defined by
-     *
-     *   bufferable_len = (imit_len + 2) / 2 * buf_len .
-     *
-     * When `num_keys = num_desired_key`, where `num_desired_key = 2 * OverApproxSqrt(len) - 2`,
-     *
-     *   (imit_len + 2) / 2 =  floor(OverApproxSqrt(len) / 2)
-     *                      >= (OverApproxSqrt(len) - 1) / 2, and
-     *
-     *   buf_len = num_desired_key - imit_len
-     *           = (num_desired_key + 2) - (imit_len + 2)
-     *           = 2 * OverApproxSqrt(len) - floor(OverApproxSqrt(len) / 2) * 2
-     *           >= OverApproxSqrt(len) .
-     *
-     * In this case
-     *
-     *   bufferable_len >= (OverApproxSqrt(len)^2 - OverApproxSqrt(len)) / 2
-     *                  =  (OverApproxSqrt(len)^2 - (num_keys + 2) / 2) / 2
-     *                  >= (len - (num_keys / 2) - 1) / 2 .
-     *
-     * As `num_keys >= 2`, we have `bufferable_len * 2 >= len - (num_keys / 2) - 1 >= len - num_keys`.
-     * Thus buffering is enabled until the last merge level, ensuring O(len) time complexity for each merge level.
-     *
-     */
-    constexpr MergeSortControl(SsizeT num_keys, SsizeT data_len) : data_len{data_len} {
-        if (num_keys) {
-            // Need to ensure that
-            //
-            //   (1) imit_len >= 2 ,
-            //   (2) buf_len >= imit_len + 2 ,
-            //   (3) bufferable_len >= 8 .
-            //
-            // (1) is straightforward, because we require `num_keys >= 8`.
-            //
-            // To prove (2), we use `imit_len + 2 <= (num_keys + 2) / 2`, which is immediate from definition. Now we
-            // have
-            //
-            //   buf_len = num_keys - imit_len
-            //           = (num_keys + 2) - (imit_len + 2)
-            //           >= (num_keys + 2) / 2
-            //           >= imit_len + 2 .
-            //
-            // Using (1) and (2), we can show (3) as follows:
-            //
-            //     bufferable_len = (imit_len + 2) / 2 * buf_len
-            //                    >= (imit_len + 2) * (imit_len + 2) / 2
-            //                    >= 8 .
-            imit_len = (num_keys + 2) / 4 * 2 - 2;
-            buf_len = num_keys - imit_len;
-            bufferable_len = (imit_len + 2) / 2 * buf_len;
-        }
-
-        while ((data_len - 1) >> (log2_num_seqs + 3)) {
-            ++log2_num_seqs;
-        }
-        // Here `5 <= seq_len <= 8` holds.
-        // If `num_keys != 0`, we can safely adopt buffered merge logic at the first level.
-        // Since `bufferable_len >= 8` is assured, `seq_len <= bufferable_len` is always satisfied here.
-        seq_len = ((data_len - 1) >> log2_num_seqs) + 1;
-    }
-
-    constexpr SsizeT Next() {
-        --log2_num_seqs;
-        seq_len = ((data_len - 1) >> log2_num_seqs) + 1;
-
-        if (!buf_len) {
-            return 0;
-        }
-        forward = !forward;
-
-        if (log2_num_seqs == 0 || seq_len > bufferable_len) {
-            // No more buffered merge will be done. Need to clean up the buffer here.
-            SsizeT old_buf_len = buf_len;
-            imit_len += buf_len / 2 * 2;
-            buf_len = 0;
-            bufferable_len = 0;
-            return old_buf_len;
-        }
-        return 0;
-    }
-
-    /**
-     * imit_len is non-negative and multiple of 2.
-     * imit_len + buf_len = num_keys.
-     */
-    SsizeT imit_len = 0;
-    /**
-     * buf_len is non-negative.
-     * If buf_len > 0
-     *   - seq_len <= bufferable_len
-     *   - imit_len + 2 <= buf_len
-     */
-    SsizeT buf_len = 0;
-    //! bufferable_len = ((imit_len + 2) / 2) * buf_len
-    SsizeT bufferable_len = 0;
-    //! data_len > 8
-    SsizeT data_len;
-
-    SsizeT log2_num_seqs = 1;
-    SsizeT seq_len{};
-    bool forward = true;
-};
-
-template <typename SsizeT>
-constexpr BlockingParam<SsizeT> DetermineBlocking(const MergeSortControl<SsizeT>& ctrl) {
-    SsizeT seq_len = ctrl.seq_len;
-
-    SsizeT max_num_blocks = ctrl.imit_len + 2;
-    SsizeT num_blocks{};
-    if (ctrl.buf_len) {
-        // We don't need to check `num_blocks <= max_num_blocks` since it's ensured by `seq_len <= bufferable_len`.
-        num_blocks = ((seq_len - 1) / ctrl.buf_len + 1) * 2;
-    } else {
-        // Limit the number of blocks by `sqrt(2 * seq_len)`. It must be O(`sqrt(seq_len)`) to assure that
-        // `InterleaveBlocks` runs in O(`seq_len`) time complexity.
-        SsizeT limit_num_blocks = seq_len / OverApproxSqrt(seq_len * 2) * 2;
-        num_blocks = max_num_blocks < limit_num_blocks ? max_num_blocks : limit_num_blocks;
-    }
-
-    // Proof that `block_len >= 3`.
-    // (NOTE: probably a tighter bound is possible. For the sake of algorithm correctness `block_len >= 2` is enough.)
-    //
-    // If `buf_len = 0`, it's easy to see `block_len` is over-approx of `sqrt(2 * seq_len)`, since `limit_num_blocks`
-    // must be a multiple of 2 and under-approx of `sqrt(2 * seq_len)`. As `seq_len >= 5`, we have `block_len >= 3`.
-    //
-    // Otherwise, we first note that
-    //
-    //    ceil(seq_len / buf_len) <= seq_len / buf_len + 1
-    //                            = seq_len * (1 / buf_len + 1 / seq_len) .
-    //
-    // Using `buf_len >= imit_len + 2 >= 4` and `seq_len >= 5`, we also have
-    //
-    //    1 / buf_len + 1 / seq_len <= 1/4 + 1/5
-    //                              = 0.45 .
-    //
-    // Therefore
-    //
-    //    ceil(seq_len / buf_len) <= seq_len * 0.45
-    //
-    // holds.
-    //
-    // From the definition of `block_len`, we have
-    //
-    //   block_len = ceil(seq_len / ceil(seq_len / buf_len))
-    //             >= seq_len / ceil(seq_len / buf_len)
-    //             >= 1 / 0.45 .
-    //
-    // Thus `block_len >= 3` follows, as `block_len` is an integer.
-    SsizeT block_len = (seq_len - 1) / (num_blocks / 2) + 1;
-
-    // We need to prove `residual_len >= 2` to assure that all blocks have positive length.
-    // (Note that `residual_len` may be decremented once in `MergeOneLevel`.)
-    //
-    // Proof:
-    // We first show the following lemma. Let `N` and `m` be positive integers, such that
-    // `N >= m ** 2`, `N >= 2` and `m >= 1`.
-    //
-    //   (lemma):  N - ceil(N / m) * (m - 1) >= 2 .
-    //
-    // There are three cases.
-    //
-    //   (1):  m = 1 .
-    //   (2):  m >= 2, and N is a multiple of m .
-    //   (3):  m >= 2, and N isn't a multiple of m .
-    //
-    // If case (1) and (2), it's trivial to check that (lemma) holds.
-    // For case (3), we can use the following property:
-    //
-    //   ceil(N / m) <= (N / m) + ((m - 1) / m) .
-    //
-    // By multiplying `m` to left and right hand sides, we have
-    //
-    //   ceil(N / m) * m <= N + (m - 1) .
-    //
-    // So
-    //
-    //   ceil(N / m) * (m - 1) <= N + (m - 1) - ceil(N / m) .
-    //
-    // holds.
-    //
-    // Since `N >= (m ** 2) + 1` from (3), `ceil(N / m) >= m + 1` holds. Thus we have
-    //
-    //   ceil(N / m) * (m - 1) <= N + (m - 1) - (m + 1)
-    //                         =  N - 2 ,
-    //
-    // which is equivalent to (lemma). Thus the lemma is proven.
-    //
-    // To prove `residual_len >= 2`, let `N = seq_len` and `m = num_blocks / 2`. Now it's enough to show that
-    //
-    //   (proposition):  seq_len >= (num_blocks / 2) ** 2 ,
-    //   (*):            seq_len >= 2 , and
-    //   (**):           num_blocks / 2 >= 1 .
-    //
-    // Note that (*) and (**) are immediate from the function's requirement.
-    //
-    // When `buf_len = 0`, the definition of `limit_num_blocks` ensures that (proposition) is satisfied.
-    // For the case `buf_len > 0`, we use the following constraints.
-    //
-    //   (a):  imit_len + 2 <= buf_len .                   (by MergeSortControl)
-    //   (b):  seq_len <= (imit_len + 2) / 2 * buf_len .   (by MergeSortControl)
-    //   (c):  num_blocks / 2 = ceil(seq_len / buf_len) .  (by definition)
-    //
-    // From (a) and (b), we have `seq_len <= (buf_len ** 2) / 2`. Therefore
-    //
-    //   (d):  buf_len >= sqrt(2) * sqrt(seq_len)
-    //
-    // holds. Using (c) and (d), we have
-    //
-    //   (e):  num_blocks / 2 <= ceil(sqrt(seq_len) / sqrt(2)) .
-    //
-    // Thanks to (e), it's easy to see that the following (subprop) is enough to prove (proposition).
-    //
-    //   (subprop):  sqrt(seq_len) >= ceil(sqrt(seq_len) / sqrt(2)) .
-    //
-    // As the function requires `seq_len >= 5`, we show subprop for the cases
-    //
-    //   (1): 5 <= seq_len <= 11 , and
-    //   (2): seq_len >= 12 .
-    //
-    // For the case (1), subprop can be shown by exhaustive search. For the case (2), we have
-    // `sqrt(seq_len) >= sqrt(seq_len) / sqrt(2) + 1`. Thus (subprop) is satisfied.
-    //
-    // Therefore we have proven `residual_len >= 2`.
-
-    SsizeT residual_len = seq_len - block_len * (num_blocks / 2 - 1);
-
-    return {num_blocks, block_len, residual_len, residual_len};
 }
 
 template <typename Iterator, typename Comp, typename Proj>
