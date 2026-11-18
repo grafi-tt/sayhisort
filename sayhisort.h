@@ -750,7 +750,6 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
                     Rotate(xs, ys, ys_last);
                     ys = xs + p.last_block_len;
                     xs_origin = kRight;
-                    ys_origin = kLeft;
                 }
             }
         }
