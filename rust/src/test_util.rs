@@ -25,7 +25,9 @@ pub struct Xoshiro256PlusPlus {
 impl Xoshiro256PlusPlus {
     pub fn from_seed(seed: u64) -> Self {
         let mut sm = SplitMix64(seed);
-        Self { s: std::array::from_fn(|_| sm.next_u64()) }
+        Self {
+            s: std::array::from_fn(|_| sm.next_u64()),
+        }
     }
 
     pub fn next_u64(&mut self) -> u64 {

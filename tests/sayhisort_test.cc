@@ -313,7 +313,6 @@ TEST(SayhiSortTest, MergeWithoutBuf) {
             EXPECT_EQ(ary, expected) << "xs_len=" << xs_len << " ys_len=" << ys_len;
             EXPECT_EQ(rest, rest_expected);
             EXPECT_EQ(xs_consumed, xs_consumed_expected);
-            EXPECT_EQ(rest, rest_expected);
         }
     }
 }

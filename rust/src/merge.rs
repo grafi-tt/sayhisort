@@ -137,8 +137,8 @@ pub unsafe fn merge_without_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: Stric
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::{FwdPtr, strict_flag};
     use crate::test_util::test_rng;
+    use crate::utils::{FwdPtr, strict_flag};
 
     struct NaiveResult {
         buf: usize,
@@ -173,7 +173,12 @@ mod tests {
         expected.extend_from_slice(&rest);
         expected.resize(ary.len(), 42);
 
-        NaiveResult { buf: buf + merged.len(), xs_consumed, rest: buf + rest_offset, expected }
+        NaiveResult {
+            buf: buf + merged.len(),
+            xs_consumed,
+            rest: buf + rest_offset,
+            expected,
+        }
     }
 
     #[test]
@@ -210,11 +215,92 @@ mod tests {
                         &mut |a: &i32, b: &i32| a < b,
                         strict_flag::<false>(),
                     );
-                    (buf.offset_from_unsigned(base), result.xs_consumed, result.rest.offset_from_unsigned(base))
+                    (
+                        buf.offset_from_unsigned(base),
+                        result.xs_consumed,
+                        result.rest.offset_from_unsigned(base),
+                    )
                 };
 
                 assert_eq!(ary, naive.expected, "xs_len={xs_len} ys_len={ys_len}");
                 assert_eq!(buf, naive.buf, "xs_len={xs_len} ys_len={ys_len}");
+                assert_eq!(rest, naive.rest, "xs_len={xs_len} ys_len={ys_len}");
+                assert_eq!(xs_consumed, naive.xs_consumed, "xs_len={xs_len} ys_len={ys_len}");
+            }
+        }
+    }
+
+    struct NaiveResultWithoutBuf {
+        xs_consumed: bool,
+        rest: usize,
+        expected: Vec<i32>,
+    }
+
+    /// Reference implementation with indices. Returns the expected array as well.
+    fn naive_merge_without_buf(ary: &[i32], mut xs: usize, mut ys: usize, ys_last: usize) -> NaiveResultWithoutBuf {
+        let xs_orig = xs;
+        let xs_last = ys;
+
+        let mut merged = Vec::new();
+        while xs < xs_last && ys < ys_last {
+            if !(ary[ys] < ary[xs]) {
+                merged.push(ary[xs]);
+                xs += 1;
+            } else {
+                merged.push(ary[ys]);
+                ys += 1;
+            }
+        }
+        let xs_consumed = xs == xs_last;
+
+        let mut expected = ary[..xs_orig].to_vec();
+        expected.extend_from_slice(&merged);
+        expected.extend_from_slice(&ary[xs..xs_last]);
+        expected.extend_from_slice(&ary[ys..ys_last]);
+        expected.resize(ary.len(), 42);
+
+        NaiveResultWithoutBuf {
+            xs_consumed,
+            rest: xs_orig + merged.len(),
+            expected,
+        }
+    }
+
+    #[test]
+    fn merge_without_buf_test() {
+        let ary_len = 24;
+        let mut rng = test_rng();
+
+        for ys_len in 1..=ary_len {
+            for xs_len in 1..=ary_len - ys_len {
+                let xs = 0;
+                let ys = xs + xs_len;
+                let ys_last = ys + ys_len;
+
+                let mut ary = vec![0; ary_len];
+                for (v, i) in ary[xs..ys_last].iter_mut().zip(100..) {
+                    *v = i;
+                }
+                ary[ys_last..].fill(42);
+                rng.shuffle(&mut ary[xs..ys_last]);
+                ary[xs..ys].sort();
+                ary[ys..ys_last].sort();
+
+                let naive = naive_merge_without_buf(&ary, xs, ys, ys_last);
+
+                let base = FwdPtr::new(ary.as_mut_ptr());
+                let (xs_consumed, rest) = unsafe {
+                    let result = merge_without_buf(
+                        base.add(xs),
+                        base.add(ys),
+                        base.add(ys_last),
+                        &mut |a: &i32, b: &i32| a < b,
+                        strict_flag::<false>(),
+                    );
+                    (result.xs_consumed, result.rest.offset_from_unsigned(base))
+                };
+
+                assert_eq!(ary, naive.expected, "xs_len={xs_len} ys_len={ys_len}");
                 assert_eq!(rest, naive.rest, "xs_len={xs_len} ys_len={ys_len}");
                 assert_eq!(xs_consumed, naive.xs_consumed, "xs_len={xs_len} ys_len={ys_len}");
             }
