@@ -34,7 +34,7 @@ impl<const FORWARD: bool> SequenceDivider<FORWARD> {
     }
 
     pub fn is_end(&self) -> bool {
-        self.num_seqs != 0
+        self.num_seqs == 0
     }
 }
 
@@ -52,7 +52,7 @@ pub unsafe fn merge_one_level<T, F: FnMut(&T, &T) -> bool, const HAS_BUF: bool, 
         loop {
             let lseq_decr = seq_div.next();
             let rseq_decr = seq_div.next();
-            let merging_len = (seq_len - lseq_decr as usize) + (seq_len - lseq_decr as usize);
+            let merging_len = (seq_len - lseq_decr as usize) + (seq_len - rseq_decr as usize);
             p.first_block_len = residual_len - lseq_decr as usize;
             p.last_block_len = residual_len - rseq_decr as usize;
 
@@ -67,6 +67,99 @@ pub unsafe fn merge_one_level<T, F: FnMut(&T, &T) -> bool, const HAS_BUF: bool, 
             }
             if seq_div.is_end() {
                 break;
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_util::test_rng;
+
+    #[test]
+    fn merge_one_level_test() {
+        let p = BlockingParam {
+            num_blocks: 16,
+            block_len: 19,
+            first_block_len: 17,
+            last_block_len: 17,
+        };
+        let imit_len = 14;
+        let buf_len = 19;
+        let data_len = 599;
+        let ary_len = imit_len + buf_len + data_len;
+        let mut rng = test_rng();
+
+        let less: fn(&i32, &i32) -> bool = |a, b| a < b;
+        let less_div4: fn(&i32, &i32) -> bool = |a, b| a / 4 < b / 4;
+        let sort_by = |v: &mut [i32], comp: fn(&i32, &i32) -> bool| {
+            v.sort_by(|a, b| {
+                if comp(a, b) {
+                    std::cmp::Ordering::Less
+                } else if comp(b, a) {
+                    std::cmp::Ordering::Greater
+                } else {
+                    std::cmp::Ordering::Equal
+                }
+            })
+        };
+
+        for comp in [less, less_div4] {
+            for forward in [true, false] {
+                // forward: [ imit | buf | data ] -> [ imit | merged | buf ]
+                // backward: [ imit | data | buf ] -> [ imit | buf | merged ]
+                let (data, edata) = if forward {
+                    (imit_len + buf_len, imit_len)
+                } else {
+                    (imit_len, imit_len + buf_len)
+                };
+
+                let mut ary = vec![42; ary_len];
+                let mut expected = vec![42; ary_len];
+                for i in 0..imit_len {
+                    ary[i] = i as i32 * 4;
+                    expected[i] = i as i32 * 4;
+                }
+                for (v, i) in ary[data..data + data_len].iter_mut().zip(100..) {
+                    *v = i;
+                }
+                rng.shuffle(&mut ary[data..data + data_len]);
+                for range in [0..149, 149..299, 299..449, 449..599] {
+                    sort_by(&mut ary[data + range.start..data + range.end], comp);
+                }
+                expected[edata..edata + data_len].copy_from_slice(&ary[data..data + data_len]);
+                for range in [0..299, 299..599] {
+                    sort_by(&mut expected[edata + range.start..edata + range.end], comp);
+                }
+
+                let base = FwdPtr::new(ary.as_mut_ptr());
+                let f = &mut |a: &i32, b: &i32| comp(a, b);
+                unsafe {
+                    if forward {
+                        merge_one_level::<_, _, true, true>(
+                            base,
+                            base.add(imit_len),
+                            base.add(data),
+                            150,
+                            &mut SequenceDivider::new(data_len, 2),
+                            BlockingParam { ..p },
+                            f,
+                        );
+                    } else {
+                        merge_one_level::<_, _, true, false>(
+                            base,
+                            base.add(ary_len),
+                            base.add(ary_len - buf_len),
+                            150,
+                            &mut SequenceDivider::new(data_len, 2),
+                            BlockingParam { ..p },
+                            f,
+                        );
+                    }
+                }
+
+                assert_eq!(ary, expected, "forward={forward}");
             }
         }
     }
