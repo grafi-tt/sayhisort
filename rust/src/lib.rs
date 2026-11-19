@@ -1,5 +1,7 @@
-use std::cmp::Ordering;
-use std::mem::size_of;
+#![cfg_attr(not(test), no_std)]
+
+use core::cmp::Ordering;
+use core::mem::size_of;
 
 mod blocking;
 mod blockmerge;

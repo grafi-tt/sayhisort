@@ -25,6 +25,16 @@ jobs:
     - name: Check formatting
       run: cargo fmt --check
 
+  no_std:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - name: Update toolchain
+      run: rustup update stable --no-self-update && rustup default stable && rustup target add thumbv7em-none-eabi
+    - name: Build for bare-metal target
+      # Fails if the library accidentally depends on std.
+      run: cargo build --lib --target thumbv7em-none-eabi
+
   test:
     runs-on: ${{ matrix.os }}
 

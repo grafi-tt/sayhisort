@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 #[derive(Clone, Copy)]
 #[repr(transparent)]
@@ -90,7 +90,7 @@ impl<T> Pos<T> for FwdPtr<T> {
         }
     }
     unsafe fn swap(self, other: Self) {
-        unsafe { std::ptr::swap(self.ptr, other.ptr) }
+        unsafe { core::ptr::swap(self.ptr, other.ptr) }
     }
     unsafe fn offset_from_unsigned(self, origin: Self) -> usize {
         unsafe { self.ptr.offset_from_unsigned(origin.ptr) }
@@ -157,7 +157,7 @@ impl<T> Pos<T> for BwdPtr<T> {
         unsafe { origin.ptr.offset_from_unsigned(self.ptr) }
     }
     unsafe fn swap(self, other: Self) {
-        unsafe { std::ptr::swap(self.ptr.sub(1), other.ptr.sub(1)) }
+        unsafe { core::ptr::swap(self.ptr.sub(1), other.ptr.sub(1)) }
     }
     unsafe fn precede<F: FnMut(&T, &T) -> bool, S: StrictFlag>(self, other: Self, f: &mut F, _strict: S) -> bool {
         unsafe {
@@ -178,7 +178,7 @@ pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
 
         while len > 64 {
             if l_len <= r_len {
-                std::hint::assert_unchecked(l_len != 0);
+                core::hint::assert_unchecked(l_len != 0);
                 let rem = r_len % l_len;
                 loop {
                     first.swap(middle);
@@ -196,7 +196,7 @@ pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
                 l_len = l_len - rem;
                 r_len = rem;
             } else {
-                std::hint::assert_unchecked(r_len != 0);
+                core::hint::assert_unchecked(r_len != 0);
                 let rem = l_len % r_len;
                 loop {
                     last = last.sub(1);
@@ -264,7 +264,7 @@ pub unsafe fn binary_search<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFla
             }
             let pivot = base.add(mid);
             // Force a conditional move. The branch is unpredictable, and LLVM may emit it as a jump otherwise.
-            base = std::hint::select_unpredictable(pivot.sub(1).precede(key, f, strict), pivot, base);
+            base = core::hint::select_unpredictable(pivot.sub(1).precede(key, f, strict), pivot, base);
             len -= mid;
         }
         base
