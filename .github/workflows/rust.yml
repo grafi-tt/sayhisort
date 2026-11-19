@@ -56,3 +56,17 @@ jobs:
     - name: Test (release)
       # The optimized build may expose undefined behavior differently.
       run: cargo test --release
+
+  test-i686:
+    # 32-bit usize exercises index arithmetic in a narrower width. Integration tests use the library built as no_std.
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - name: Update toolchain
+      run: rustup update stable --no-self-update && rustup default stable && rustup target add i686-unknown-linux-gnu
+    - name: Install 32-bit libc
+      run: sudo apt-get update && sudo apt-get install -y gcc-multilib
+    - name: Test (debug)
+      run: cargo test --target i686-unknown-linux-gnu
+    - name: Test (release)
+      run: cargo test --release --target i686-unknown-linux-gnu
