@@ -172,3 +172,39 @@ pub unsafe fn heap_sort<T, F: FnMut(&T, &T) -> bool>(data: FwdPtr<T>, mut len: u
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_util::test_rng;
+
+    #[test]
+    fn sort_0to8_test() {
+        let expected: Vec<i32> = (0..8).collect();
+        let mut rng = test_rng();
+
+        for len in 0..=8 {
+            let mut ary: Vec<i32> = (0..8).collect();
+            rng.shuffle(&mut ary[..len]);
+            unsafe { sort_0to8(FwdPtr::new(ary.as_mut_ptr()), len, &mut |a: &i32, b: &i32| a < b) };
+            assert_eq!(ary, expected, "len={len}");
+        }
+    }
+
+    #[test]
+    fn heap_sort_test() {
+        let mut rng = test_rng();
+
+        for sz in [5, 2024] {
+            let mut data: Vec<i32> = (0..sz).collect();
+            rng.shuffle(&mut data);
+            unsafe {
+                heap_sort(FwdPtr::new(data.as_mut_ptr()), sz as usize, &mut |a: &i32, b: &i32| {
+                    a < b
+                })
+            };
+            let expected: Vec<i32> = (0..sz).collect();
+            assert_eq!(data, expected, "sz={sz}");
+        }
+    }
+}
