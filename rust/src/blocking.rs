@@ -117,4 +117,57 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn merge_sort_control_test() {
+        let mut ctrl = MergeSortControl::new(8, 16);
+        assert_eq!(ctrl.log2_num_seqs, 1);
+        assert_eq!(ctrl.imit_len, 2);
+        assert_eq!(ctrl.buf_len, 6);
+        assert_eq!(ctrl.bufferable_len, 12);
+        assert_eq!(ctrl.next(), 6);
+        assert_eq!(ctrl.imit_len, 8);
+        assert_eq!(ctrl.buf_len, 0);
+        assert_eq!(ctrl.log2_num_seqs, 0);
+
+        let mut ctrl = MergeSortControl::new(21, 123);
+        assert_eq!(ctrl.log2_num_seqs, 4);
+        assert_eq!(ctrl.imit_len, 8);
+        assert_eq!(ctrl.buf_len, 13);
+        assert_eq!(ctrl.seq_len, 8);
+        assert!(ctrl.forward);
+        assert_eq!(ctrl.next(), 0);
+        assert_eq!(ctrl.log2_num_seqs, 3);
+        assert_eq!(ctrl.imit_len, 8);
+        assert_eq!(ctrl.buf_len, 13);
+        assert_eq!(ctrl.seq_len, 16);
+        assert!(!ctrl.forward);
+
+        let ctrl = MergeSortControl::new(22, 123);
+        assert_eq!(ctrl.imit_len, 10);
+        assert_eq!(ctrl.buf_len, 12);
+
+        let mut ctrl = MergeSortControl::new(47, 953);
+        assert_eq!(ctrl.log2_num_seqs, 7);
+        assert_eq!(ctrl.imit_len, 22);
+        assert_eq!(ctrl.buf_len, 25);
+        assert_eq!(ctrl.seq_len, 8);
+        for (old_buf_len, seq_len) in [(0, 15), (0, 30), (0, 60), (0, 120), (0, 239), (25, 477), (0, 953)] {
+            assert_eq!(ctrl.next(), old_buf_len);
+            assert_eq!(ctrl.seq_len, seq_len);
+        }
+    }
+
+    #[test]
+    fn determine_blocking_test() {
+        let mut ctrl = MergeSortControl::new(47, 953);
+        for (i, num_blocks) in [2, 2, 4, 6, 10, 20, 30].into_iter().enumerate() {
+            if i != 0 {
+                ctrl.next();
+            }
+            let p = determine_blocking(&ctrl);
+            assert_eq!(p.num_blocks, num_blocks, "level={i}");
+            assert!(2 <= p.first_block_len && p.first_block_len <= p.block_len, "level={i}");
+        }
+    }
 }
