@@ -3,4 +3,12 @@ name = "sayhisort"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+# Avoid listing unit tests as ignored by `cargo bench`.
+bench = false
+
 [dependencies]
+
+[[bench]]
+name = "sort"
+harness = false
