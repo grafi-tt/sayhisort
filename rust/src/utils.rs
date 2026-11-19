@@ -140,7 +140,7 @@ pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
                         break;
                     }
                 }
-                if rem != 0 {
+                if rem == 0 {
                     return;
                 }
                 middle = last.sub(rem);
@@ -157,7 +157,7 @@ pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
                         break;
                     }
                 }
-                if rem != 0 {
+                if rem == 0 {
                     return;
                 }
                 middle = first.add(rem);
@@ -216,3 +216,26 @@ pub unsafe fn binary_search<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFla
         base
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ops::Range;
+
+    #[test]
+    fn rotate_test() {
+        for l in [2, 42, 123] {
+            for i in 1..l {
+                let mut data: Vec<i32> = (0..l).collect();
+                let Range{start, end} = data.as_mut_ptr_range();
+                unsafe {
+                    rotate(FwdPtr::new(start), FwdPtr::new(start).add(i as usize), FwdPtr::new(end));
+                }
+                let mut expected: Vec<i32> = (i..l).collect();
+                expected.extend(0..i);
+                assert_eq!(data, expected);
+            }
+        }
+    }
+}
+
