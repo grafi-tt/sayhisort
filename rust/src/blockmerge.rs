@@ -312,3 +312,156 @@ pub unsafe fn merge_blocking<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HAS_B
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_util::test_rng;
+    use crate::utils::FwdPtr;
+
+    /// Reference implementation with indices. Rewrites `ary` and returns the index of the mid key.
+    fn naive_interleave_blocks(
+        ary: &mut [i32],
+        imit: usize,
+        blocks: usize,
+        num_blocks: usize,
+        block_len: usize,
+    ) -> usize {
+        let half_len = num_blocks / 2 * block_len;
+        let (mut xs, xs_last) = (blocks, blocks + half_len);
+        let (mut ys, ys_last) = (xs_last, xs_last + half_len);
+        let mut x_key = imit;
+        let mut y_key = imit + num_blocks / 2;
+        let mid_val = ary[y_key];
+
+        let mut imit_space = Vec::new();
+        let mut merged_space = Vec::new();
+        while xs != xs_last || ys != ys_last {
+            if ys == ys_last || (xs != xs_last && !(ary[ys] < ary[xs])) {
+                imit_space.push(ary[x_key]);
+                x_key += 1;
+                merged_space.extend_from_slice(&ary[xs..xs + block_len]);
+                xs += block_len;
+            } else {
+                imit_space.push(ary[y_key]);
+                y_key += 1;
+                merged_space.extend_from_slice(&ary[ys..ys + block_len]);
+                ys += block_len;
+            }
+        }
+
+        ary[imit..imit + imit_space.len()].copy_from_slice(&imit_space);
+        ary[blocks..blocks + merged_space.len()].copy_from_slice(&merged_space);
+
+        let mut mid_key = imit;
+        while ary[mid_key] != mid_val {
+            mid_key += 1;
+        }
+        mid_key
+    }
+
+    #[test]
+    fn interleave_blocks_test() {
+        let ary_len = 32;
+        let block_len = 3;
+        let mut rng = test_rng();
+
+        for num_blocks in (0..=8).step_by(2) {
+            for pad in 0..ary_len - (num_blocks + num_blocks * block_len) {
+                let imit = 0;
+                let blocks = imit + num_blocks + pad;
+                let half_len = num_blocks / 2 * block_len;
+
+                let mut ary = vec![42; ary_len];
+                for (v, i) in ary[imit..imit + num_blocks].iter_mut().zip(0..) {
+                    *v = i;
+                }
+                for range in [blocks..blocks + half_len, blocks + half_len..blocks + 2 * half_len] {
+                    // Values in [a, a + 40]
+                    let a = if rng.next_u64() % 2 != 0 { 70 } else { 90 };
+                    for v in &mut ary[range.clone()] {
+                        *v = a + rng.below(41) as i32;
+                    }
+                    ary[range].sort();
+                }
+
+                let mut expected = ary.clone();
+                let mid_key_expected = naive_interleave_blocks(&mut expected, imit, blocks, num_blocks, block_len);
+
+                let base = FwdPtr::new(ary.as_mut_ptr());
+                let mid_key = unsafe {
+                    let mid_key = interleave_blocks(
+                        base.add(imit),
+                        base.add(blocks),
+                        num_blocks,
+                        block_len,
+                        &mut |a: &i32, b: &i32| a < b,
+                    );
+                    mid_key.offset_from_unsigned(base)
+                };
+
+                assert_eq!(ary, expected, "num_blocks={num_blocks} pad={pad}");
+                assert_eq!(mid_key, mid_key_expected, "num_blocks={num_blocks} pad={pad}");
+            }
+        }
+    }
+
+    #[test]
+    fn deinterleave_imitation_test() {
+        let ary_len = 48;
+        let mut rng = test_rng();
+
+        for use_buf in [true, false] {
+            let mut imit_len = 0;
+            while imit_len + imit_len / 2 < ary_len {
+                let buf_len = imit_len / 2;
+                let imit = 0;
+                let imit_last = imit + imit_len;
+                let buf = ary_len - buf_len;
+
+                let mut ary: Vec<i32> = (0..ary_len as i32).collect();
+                let mut vals: Vec<i32> = (0..imit_len as i32).collect();
+                rng.shuffle(&mut vals);
+                vals[..imit_len / 2].sort();
+                vals[imit_len / 2..].sort();
+                ary[imit..imit_last].sort_by_key(|&x| vals[x as usize]);
+
+                let mid_key = imit + ary.iter().position(|&x| x == (imit_len / 2) as i32).unwrap();
+                ary[imit_last..buf].fill(100);
+                let less = &mut |a: &i32, b: &i32| a < b;
+                if use_buf {
+                    let base = FwdPtr::new(ary.as_mut_ptr());
+                    unsafe { deinterleave_imitation(base.add(imit), imit_len, base.add(buf), base.add(mid_key), less) };
+                }
+                ary[buf..].fill(200);
+                if !use_buf {
+                    let base = FwdPtr::new(ary.as_mut_ptr());
+                    unsafe { deinterleave_imitation_nobuf(base.add(imit), imit_len, base.add(mid_key), less) };
+                }
+
+                let mut expected: Vec<i32> = (0..imit_len as i32).collect();
+                expected.resize(ary_len - buf_len, 100);
+                expected.resize(ary_len, 200);
+
+                assert_eq!(ary, expected, "use_buf={use_buf} imit_len={imit_len}");
+                imit_len += 2;
+            }
+        }
+    }
+
+    #[test]
+    fn deinterleave_imitation_inconsistent_comparator_test() {
+        let imit_len = 256;
+        let mut rng = test_rng();
+        let random_less = &mut |_: &i32, _: &i32| rng.next_u64() % 2 != 0;
+
+        for _ in 0..100 {
+            let mut ary: Vec<i32> = (0..imit_len as i32).collect();
+            let base = FwdPtr::new(ary.as_mut_ptr());
+            // Terminates, permuting the items
+            unsafe { deinterleave_imitation_nobuf(base, imit_len, base.add(imit_len / 2), random_less) };
+            ary.sort();
+            assert!(ary.iter().copied().eq(0..imit_len as i32));
+        }
+    }
+}
