@@ -1,5 +1,5 @@
 use crate::blockmerge::{BlockingParam, merge_blocking};
-use crate::utils::{BwdPtr, FwdPtr, Pos};
+use crate::utils::{FwdPtr, Pos};
 
 pub struct SequenceDivider<const forward: bool = true> {
     log2_num_seqs: usize,
@@ -29,7 +29,7 @@ impl<const forward: bool> SequenceDivider<forward> {
             no_carry = !no_carry;
         }
         self.frac_counter &= !(1usize << self.log2_num_seqs);
-        self.num_seq -= 1;
+        self.num_seqs -= 1;
         no_carry
     }
 
@@ -39,23 +39,23 @@ impl<const forward: bool> SequenceDivider<forward> {
 }
 
 pub unsafe fn merge_one_level<T, F: FnMut(&T, &T) -> bool, const has_buf: bool, const forward: bool>(
-    imit: FwdPtr<T>, mut buf: FwdPtr<T>, mut data: FwdPtr<T>, seq_len: usize, seq_div: &mut SequenceDivider<forward>, p: BlockingParam, f: F
+    imit: FwdPtr<T>, mut buf: FwdPtr<T>, mut data: FwdPtr<T>, seq_len: usize, seq_div: &mut SequenceDivider<forward>, p: BlockingParam, f: &mut F
 ) {
     let residual_len = p.first_block_len;
     loop {
         let lseq_decr = seq_div.next();
         let rseq_decr = seq_div.next();
         let merging_len = (seq_len - lseq_decr as usize) + (seq_len - lseq_decr as usize);
-        p.first_block_len = residual_len - lseq_decr;
-        p.last_block_len - residual_len - rseq_decr;
+        p.first_block_len = residual_len - lseq_decr as usize;
+        p.last_block_len - residual_len - rseq_decr as usize;
 
         if forward {
-            merge_blocking::<has_buf>(imit, buf, data, p, f);
+            merge_blocking::<_, _, _, has_buf>(imit, &mut buf, data, &p, f);
             data = data.add(merging_len);
         } else {
-            let mut bwd_buf = BwdPtr{ptr: buf.ptr};
-            merge_blocking::<has_buf>(BwdPtr{ptr: imit.ptr + p.num_blocks - 2}, bwd_buf, BwdPtr{ptr: data.ptr});
-            buf = FwdPtr{ptr: bwd_buf.ptr};
+            let mut bwd_buf = buf.bwd();
+            merge_blocking::<_, _, _, has_buf>(imit.add(p.num_blocks - 2).bwd(), &mut bwd_buf, data.bwd(), &p, f);
+            buf = bwd_buf.fwd();
             data = data.sub(merging_len);
         }
         if seq_div.is_end() {

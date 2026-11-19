@@ -2,7 +2,7 @@ use crate::blocking::{determine_blocking, MergeSortControl, over_approx_sqrt};
 use crate::merge::{merge_without_buf};
 use crate::seqdiv::{merge_one_level, SequenceDivider};
 use crate::smallsort::{heap_sort, sort_0to8, sort_leaves};
-use crate::utils::{binary_search, FwdPtr, Pos, rotate};
+use crate::utils::{binary_search, FwdPtr, Pos, rotate, strict_flag};
 
 unsafe fn collect_keys<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T>, mut num_desired_keys: usize, f: &mut F) -> usize {
     let mut keys = first;
@@ -11,8 +11,8 @@ unsafe fn collect_keys<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdP
     num_desired_keys -= 1;
 
     loop {
-        let inspos = binary_search::<true>(keys, keys_last, cur, f);
-        if inspos == keys_last || cur.precede::<true>(inspos, f) {
+        let inspos = binary_search(keys, keys_last, cur, f, strict_flag::<true>());
+        if inspos == keys_last || cur.precede(inspos, f, strict_flag::<true>()) {
             let distance = cur.offset_from_unsigned(keys_last);
             if distance != 0 {
                 rotate(keys, keys_last, cur);
@@ -65,29 +65,29 @@ pub unsafe fn sort<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T
     let mut ctrl = MergeSortControl::new(num_keys, data_len);
 
     let data = imit.add(num_keys);
-    sort_leaves(data, ctrl.seq_len, SequenceDivider::new(ctrl.data_len, ctrl.log2_num_seqs), f);
+    sort_leaves(data, ctrl.seq_len, &mut SequenceDivider::new(ctrl.data_len, ctrl.log2_num_seqs), f);
 
     loop {
-        let p = determine_blocking(ctrl);
+        let p = determine_blocking(&ctrl);
 
         if ctrl.forward {
-            let seqdiv = SequenceDivider::<true>::new(ctrl.data_len, ctrl.log2_num_seqs);
+            let mut seqdiv = SequenceDivider::<true>::new(ctrl.data_len, ctrl.log2_num_seqs);
             if ctrl.buf_len == 0 {
-                merge_one_level::<true, true>(imit, imit.add(ctrl.imit_len), data, ctrl.seq_len, seqdiv, p, f);
+                merge_one_level::<_, _, true, true>(imit, imit.add(ctrl.imit_len), data, ctrl.seq_len, &mut seqdiv, p, f);
             } else {
-                merge_one_level::<false, true>(imit, imit.add(ctrl.imit_len), data, ctrl.seq_len, seqdiv, p, f);
+                merge_one_level::<_, _, false, true>(imit, imit.add(ctrl.imit_len), data, ctrl.seq_len, &mut seqdiv, p, f);
             }
         } else {
-            let seqdiv = SequenceDivider::<false>::new(ctrl.data_len, ctrl.log2_num_seqs);
-            merge_one_level::<true, false>(imit, last, last.sub(ctrl.buf_len), ctrl.seq_len, seqdiv, p, f);
+            let mut seqdiv = SequenceDivider::<false>::new(ctrl.data_len, ctrl.log2_num_seqs);
+            merge_one_level::<_, _, true, false>(imit, last, last.sub(ctrl.buf_len), ctrl.seq_len, &mut seqdiv, p, f);
         }
 
-        let old_buf_len = ctrl.Next();
+        let old_buf_len = ctrl.next();
         if old_buf_len != 0 {
             let buf = data.sub(old_buf_len);
             if !ctrl.forward {
                 let mut back_buf = last;
-                let mut back_data = last - old_buf_len;
+                let mut back_data = last.sub(old_buf_len);
                 loop {
                     back_data.sub(1);
                     back_buf.sub(1);
@@ -106,6 +106,6 @@ pub unsafe fn sort<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T
     }
 
     if first != data {
-        merge_without_buf::<false>(first, data, last, f);
+        merge_without_buf(first, data, last, f, strict_flag::<false>());
     }
 }

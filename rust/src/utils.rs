@@ -2,16 +2,24 @@ use std::cmp::Ordering;
 
 #[derive(Clone, Copy)]
 #[repr(transparent)]
-pub struct StrictHolder<const flag: bool>;
+pub struct StrictHolder<const B: bool>;
+
 pub trait StrictFlag : Copy {
     const FLAG: bool;
-}
-impl StrictFlag for StrictHolder<false> {
-    const FLAG: bool = false;
+    type Not: StrictFlag;
+    fn not(self) -> Self::Not;
 }
 impl StrictFlag for StrictHolder<true> {
     const FLAG: bool = true;
+    type Not = StrictHolder<false>;
+    fn not(self) -> Self::Not { StrictHolder }
 }
+impl StrictFlag for StrictHolder<false> {
+    const FLAG: bool = false;
+    type Not = StrictHolder<true>;
+    fn not(self) -> Self::Not { StrictHolder }
+}
+
 pub fn strict_flag<const flag: bool>() -> StrictHolder<flag> { StrictHolder::<flag>{} }
 
 pub trait Pos<T>: Copy + Ord {
@@ -27,6 +35,10 @@ pub struct FwdPtr<T> {
     ptr: *mut T,
 }
 
+impl<T> FwdPtr<T> {
+    pub fn bwd(self) -> BwdPtr<T> { BwdPtr{ptr: self.ptr} }
+}
+
 impl<T> Clone for FwdPtr<T> {
     fn clone(&self) -> Self { *self }
 }
@@ -39,7 +51,7 @@ impl<T> Eq for FwdPtr<T> {}
 
 impl<T> Ord for FwdPtr<T> {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.ptr.cmp(other.ptr)
+        self.ptr.cmp(&other.ptr)
     }
 }
 impl<T> PartialOrd for FwdPtr<T> {
@@ -51,7 +63,7 @@ impl<T> PartialOrd for FwdPtr<T> {
 impl<T> Pos<T> for FwdPtr<T> {
     unsafe fn add(self, d: usize) -> Self { FwdPtr{ptr: unsafe{self.ptr.add(d)}} }
     unsafe fn sub(self, d: usize) -> Self { FwdPtr{ptr: unsafe{self.ptr.sub(d)}} }
-    unsafe fn offset_from_unsigned(self, origin: Self) -> usize { unsafe{self.ptr.offset_from_unsigned(origin.ptr)} }
+    d
     unsafe fn swap(self, other: Self) { unsafe{std::ptr::swap(self.ptr, other.ptr)} }
     unsafe fn precede<F: FnMut(&T, &T) -> bool, S: StrictFlag>(self, other: Self, f: &mut F, strict: S) -> bool {
         unsafe {
@@ -69,6 +81,10 @@ pub struct BwdPtr<T> {
     ptr: *mut T,
 }
 
+impl<T> BwdPtr<T> {
+    pub fn fwd(self) -> FwdPtr<T> { FwdPtr{ptr: self.ptr} }
+}
+
 impl<T> Clone for BwdPtr<T> {
     fn clone(&self) -> Self { *self }
 }
@@ -81,7 +97,7 @@ impl<T> Eq for BwdPtr<T> {}
 
 impl<T> Ord for BwdPtr<T> {
     fn cmp(&self, other: &Self) -> Ordering {
-        other.ptr.cmp(self.ptr)
+        other.ptr.cmp(&self.ptr)
     }
 }
 impl<T> PartialOrd for BwdPtr<T> {
