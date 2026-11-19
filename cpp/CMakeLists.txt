@@ -26,5 +26,7 @@ target_compile_features(
 )
 
 if(SAYHISORT_ENABLE_TEST)
+  # Must be called in the top-level directory so that ctest run in the build root finds the tests.
+  enable_testing()
   add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/tests)
 endif()

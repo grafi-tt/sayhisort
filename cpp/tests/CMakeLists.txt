@@ -3,8 +3,6 @@ if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
 
-enable_testing()
-
 add_executable(
   sayhisort_test
   sayhisort_test.cc
