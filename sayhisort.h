@@ -81,7 +81,6 @@ struct ReversedIterator {
             return (--tmp).operator->();
         }
     }
-    constexpr reference operator[](difference_type d) const { return base[-d - 1]; }
 
     constexpr friend ReversedIterator operator+(difference_type d, ReversedIterator a) { return a + d; }
     constexpr friend difference_type operator-(ReversedIterator a, ReversedIterator b) { return b.base - a.base; }
@@ -1125,7 +1124,7 @@ struct SequenceDivider {
         if constexpr (!forward) {
             no_carry = !no_carry;
         }
-        frac_counter &= ~(SsizeT{1} << log2_num_seqs);
+        frac_counter &= (SsizeT{1} << log2_num_seqs) - 1;
         --num_seqs;
         return no_carry;
     }

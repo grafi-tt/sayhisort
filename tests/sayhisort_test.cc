@@ -1062,9 +1062,6 @@ struct CheckedInt {
         return obj;
     }
 
-    // Allow the form `a & ~b`, where `~b` is out of range
-    friend int operator~(CheckedInt obj) { return ~obj.val; }
-
     friend bool operator==(CheckedInt lhs, CheckedInt rhs) { return lhs.val == rhs.val; }
     friend bool operator!=(CheckedInt lhs, CheckedInt rhs) { return lhs.val != rhs.val; }
     friend bool operator<(CheckedInt lhs, CheckedInt rhs) { return lhs.val < rhs.val; }

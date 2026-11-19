@@ -28,7 +28,7 @@ impl<const FORWARD: bool> SequenceDivider<FORWARD> {
         if !FORWARD {
             no_carry = !no_carry;
         }
-        self.frac_counter &= !(1usize << self.log2_num_seqs);
+        self.frac_counter &= (1usize << self.log2_num_seqs) - 1;
         self.num_seqs -= 1;
         no_carry
     }
