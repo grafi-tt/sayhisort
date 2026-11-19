@@ -212,21 +212,25 @@ unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HA
         let mut ys = xs.add(p.first_block_len);
 
         loop {
-            let ys_last = ys.add(if num_remained_blocks - 1 == 0 {
+            num_remained_blocks -= 1;
+            let ys_last = ys.add(if num_remained_blocks != 0 {
                 p.block_len
             } else {
                 p.last_block_len
             });
-            let mut ys_origin = BlockOrigin::Left;
+            let mut ys_origin = BlockOrigin::Right;
             if num_remained_blocks != 0 {
-                imit = imit.add(1);
-                if !imit.precede_strict(mid_key, f) {
-                    ys_origin = BlockOrigin::Right;
+                if imit.precede_strict(mid_key, f) {
+                    ys_origin = BlockOrigin::Left;
                 }
+                imit = imit.add(1);
             }
             if ys_origin == xs_origin {
                 last_block_before_ys = ys;
                 ys = ys_last;
+                if num_remained_blocks == 0 {
+                    break;
+                }
                 continue;
             }
 
@@ -462,6 +466,91 @@ mod tests {
             unsafe { deinterleave_imitation_nobuf(base, imit_len, base.add(imit_len / 2), random_less) };
             ary.sort();
             assert!(ary.iter().copied().eq(0..imit_len as i32));
+        }
+    }
+
+    #[test]
+    fn merge_adjacent_blocks_test() {
+        let params = [
+            BlockingParam {
+                num_blocks: 6,
+                block_len: 6,
+                first_block_len: 5,
+                last_block_len: 4,
+            },
+            BlockingParam {
+                num_blocks: 16,
+                block_len: 17,
+                first_block_len: 8,
+                last_block_len: 8,
+            },
+        ];
+        let mut rng = test_rng();
+
+        for p in &params {
+            for has_buf in [true, false] {
+                let imit_len = p.num_blocks - 2;
+                let buf_len = p.block_len;
+                let lseq_len = imit_len / 2 * p.block_len + p.first_block_len;
+                let rseq_len = imit_len / 2 * p.block_len + p.last_block_len;
+                let ary_len = imit_len + buf_len + lseq_len + rseq_len;
+
+                let imit = 0;
+                let buf = imit + imit_len;
+                let lseq = buf + buf_len;
+                let rseq = lseq + lseq_len;
+
+                let mut ary = vec![0; ary_len];
+                for (v, i) in ary[imit..buf].iter_mut().zip(0..) {
+                    *v = i;
+                }
+                for (v, i) in ary[lseq..].iter_mut().zip(100..) {
+                    *v = i;
+                }
+                rng.shuffle(&mut ary[lseq..]);
+                ary[lseq..rseq].sort();
+                ary[rseq..].sort();
+
+                let less = &mut |a: &i32, b: &i32| a < b;
+                let base = FwdPtr::new(ary.as_mut_ptr());
+                unsafe {
+                    let mid_key = interleave_blocks(
+                        base.add(imit),
+                        base.add(lseq + p.first_block_len),
+                        imit_len,
+                        p.block_len,
+                        less,
+                    );
+                    let mut buf_pos = base.add(buf);
+                    if has_buf {
+                        merge_adjacent_blocks::<_, _, _, true>(
+                            base.add(imit),
+                            &mut buf_pos,
+                            base.add(lseq),
+                            p,
+                            mid_key,
+                            less,
+                        );
+                        assert_eq!(buf_pos.offset_from_unsigned(base), ary_len - buf_len);
+                    } else {
+                        merge_adjacent_blocks::<_, _, _, false>(
+                            base.add(imit),
+                            &mut buf_pos,
+                            base.add(lseq),
+                            p,
+                            mid_key,
+                            less,
+                        );
+                        rotate(base.add(buf), base.add(lseq), base.add(ary_len));
+                    }
+                }
+
+                let mut expected = ary[imit..buf].to_vec();
+                expected.extend(100..(100 + lseq_len + rseq_len) as i32);
+                expected.resize(ary_len, 0);
+
+                assert_eq!(ary, expected, "num_blocks={} has_buf={has_buf}", p.num_blocks);
+            }
         }
     }
 }
