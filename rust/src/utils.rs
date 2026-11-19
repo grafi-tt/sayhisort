@@ -263,9 +263,8 @@ pub unsafe fn binary_search<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFla
                 break;
             }
             let pivot = base.add(mid);
-            if pivot.sub(1).precede(key, f, strict) {
-                base = pivot;
-            }
+            // Force a conditional move. The branch is unpredictable, and LLVM may emit it as a jump otherwise.
+            base = std::hint::select_unpredictable(pivot.sub(1).precede(key, f, strict), pivot, base);
             len -= mid;
         }
         base

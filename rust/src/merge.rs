@@ -5,6 +5,8 @@ pub struct MergeResult<P> {
     pub rest: P,
 }
 
+// Inlining into `merge_adjacent_blocks` is near LLVM's threshold and otherwise depends on the caller crate.
+#[inline(always)]
 pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFlag>(
     buf: &mut P,
     mut xs: P,
