@@ -25,8 +25,8 @@ fn sort_impl<T, F: FnMut(&T, &T) -> bool>(v: &mut [T], f: &mut F) {
         return;
     }
     let range = v.as_mut_ptr_range();
-    let first = crate::utils::FwdPtr{ptr: range.start};
-    let last = crate::utils::FwdPtr{ptr: range.end};
+    let first = crate::utils::FwdPtr::new(range.start);
+    let last = crate::utils::FwdPtr::new(range.end);
     unsafe {
         crate::top::sort(first, last, f);
     }

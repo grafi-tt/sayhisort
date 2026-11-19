@@ -90,20 +90,22 @@ pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFl
 }
 
 pub unsafe fn merge_without_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFlag>(mut xs: P, mut ys: P, ys_last: P, f: &mut F, is_xs_from_right: S) -> MergeResult<P> {
-    loop {
-        let xs = binary_search(xs, ys, ys, f, is_xs_from_right);
-        if xs == ys {
-            return MergeResult{xs_consumed: true, rest: ys};
-        }
-        let mut ys_upper = ys.add(1);
-        if ys_upper != ys_last {
-            ys_upper = binary_search(ys_upper, ys_last, xs, f, is_xs_from_right.not());
-        }
-        rotate(xs, ys, ys_upper);
-        xs = xs.add(ys_upper.offset_from_unsigned(ys));
-        ys = ys_upper;
-        if ys_upper == ys_last {
-            return MergeResult{xs_consumed: false, rest: xs};
+    unsafe {
+        loop {
+            xs = binary_search(xs, ys, ys, f, is_xs_from_right);
+            if xs == ys {
+                return MergeResult{xs_consumed: true, rest: ys};
+            }
+            let mut ys_upper = ys.add(1);
+            if ys_upper != ys_last {
+                ys_upper = binary_search(ys_upper, ys_last, xs, f, is_xs_from_right.not());
+            }
+            rotate(xs, ys, ys_upper);
+            xs = xs.add(ys_upper.offset_from_unsigned(ys));
+            ys = ys_upper;
+            if ys_upper == ys_last {
+                return MergeResult{xs_consumed: false, rest: xs};
+            }
         }
     }
 }

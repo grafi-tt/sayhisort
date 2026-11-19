@@ -7,7 +7,7 @@ unsafe fn interleave_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(imit: P, blo
             return imit;
         }
 
-        let swapBlock = |mut a: P, mut b: P| {
+        let swap_block = |mut a: P, mut b: P| {
             if a == b {
                 return;
             }
@@ -37,7 +37,7 @@ unsafe fn interleave_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(imit: P, blo
         loop {
             if right_keys == last_right_key || !right_blocks.precede(least_left_block, f, strict_flag::<true>()) {
                 left_keys.swap(least_left_key);
-                swapBlock(left_blocks, least_left_block);
+                swap_block(left_blocks, least_left_block);
 
                 left_keys = left_keys.add(1);
                 left_blocks = left_blocks.add(block_len);
@@ -58,7 +58,7 @@ unsafe fn interleave_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(imit: P, blo
 
             } else {
                 left_keys.swap(right_keys);
-                swapBlock(left_blocks, right_blocks);
+                swap_block(left_blocks, right_blocks);
 
                 if left_keys == least_left_key {
                     least_left_key = right_keys;
@@ -122,11 +122,10 @@ unsafe fn deinterleave_imitation_nobuf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(i
 
         let mut l_runlength = 0usize;
         let mut num_rl_pairs = imit_len;
-        let mut old_num_rl_pairs = 0usize;
 
         loop {
             let mut r_runlength = 0;
-            old_num_rl_pairs = num_rl_pairs;
+            let old_num_rl_pairs = num_rl_pairs;
             num_rl_pairs = 0;
 
             let mut cur = imit;
@@ -168,7 +167,7 @@ pub struct BlockingParam {
     pub last_block_len: usize,
 }
 
-unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const has_buf: bool>(mut imit: P, buf: &mut P, blocks: P, p: &BlockingParam, mid_key: P, f: &mut F) {
+unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HAS_BUF: bool>(mut imit: P, buf: &mut P, blocks: P, p: &BlockingParam, mid_key: P, f: &mut F) {
     unsafe {
         let mut num_remained_blocks = p.num_blocks;
 
@@ -201,7 +200,7 @@ unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const ha
             }
 
             if xs != last_block_before_ys {
-                if has_buf {
+                if HAS_BUF {
                     if num_remained_blocks != 0 {
                         loop {
                             buf.swap(xs);
@@ -225,7 +224,7 @@ unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const ha
             }
 
             let mr =
-                if has_buf {
+                if HAS_BUF {
                     if xs_origin == BlockOrigin::Left {
                         merge_with_buf(buf, xs, ys, ys_last, f, strict_flag::<false>())
                     } else {
@@ -254,7 +253,7 @@ unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const ha
             }
         }
 
-        if has_buf {
+        if HAS_BUF {
             while xs != ys {
                 buf.swap(xs);
                 *buf = buf.add(1);
@@ -264,14 +263,14 @@ unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const ha
     }
 }
 
-pub unsafe fn merge_blocking<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const has_buf: bool>(imit: P, buf: &mut P, blocks: P, p: &BlockingParam, f: &mut F) {
+pub unsafe fn merge_blocking<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HAS_BUF: bool>(imit: P, buf: &mut P, blocks: P, p: &BlockingParam, f: &mut F) {
     unsafe {
         let imit_len = p.num_blocks - 2;
         let mid_key = interleave_blocks(imit, blocks.add(p.first_block_len), imit_len, p.block_len, f);
 
-        merge_adjacent_blocks::<_, _, _, has_buf>(imit, buf, blocks, p, mid_key, f);
+        merge_adjacent_blocks::<_, _, _, HAS_BUF>(imit, buf, blocks, p, mid_key, f);
 
-        if has_buf {
+        if HAS_BUF {
             deinterleave_imitation(imit, imit_len, *buf, mid_key, f);
         } else {
             deinterleave_imitation_nobuf(imit, imit_len, mid_key, f);

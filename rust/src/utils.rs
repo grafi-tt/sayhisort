@@ -20,7 +20,7 @@ impl StrictFlag for StrictHolder<false> {
     fn not(self) -> Self::Not { StrictHolder }
 }
 
-pub fn strict_flag<const flag: bool>() -> StrictHolder<flag> { StrictHolder::<flag>{} }
+pub fn strict_flag<const FLAG: bool>() -> StrictHolder<FLAG> { StrictHolder::<FLAG>{} }
 
 pub trait Pos<T>: Copy + Ord {
     unsafe fn add(self, d: usize) -> Self;
@@ -36,6 +36,7 @@ pub struct FwdPtr<T> {
 }
 
 impl<T> FwdPtr<T> {
+    pub fn new(ptr: *mut T) -> Self { FwdPtr{ptr: ptr} }
     pub fn bwd(self) -> BwdPtr<T> { BwdPtr{ptr: self.ptr} }
 }
 
@@ -63,9 +64,9 @@ impl<T> PartialOrd for FwdPtr<T> {
 impl<T> Pos<T> for FwdPtr<T> {
     unsafe fn add(self, d: usize) -> Self { FwdPtr{ptr: unsafe{self.ptr.add(d)}} }
     unsafe fn sub(self, d: usize) -> Self { FwdPtr{ptr: unsafe{self.ptr.sub(d)}} }
-    d
     unsafe fn swap(self, other: Self) { unsafe{std::ptr::swap(self.ptr, other.ptr)} }
-    unsafe fn precede<F: FnMut(&T, &T) -> bool, S: StrictFlag>(self, other: Self, f: &mut F, strict: S) -> bool {
+    unsafe fn offset_from_unsigned(self, origin: Self) -> usize { unsafe{self.ptr.offset_from_unsigned(origin.ptr)} }
+    unsafe fn precede<F: FnMut(&T, &T) -> bool, S: StrictFlag>(self, other: Self, f: &mut F, _strict: S) -> bool {
         unsafe {
             if S::FLAG {
                 f(&*self.ptr, &*other.ptr)
@@ -111,7 +112,7 @@ impl<T> Pos<T> for BwdPtr<T> {
     unsafe fn sub(self, d: usize) -> Self { BwdPtr{ptr: unsafe{self.ptr.add(d)}} }
     unsafe fn offset_from_unsigned(self, origin: Self) -> usize { unsafe{origin.ptr.offset_from_unsigned(self.ptr)} }
     unsafe fn swap(self, other: Self) { unsafe{std::ptr::swap(self.ptr.sub(1), other.ptr.sub(1))} }
-    unsafe fn precede<F: FnMut(&T, &T) -> bool, S: StrictFlag>(self, other: Self, f: &mut F, strict: S) -> bool {
+    unsafe fn precede<F: FnMut(&T, &T) -> bool, S: StrictFlag>(self, other: Self, f: &mut F, _strict: S) -> bool {
         unsafe {
             if S::FLAG {
                 f(&*other.ptr.sub(1), &*self.ptr.sub(1))
