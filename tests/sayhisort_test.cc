@@ -1173,7 +1173,7 @@ TEST(SayhiSortTest, NoOverflow) {
         std::iota(ary.begin(), ary.begin() + i, 0);
         std::fill(ary.begin() + i, ary.end(), static_cast<int>(ary_len));
         std::shuffle(ary.begin(), ary.begin() + i, rng);
-        CheckedInt::max = std::max<int32_t>(i, 16);
+        CheckedInt::max = i;
         sayhisort::sort(CheckedIterator{ary.data()}, CheckedIterator{ary.data() + i});
         EXPECT_FALSE(CheckedInt::err) << i;
         CheckedInt::err = false;

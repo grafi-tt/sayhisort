@@ -74,6 +74,10 @@ pub fn determine_blocking(ctrl: &MergeSortControl) -> BlockingParam {
     let max_num_blocks = ctrl.imit_len + 2;
     let num_blocks = if ctrl.buf_len != 0 {
         ((seq_len - 1) / ctrl.buf_len + 1) * 2
+    } else if ctrl.imit_len == 0 {
+        // No keys are available, so `num_blocks = max_num_blocks = 2`. (`limit_num_blocks >= 2` always holds.)
+        // Skipping `limit_num_blocks` also avoids computing `seq_len * 2`, which may exceed `len` when `len <= 16`.
+        2
     } else {
         let limit_num_blocks = seq_len / over_approx_sqrt(seq_len * 2) * 2;
         std::cmp::min(max_num_blocks, limit_num_blocks)
