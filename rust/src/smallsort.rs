@@ -1,11 +1,11 @@
 use crate::seqdiv::SequenceDivider;
-use crate::utils::{FwdPtr, Pos, strict_flag};
+use crate::utils::{FwdPtr, Pos};
 
 unsafe fn odd_even_sort<T, F: FnMut(&T, &T) -> bool, const LEN: usize>(data: FwdPtr<T>, f: &mut F) {
     unsafe {
         for i in 0..LEN {
             for j in ((i % 2)..(LEN - 1)).step_by(2) {
-                if data.add(j + 1).precede(data.add(j), f, strict_flag::<true>()) {
+                if data.add(j + 1).precede_strict(data.add(j), f) {
                     data.add(j).swap(data.add(j + 1));
                 }
             }
@@ -111,16 +111,16 @@ pub unsafe fn sort_0to8<T, F: FnMut(&T, &T) -> bool>(data: FwdPtr<T>, len: usize
             return;
         }
         if len <= 3 {
-            if data.add(1).precede(data, f, strict_flag::<true>()) {
+            if data.add(1).precede_strict(data, f) {
                 data.swap(data.add(1));
             }
             if len == 2 {
                 return;
             }
-            if data.add(2).precede(data.add(1), f, strict_flag::<true>()) {
+            if data.add(2).precede_strict(data.add(1), f) {
                 data.add(1).swap(data.add(2));
             }
-            if data.add(1).precede(data, f, strict_flag::<true>()) {
+            if data.add(1).precede_strict(data, f) {
                 data.swap(data.add(1));
             }
             return;
@@ -141,7 +141,7 @@ pub unsafe fn heap_sort<T, F: FnMut(&T, &T) -> bool>(data: FwdPtr<T>, mut len: u
             while cur < parent(len) {
                 let l = left(cur);
                 let r = right(cur);
-                cur = if data.add(l).precede(data.add(r), f, strict_flag::<true>()) {
+                cur = if data.add(l).precede_strict(data.add(r), f) {
                     r
                 } else {
                     l
@@ -150,7 +150,7 @@ pub unsafe fn heap_sort<T, F: FnMut(&T, &T) -> bool>(data: FwdPtr<T>, mut len: u
             if cur < len / 2 {
                 cur = left(cur);
             }
-            while data.add(cur).precede(data.add(start), f, strict_flag::<true>()) {
+            while data.add(cur).precede_strict(data.add(start), f) {
                 if cur <= start {
                     return;
                 }

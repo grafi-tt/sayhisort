@@ -34,6 +34,9 @@ pub trait Pos<T>: Copy + Ord {
     unsafe fn offset_from_unsigned(self, origin: Self) -> usize;
     unsafe fn swap(self, other: Self);
     unsafe fn precede<F: FnMut(&T, &T) -> bool, S: StrictFlag>(self, other: Self, f: &mut F, strict: S) -> bool;
+    unsafe fn precede_strict<F: FnMut(&T, &T) -> bool>(self, other: Self, f: &mut F) -> bool {
+        unsafe { self.precede(other, f, strict_flag::<true>()) }
+    }
 }
 
 #[repr(transparent)]

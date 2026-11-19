@@ -18,7 +18,7 @@ unsafe fn collect_keys<T, F: FnMut(&T, &T) -> bool>(
 
         loop {
             let mut inspos = binary_search(keys, keys_last, cur, f, strict_flag::<true>());
-            if inspos == keys_last || cur.precede(inspos, f, strict_flag::<true>()) {
+            if inspos == keys_last || cur.precede_strict(inspos, f) {
                 let distance = cur.offset_from_unsigned(keys_last);
                 if distance != 0 {
                     rotate(keys, keys_last, cur);

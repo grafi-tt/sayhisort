@@ -41,7 +41,7 @@ unsafe fn interleave_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
         let last_right_key = right_keys.add(imit_len / 2);
 
         loop {
-            if right_keys == last_right_key || !right_blocks.precede(least_left_block, f, strict_flag::<true>()) {
+            if right_keys == last_right_key || !right_blocks.precede_strict(least_left_block, f) {
                 left_keys.swap(least_left_key);
                 swap_block(left_blocks, least_left_block);
 
@@ -59,7 +59,7 @@ unsafe fn interleave_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
                     left_keys.add(1)
                 };
                 while key < right_keys {
-                    if key.precede(least_left_key, f, strict_flag::<true>()) {
+                    if key.precede_strict(least_left_key, f) {
                         least_left_key = key;
                     }
                     key = key.add(1);
@@ -107,7 +107,7 @@ unsafe fn deinterleave_imitation<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
         mid_key = buf;
 
         while cur != imit.add(imit_len) {
-            if cur.precede(mid_key, f, strict_flag::<true>()) {
+            if cur.precede_strict(mid_key, f) {
                 left_cur.swap(cur);
                 left_cur = left_cur.add(1);
                 cur = cur.add(1);
@@ -150,7 +150,7 @@ unsafe fn deinterleave_imitation_nobuf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
 
             let mut cur = imit;
             loop {
-                if cur == imit.add(imit_len) || !cur.precede(mid_key, f, strict_flag::<true>()) {
+                if cur == imit.add(imit_len) || !cur.precede_strict(mid_key, f) {
                     if l_runlength != 0 {
                         num_rl_pairs += 1;
                         if num_rl_pairs % 2 != 0 {
@@ -220,7 +220,7 @@ unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HA
             let mut ys_origin = BlockOrigin::Left;
             if num_remained_blocks != 0 {
                 imit = imit.add(1);
-                if !imit.precede(mid_key, f, strict_flag::<true>()) {
+                if !imit.precede_strict(mid_key, f) {
                     ys_origin = BlockOrigin::Right;
                 }
             }
