@@ -1,6 +1,6 @@
-//! Benchmark ported from `tests/sayhisort_bench.cc`. Run by `cargo bench`.
+//! Benchmark ported from `cpp/tests/sayhisort_bench.cc`. Run by `cargo bench`.
 //!
-//! The result is written to stdout in the same YAML format as the C++ version, so that `bench_result/plot.py` can
+//! The result is written to stdout in the same YAML format as the C++ version, so that `cpp/bench_result/plot.py` can
 //! read it.
 
 use std::hint::black_box;

@@ -10,7 +10,7 @@ Its name derives from GrailSort, in memory of its author [Andrey Astrelin](https
 
 ## Usage
 
-It's a header-only C++ library, so just including `sayhisort.h` is fine. You can also import it as a CMake external project. It provides the `sayhisort::sort` function, which is compatible with `std::sort`.
+It's a header-only C++ library in the [`cpp`](cpp/) directory, so just including `sayhisort.h` is fine. You can also import the `cpp` directory as a CMake project, e.g. by `FetchContent` with `SOURCE_SUBDIR cpp`. It provides the `sayhisort::sort` function, which is compatible with `std::sort`.
 
 
 ```cpp
@@ -40,9 +40,9 @@ sayhisort::sort(R&& range, Comp comp = {}, Proj proj = {});
 
 ## Benchmark
 
-![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (GCC 16.2.1)](bench_result/gcc.png)
+![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (GCC 16.2.1)](cpp/bench_result/gcc.png)
 
-![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (Clang 23.1.4)](bench_result/clang.png)
+![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (Clang 23.1.4)](cpp/bench_result/clang.png)
 
 Note that other block merge sort implementations ([WikiSort](https://github.com/BonzaiThePenguin/WikiSort/), [octosort](https://github.com/scandum/octosort) and [GrailSort](https://github.com/Mrrl/GrailSort)) use a pre-allocated buffer that stores 512 items. Though the buffer is claimed to be crucial for performance, SayhiSort exhibits competitive speed.
 
@@ -50,9 +50,10 @@ You may notice SayhiSort performs poorly on some data, compared to WikiSort and 
 
 [Logsort](https://github.com/aphitorite/Logsort)'s excellent performance is noteworthy. The algorithm is completely different from the others based on merge sort. It's basically a variant of quicksort, using a novel tagging technique to ensure stability. Despite its practical performance, some caution is needed since its worst-case time complexity is O(N^2).
 
-Raw benchmark result is available in [`bench_result`](bench_result/) directory. You can run the benchmark by yourself as follows.
+Raw benchmark result is available in [`cpp/bench_result`](cpp/bench_result/) directory. You can run the benchmark by yourself as follows.
 
 ```sh
+cd cpp
 mkdir build
 pushd build
 CC=gcc CXX=g++ cmake -DSAYHISORT_THIRDPARTY_BENCH=ON -GNinja ..
