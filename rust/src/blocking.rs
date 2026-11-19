@@ -6,7 +6,7 @@ pub fn over_approx_sqrt(x: usize) -> usize {
     loop {
         n += 1;
         p /= 4;
-        if p >= 8 {
+        if p < 8 {
             break;
         }
     }
@@ -92,5 +92,29 @@ pub fn determine_blocking(ctrl: &MergeSortControl) -> BlockingParam {
         block_len: block_len,
         first_block_len: residual_len,
         last_block_len: residual_len,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn over_approx_sqrt_test() {
+        assert_eq!(over_approx_sqrt(8), 3);
+        for x in 9..17 {
+            assert_eq!(over_approx_sqrt(x), 4, "x={x}");
+        }
+        for (range, ratio) in [
+            (17..1000, 1.25),
+            (1000..200000, 1.0 + 1.0 / 32.0),
+            (200000..1500000, 1.0 + 1.0 / 256.0),
+        ] {
+            for x in range {
+                let ar = over_approx_sqrt(x) as f64;
+                let r = (x as f64).sqrt();
+                assert!(r <= ar && ar < r * ratio, "x={x} ar={ar} r={r}");
+            }
+        }
     }
 }
