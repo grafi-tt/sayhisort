@@ -19,8 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v5
-    - name: Install toolchain
-      run: rustup toolchain install stable --profile minimal --component rustfmt && rustup default stable
+    - name: Update toolchain
+      # The runner image already has rustup and stable toolchain (including rustfmt). Just update it if outdated.
+      run: rustup update stable --no-self-update && rustup default stable
     - name: Check formatting
       run: cargo fmt --check
 
@@ -34,8 +35,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v5
-    - name: Install toolchain
-      run: rustup toolchain install stable --profile minimal && rustup default stable
+    - name: Update toolchain
+      run: rustup update stable --no-self-update && rustup default stable
     - name: Build
       # `--all-targets` also builds the benchmark, which is not run by `cargo test`.
       run: cargo build --all-targets
