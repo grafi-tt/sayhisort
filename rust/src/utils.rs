@@ -178,6 +178,7 @@ pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
 
         while len > 64 {
             if l_len <= r_len {
+                std::hint::assert_unchecked(l_len != 0);
                 let rem = r_len % l_len;
                 loop {
                     first.swap(middle);
@@ -195,6 +196,7 @@ pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
                 l_len = l_len - rem;
                 r_len = rem;
             } else {
+                std::hint::assert_unchecked(r_len != 0);
                 let rem = l_len % r_len;
                 loop {
                     last = last.sub(1);
