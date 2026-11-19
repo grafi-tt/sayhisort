@@ -30,10 +30,10 @@ jobs:
     steps:
     - uses: actions/checkout@v5
     - name: Update toolchain
-      run: rustup update stable --no-self-update && rustup default stable && rustup target add thumbv7em-none-eabi
+      run: rustup update stable --no-self-update && rustup default stable && rustup target add riscv32imc-unknown-none-elf
     - name: Build for bare-metal target
       # Fails if the library accidentally depends on std.
-      run: cargo build --lib --target thumbv7em-none-eabi
+      run: cargo build --lib --target riscv32imc-unknown-none-elf
 
   test:
     runs-on: ${{ matrix.os }}
