@@ -36,7 +36,7 @@ pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFl
                 buf.add(!y_pos as usize).swap(xs);
                 buf.add(y_pos as usize).swap(ys);
                 *buf = buf.add(2);
-                xs = ys.add(1);
+                xs = xs.add(1);
                 ys = ys.add(1);
             }
         }
@@ -129,6 +129,94 @@ pub unsafe fn merge_without_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: Stric
                     xs_consumed: false,
                     rest: xs,
                 };
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::{FwdPtr, strict_flag};
+    use crate::test_util::test_rng;
+
+    struct NaiveResult {
+        buf: usize,
+        xs_consumed: bool,
+        rest: usize,
+        expected: Vec<i32>,
+    }
+
+    /// Reference implementation with indices. Returns the expected array as well.
+    fn naive_merge_with_buf(ary: &[i32], buf: usize, mut xs: usize, mut ys: usize, ys_last: usize) -> NaiveResult {
+        let len = ys_last - buf;
+        let xs_last = ys;
+
+        let mut merged = Vec::new();
+        while xs < xs_last && ys < ys_last {
+            if !(ary[ys] < ary[xs]) {
+                merged.push(ary[xs]);
+                xs += 1;
+            } else {
+                merged.push(ary[ys]);
+                ys += 1;
+            }
+        }
+        let xs_consumed = xs == xs_last;
+
+        let mut rest: Vec<i32> = ary[xs..xs_last].to_vec();
+        rest.extend_from_slice(&ary[ys..ys_last]);
+        let rest_offset = len - rest.len();
+
+        let mut expected = merged.clone();
+        expected.resize(rest_offset, 0);
+        expected.extend_from_slice(&rest);
+        expected.resize(ary.len(), 42);
+
+        NaiveResult { buf: buf + merged.len(), xs_consumed, rest: buf + rest_offset, expected }
+    }
+
+    #[test]
+    fn merge_with_buf_test() {
+        let ary_len = 32;
+        let buf_len = 8;
+        let mut rng = test_rng();
+
+        for ys_len in 1..=buf_len {
+            for xs_len in 1..=ary_len - (buf_len + ys_len) {
+                let xs = buf_len;
+                let ys = xs + xs_len;
+                let ys_last = ys + ys_len;
+
+                let mut ary = vec![0; ary_len];
+                for (v, i) in ary[xs..ys_last].iter_mut().zip(100..) {
+                    *v = i;
+                }
+                ary[ys_last..].fill(42);
+                rng.shuffle(&mut ary[xs..ys_last]);
+                ary[xs..ys].sort();
+                ary[ys..ys_last].sort();
+
+                let naive = naive_merge_with_buf(&ary, 0, xs, ys, ys_last);
+
+                let base = FwdPtr::new(ary.as_mut_ptr());
+                let (buf, xs_consumed, rest) = unsafe {
+                    let mut buf = base;
+                    let result = merge_with_buf(
+                        &mut buf,
+                        base.add(xs),
+                        base.add(ys),
+                        base.add(ys_last),
+                        &mut |a: &i32, b: &i32| a < b,
+                        strict_flag::<false>(),
+                    );
+                    (buf.offset_from_unsigned(base), result.xs_consumed, result.rest.offset_from_unsigned(base))
+                };
+
+                assert_eq!(ary, naive.expected, "xs_len={xs_len} ys_len={ys_len}");
+                assert_eq!(buf, naive.buf, "xs_len={xs_len} ys_len={ys_len}");
+                assert_eq!(rest, naive.rest, "xs_len={xs_len} ys_len={ys_len}");
+                assert_eq!(xs_consumed, naive.xs_consumed, "xs_len={xs_len} ys_len={ys_len}");
             }
         }
     }

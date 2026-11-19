@@ -6,6 +6,8 @@ mod blockmerge;
 mod merge;
 mod seqdiv;
 mod smallsort;
+#[cfg(test)]
+mod test_util;
 mod top;
 mod utils;
 
