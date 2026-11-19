@@ -1,5 +1,5 @@
-use crate::utils::{strict_flag, FwdPtr, Pos};
 use crate::seqdiv::SequenceDivider;
+use crate::utils::{FwdPtr, Pos, strict_flag};
 
 unsafe fn odd_even_sort<T, F: FnMut(&T, &T) -> bool, const LEN: usize>(data: FwdPtr<T>, f: &mut F) {
     unsafe {
@@ -13,7 +13,12 @@ unsafe fn odd_even_sort<T, F: FnMut(&T, &T) -> bool, const LEN: usize>(data: Fwd
     }
 }
 
-pub unsafe fn sort_leaves<T, F: FnMut(&T, &T) -> bool>(mut data: FwdPtr<T>, seq_len: usize, seq_div: &mut SequenceDivider, f: &mut F) {
+pub unsafe fn sort_leaves<T, F: FnMut(&T, &T) -> bool>(
+    mut data: FwdPtr<T>,
+    seq_len: usize,
+    seq_div: &mut SequenceDivider,
+    f: &mut F,
+) {
     enum Dispatcher {
         Len4,
         Len5,
@@ -39,12 +44,7 @@ pub unsafe fn sort_leaves<T, F: FnMut(&T, &T) -> bool>(mut data: FwdPtr<T>, seq_
                         return;
                     }
                     len = seq_len - seq_div.next() as usize;
-                    dispatcher =
-                        if len == 4 {
-                            Dispatcher::Len4
-                        } else {
-                            Dispatcher::Len5
-                        };
+                    dispatcher = if len == 4 { Dispatcher::Len4 } else { Dispatcher::Len5 };
                 }
                 Dispatcher::Len5 => {
                     odd_even_sort::<_, _, 5>(data, f);
@@ -53,14 +53,13 @@ pub unsafe fn sort_leaves<T, F: FnMut(&T, &T) -> bool>(mut data: FwdPtr<T>, seq_
                         return;
                     }
                     len = seq_len - seq_div.next() as usize;
-                    dispatcher =
-                        if len == 4 {
-                            Dispatcher::Len4
-                        } else if len == 5 {
-                            Dispatcher::Len5
-                        } else {
-                            Dispatcher::Len6
-                        };
+                    dispatcher = if len == 4 {
+                        Dispatcher::Len4
+                    } else if len == 5 {
+                        Dispatcher::Len5
+                    } else {
+                        Dispatcher::Len6
+                    };
                 }
                 Dispatcher::Len6 => {
                     odd_even_sort::<_, _, 6>(data, f);
@@ -69,14 +68,13 @@ pub unsafe fn sort_leaves<T, F: FnMut(&T, &T) -> bool>(mut data: FwdPtr<T>, seq_
                         return;
                     }
                     len = seq_len - seq_div.next() as usize;
-                    dispatcher =
-                        if len == 5 {
-                            Dispatcher::Len5
-                        } else if len == 6 {
-                            Dispatcher::Len6
-                        } else {
-                            Dispatcher::Len7
-                        };
+                    dispatcher = if len == 5 {
+                        Dispatcher::Len5
+                    } else if len == 6 {
+                        Dispatcher::Len6
+                    } else {
+                        Dispatcher::Len7
+                    };
                 }
                 Dispatcher::Len7 => {
                     odd_even_sort::<_, _, 7>(data, f);
@@ -85,14 +83,13 @@ pub unsafe fn sort_leaves<T, F: FnMut(&T, &T) -> bool>(mut data: FwdPtr<T>, seq_
                         return;
                     }
                     len = seq_len - seq_div.next() as usize;
-                    dispatcher =
-                        if len == 6 {
-                            Dispatcher::Len6
-                        } else if len == 7 {
-                            Dispatcher::Len7
-                        } else {
-                            Dispatcher::Len8
-                        };
+                    dispatcher = if len == 6 {
+                        Dispatcher::Len6
+                    } else if len == 7 {
+                        Dispatcher::Len7
+                    } else {
+                        Dispatcher::Len8
+                    };
                 }
                 Dispatcher::Len8 => {
                     odd_even_sort::<_, _, 8>(data, f);
@@ -101,12 +98,7 @@ pub unsafe fn sort_leaves<T, F: FnMut(&T, &T) -> bool>(mut data: FwdPtr<T>, seq_
                         return;
                     }
                     len = seq_len - seq_div.next() as usize;
-                    dispatcher =
-                        if len == 7 {
-                            Dispatcher::Len7
-                        } else {
-                            Dispatcher::Len8
-                        };
+                    dispatcher = if len == 7 { Dispatcher::Len7 } else { Dispatcher::Len8 };
                 }
             }
         }
@@ -139,9 +131,9 @@ pub unsafe fn sort_0to8<T, F: FnMut(&T, &T) -> bool>(data: FwdPtr<T>, len: usize
 
 pub unsafe fn heap_sort<T, F: FnMut(&T, &T) -> bool>(data: FwdPtr<T>, mut len: usize, f: &mut F) {
     unsafe {
-        let left = |i: usize| { i * 2 + 1 };
-        let right = |i: usize| { i * 2 + 2 };
-        let parent = |i: usize| { (i - 1) / 2 };
+        let left = |i: usize| i * 2 + 1;
+        let right = |i: usize| i * 2 + 2;
+        let parent = |i: usize| (i - 1) / 2;
 
         let mut start = parent(len - 1);
         loop {
@@ -149,7 +141,11 @@ pub unsafe fn heap_sort<T, F: FnMut(&T, &T) -> bool>(data: FwdPtr<T>, mut len: u
             while cur < parent(len) {
                 let l = left(cur);
                 let r = right(cur);
-                cur = if data.add(l).precede(data.add(r), f, strict_flag::<true>()) {r} else {l};
+                cur = if data.add(l).precede(data.add(r), f, strict_flag::<true>()) {
+                    r
+                } else {
+                    l
+                };
             }
             if cur < len / 2 {
                 cur = left(cur);

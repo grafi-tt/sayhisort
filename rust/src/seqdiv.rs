@@ -39,7 +39,13 @@ impl<const FORWARD: bool> SequenceDivider<FORWARD> {
 }
 
 pub unsafe fn merge_one_level<T, F: FnMut(&T, &T) -> bool, const HAS_BUF: bool, const FORWARD: bool>(
-    imit: FwdPtr<T>, mut buf: FwdPtr<T>, mut data: FwdPtr<T>, seq_len: usize, seq_div: &mut SequenceDivider<FORWARD>, mut p: BlockingParam, f: &mut F
+    imit: FwdPtr<T>,
+    mut buf: FwdPtr<T>,
+    mut data: FwdPtr<T>,
+    seq_len: usize,
+    seq_div: &mut SequenceDivider<FORWARD>,
+    mut p: BlockingParam,
+    f: &mut F,
 ) {
     unsafe {
         let residual_len = p.first_block_len;

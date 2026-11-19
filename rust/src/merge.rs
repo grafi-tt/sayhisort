@@ -1,11 +1,18 @@
-use crate::utils::{binary_search, Pos, rotate, StrictFlag};
+use crate::utils::{Pos, StrictFlag, binary_search, rotate};
 
 pub struct MergeResult<P> {
     pub xs_consumed: bool,
     pub rest: P,
 }
 
-pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFlag>(buf: &mut P, mut xs: P, mut ys: P, ys_last: P, f: &mut F, is_xs_from_right: S) -> MergeResult<P> {
+pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFlag>(
+    buf: &mut P,
+    mut xs: P,
+    mut ys: P,
+    ys_last: P,
+    f: &mut F,
+    is_xs_from_right: S,
+) -> MergeResult<P> {
     unsafe {
         let mut xs_last = ys;
 
@@ -53,7 +60,6 @@ pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFl
                     break;
                 }
             }
-
         } else if ys == ys_last.sub(1) {
             xs_consumed = true;
             loop {
@@ -74,7 +80,10 @@ pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFl
         }
 
         if xs_consumed {
-            return MergeResult{xs_consumed: true, rest: ys};
+            return MergeResult {
+                xs_consumed: true,
+                rest: ys,
+            };
         }
 
         loop {
@@ -85,16 +94,28 @@ pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFl
                 break;
             }
         }
-        MergeResult{xs_consumed: false, rest: ys}
+        MergeResult {
+            xs_consumed: false,
+            rest: ys,
+        }
     }
 }
 
-pub unsafe fn merge_without_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFlag>(mut xs: P, mut ys: P, ys_last: P, f: &mut F, is_xs_from_right: S) -> MergeResult<P> {
+pub unsafe fn merge_without_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFlag>(
+    mut xs: P,
+    mut ys: P,
+    ys_last: P,
+    f: &mut F,
+    is_xs_from_right: S,
+) -> MergeResult<P> {
     unsafe {
         loop {
             xs = binary_search(xs, ys, ys, f, is_xs_from_right);
             if xs == ys {
-                return MergeResult{xs_consumed: true, rest: ys};
+                return MergeResult {
+                    xs_consumed: true,
+                    rest: ys,
+                };
             }
             let mut ys_upper = ys.add(1);
             if ys_upper != ys_last {
@@ -104,7 +125,10 @@ pub unsafe fn merge_without_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: Stric
             xs = xs.add(ys_upper.offset_from_unsigned(ys));
             ys = ys_upper;
             if ys_upper == ys_last {
-                return MergeResult{xs_consumed: false, rest: xs};
+                return MergeResult {
+                    xs_consumed: false,
+                    rest: xs,
+                };
             }
         }
     }

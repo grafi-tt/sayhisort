@@ -1,7 +1,13 @@
 use crate::merge::{merge_with_buf, merge_without_buf};
 use crate::utils::{Pos, rotate, strict_flag};
 
-unsafe fn interleave_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(imit: P, blocks: P, imit_len: usize, block_len: usize, f: &mut F) -> P {
+unsafe fn interleave_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
+    imit: P,
+    blocks: P,
+    imit_len: usize,
+    block_len: usize,
+    f: &mut F,
+) -> P {
     unsafe {
         if imit_len == 0 {
             return imit;
@@ -47,7 +53,11 @@ unsafe fn interleave_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(imit: P, blo
 
                 least_left_key = left_keys;
                 least_left_block = left_blocks;
-                let mut key = if left_keys < orig_right_key {orig_right_key} else {left_keys.add(1)};
+                let mut key = if left_keys < orig_right_key {
+                    orig_right_key
+                } else {
+                    left_keys.add(1)
+                };
                 while key < right_keys {
                     if key.precede(least_left_key, f, strict_flag::<true>()) {
                         least_left_key = key;
@@ -55,7 +65,6 @@ unsafe fn interleave_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(imit: P, blo
                     key = key.add(1);
                 }
                 least_left_block = least_left_block.add((least_left_key.offset_from_unsigned(left_keys)) * block_len);
-
             } else {
                 left_keys.swap(right_keys);
                 swap_block(left_blocks, right_blocks);
@@ -79,7 +88,13 @@ unsafe fn interleave_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(imit: P, blo
     }
 }
 
-unsafe fn deinterleave_imitation<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(imit: P, imit_len: usize, mut buf: P, mut mid_key: P, f: &mut F) {
+unsafe fn deinterleave_imitation<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
+    imit: P,
+    imit_len: usize,
+    mut buf: P,
+    mut mid_key: P,
+    f: &mut F,
+) {
     unsafe {
         if imit_len == 0 {
             return;
@@ -114,7 +129,12 @@ unsafe fn deinterleave_imitation<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(imit: P
     }
 }
 
-unsafe fn deinterleave_imitation_nobuf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(imit: P, imit_len: usize, mut mid_key: P, f: &mut F) {
+unsafe fn deinterleave_imitation_nobuf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
+    imit: P,
+    imit_len: usize,
+    mut mid_key: P,
+    f: &mut F,
+) {
     unsafe {
         if imit_len == 0 {
             return;
@@ -167,7 +187,14 @@ pub struct BlockingParam {
     pub last_block_len: usize,
 }
 
-unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HAS_BUF: bool>(mut imit: P, buf: &mut P, blocks: P, p: &BlockingParam, mid_key: P, f: &mut F) {
+unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HAS_BUF: bool>(
+    mut imit: P,
+    buf: &mut P,
+    blocks: P,
+    p: &BlockingParam,
+    mid_key: P,
+    f: &mut F,
+) {
     unsafe {
         let mut num_remained_blocks = p.num_blocks;
 
@@ -185,7 +212,11 @@ unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HA
         let mut ys = xs.add(p.first_block_len);
 
         loop {
-            let ys_last = ys.add(if num_remained_blocks - 1 == 0 { p.block_len } else {p.last_block_len});
+            let ys_last = ys.add(if num_remained_blocks - 1 == 0 {
+                p.block_len
+            } else {
+                p.last_block_len
+            });
             let mut ys_origin = BlockOrigin::Left;
             if num_remained_blocks != 0 {
                 imit = imit.add(1);
@@ -218,25 +249,23 @@ unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HA
                         rotate(xs, ys, ys_last);
                         ys = xs.add(p.last_block_len);
                         xs_origin = BlockOrigin::Right;
-
                     }
                 }
             }
 
-            let mr =
-                if HAS_BUF {
-                    if xs_origin == BlockOrigin::Left {
-                        merge_with_buf(buf, xs, ys, ys_last, f, strict_flag::<false>())
-                    } else {
-                        merge_with_buf(buf, xs, ys, ys_last, f, strict_flag::<true>())
-                    }
+            let mr = if HAS_BUF {
+                if xs_origin == BlockOrigin::Left {
+                    merge_with_buf(buf, xs, ys, ys_last, f, strict_flag::<false>())
                 } else {
-                    if xs_origin == BlockOrigin::Left {
-                        merge_without_buf(xs, ys, ys_last, f, strict_flag::<false>())
-                    } else {
-                        merge_without_buf(xs, ys, ys_last, f, strict_flag::<true>())
-                    }
-                };
+                    merge_with_buf(buf, xs, ys, ys_last, f, strict_flag::<true>())
+                }
+            } else {
+                if xs_origin == BlockOrigin::Left {
+                    merge_without_buf(xs, ys, ys_last, f, strict_flag::<false>())
+                } else {
+                    merge_without_buf(xs, ys, ys_last, f, strict_flag::<true>())
+                }
+            };
 
             xs = mr.rest;
             last_block_before_ys = xs;
@@ -263,7 +292,13 @@ unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HA
     }
 }
 
-pub unsafe fn merge_blocking<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HAS_BUF: bool>(imit: P, buf: &mut P, blocks: P, p: &BlockingParam, f: &mut F) {
+pub unsafe fn merge_blocking<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HAS_BUF: bool>(
+    imit: P,
+    buf: &mut P,
+    blocks: P,
+    p: &BlockingParam,
+    f: &mut F,
+) {
     unsafe {
         let imit_len = p.num_blocks - 2;
         let mid_key = interleave_blocks(imit, blocks.add(p.first_block_len), imit_len, p.block_len, f);

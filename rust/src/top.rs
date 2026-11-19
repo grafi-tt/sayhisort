@@ -1,10 +1,15 @@
-use crate::blocking::{determine_blocking, MergeSortControl, over_approx_sqrt};
-use crate::merge::{merge_without_buf};
-use crate::seqdiv::{merge_one_level, SequenceDivider};
+use crate::blocking::{MergeSortControl, determine_blocking, over_approx_sqrt};
+use crate::merge::merge_without_buf;
+use crate::seqdiv::{SequenceDivider, merge_one_level};
 use crate::smallsort::{heap_sort, sort_0to8, sort_leaves};
-use crate::utils::{binary_search, FwdPtr, Pos, rotate, strict_flag};
+use crate::utils::{FwdPtr, Pos, binary_search, rotate, strict_flag};
 
-unsafe fn collect_keys<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T>, mut num_desired_keys: usize, f: &mut F) -> usize {
+unsafe fn collect_keys<T, F: FnMut(&T, &T) -> bool>(
+    first: FwdPtr<T>,
+    last: FwdPtr<T>,
+    mut num_desired_keys: usize,
+    f: &mut F,
+) -> usize {
     unsafe {
         let mut keys = first;
         let mut keys_last = first.add(1);
@@ -68,7 +73,12 @@ pub unsafe fn sort<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T
         let mut ctrl = MergeSortControl::new(num_keys, data_len);
 
         let data = imit.add(num_keys);
-        sort_leaves(data, ctrl.seq_len, &mut SequenceDivider::new(ctrl.data_len, ctrl.log2_num_seqs), f);
+        sort_leaves(
+            data,
+            ctrl.seq_len,
+            &mut SequenceDivider::new(ctrl.data_len, ctrl.log2_num_seqs),
+            f,
+        );
 
         loop {
             let p = determine_blocking(&ctrl);
@@ -76,13 +86,37 @@ pub unsafe fn sort<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T
             if ctrl.forward {
                 let mut seqdiv = SequenceDivider::<true>::new(ctrl.data_len, ctrl.log2_num_seqs);
                 if ctrl.buf_len == 0 {
-                    merge_one_level::<_, _, true, true>(imit, imit.add(ctrl.imit_len), data, ctrl.seq_len, &mut seqdiv, p, f);
+                    merge_one_level::<_, _, true, true>(
+                        imit,
+                        imit.add(ctrl.imit_len),
+                        data,
+                        ctrl.seq_len,
+                        &mut seqdiv,
+                        p,
+                        f,
+                    );
                 } else {
-                    merge_one_level::<_, _, false, true>(imit, imit.add(ctrl.imit_len), data, ctrl.seq_len, &mut seqdiv, p, f);
+                    merge_one_level::<_, _, false, true>(
+                        imit,
+                        imit.add(ctrl.imit_len),
+                        data,
+                        ctrl.seq_len,
+                        &mut seqdiv,
+                        p,
+                        f,
+                    );
                 }
             } else {
                 let mut seqdiv = SequenceDivider::<false>::new(ctrl.data_len, ctrl.log2_num_seqs);
-                merge_one_level::<_, _, true, false>(imit, last, last.sub(ctrl.buf_len), ctrl.seq_len, &mut seqdiv, p, f);
+                merge_one_level::<_, _, true, false>(
+                    imit,
+                    last,
+                    last.sub(ctrl.buf_len),
+                    ctrl.seq_len,
+                    &mut seqdiv,
+                    p,
+                    f,
+                );
             }
 
             let old_buf_len = ctrl.next();

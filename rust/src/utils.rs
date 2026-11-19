@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 #[repr(transparent)]
 pub struct StrictHolder<const B: bool>;
 
-pub trait StrictFlag : Copy {
+pub trait StrictFlag: Copy {
     const FLAG: bool;
     type Not: StrictFlag;
     fn not(self) -> Self::Not;
@@ -12,15 +12,21 @@ pub trait StrictFlag : Copy {
 impl StrictFlag for StrictHolder<true> {
     const FLAG: bool = true;
     type Not = StrictHolder<false>;
-    fn not(self) -> Self::Not { StrictHolder }
+    fn not(self) -> Self::Not {
+        StrictHolder
+    }
 }
 impl StrictFlag for StrictHolder<false> {
     const FLAG: bool = false;
     type Not = StrictHolder<true>;
-    fn not(self) -> Self::Not { StrictHolder }
+    fn not(self) -> Self::Not {
+        StrictHolder
+    }
 }
 
-pub fn strict_flag<const FLAG: bool>() -> StrictHolder<FLAG> { StrictHolder::<FLAG>{} }
+pub fn strict_flag<const FLAG: bool>() -> StrictHolder<FLAG> {
+    StrictHolder::<FLAG> {}
+}
 
 pub trait Pos<T>: Copy + Ord {
     unsafe fn add(self, d: usize) -> Self;
@@ -36,17 +42,25 @@ pub struct FwdPtr<T> {
 }
 
 impl<T> FwdPtr<T> {
-    pub fn new(ptr: *mut T) -> Self { FwdPtr{ptr: ptr} }
-    pub fn bwd(self) -> BwdPtr<T> { BwdPtr{ptr: self.ptr} }
+    pub fn new(ptr: *mut T) -> Self {
+        FwdPtr { ptr: ptr }
+    }
+    pub fn bwd(self) -> BwdPtr<T> {
+        BwdPtr { ptr: self.ptr }
+    }
 }
 
 impl<T> Clone for FwdPtr<T> {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl<T> Copy for FwdPtr<T> {}
 
 impl<T> PartialEq for FwdPtr<T> {
-    fn eq(&self, other: &Self) -> bool { self.ptr == other.ptr }
+    fn eq(&self, other: &Self) -> bool {
+        self.ptr == other.ptr
+    }
 }
 impl<T> Eq for FwdPtr<T> {}
 
@@ -62,10 +76,22 @@ impl<T> PartialOrd for FwdPtr<T> {
 }
 
 impl<T> Pos<T> for FwdPtr<T> {
-    unsafe fn add(self, d: usize) -> Self { FwdPtr{ptr: unsafe{self.ptr.add(d)}} }
-    unsafe fn sub(self, d: usize) -> Self { FwdPtr{ptr: unsafe{self.ptr.sub(d)}} }
-    unsafe fn swap(self, other: Self) { unsafe{std::ptr::swap(self.ptr, other.ptr)} }
-    unsafe fn offset_from_unsigned(self, origin: Self) -> usize { unsafe{self.ptr.offset_from_unsigned(origin.ptr)} }
+    unsafe fn add(self, d: usize) -> Self {
+        FwdPtr {
+            ptr: unsafe { self.ptr.add(d) },
+        }
+    }
+    unsafe fn sub(self, d: usize) -> Self {
+        FwdPtr {
+            ptr: unsafe { self.ptr.sub(d) },
+        }
+    }
+    unsafe fn swap(self, other: Self) {
+        unsafe { std::ptr::swap(self.ptr, other.ptr) }
+    }
+    unsafe fn offset_from_unsigned(self, origin: Self) -> usize {
+        unsafe { self.ptr.offset_from_unsigned(origin.ptr) }
+    }
     unsafe fn precede<F: FnMut(&T, &T) -> bool, S: StrictFlag>(self, other: Self, f: &mut F, _strict: S) -> bool {
         unsafe {
             if S::FLAG {
@@ -83,16 +109,22 @@ pub struct BwdPtr<T> {
 }
 
 impl<T> BwdPtr<T> {
-    pub fn fwd(self) -> FwdPtr<T> { FwdPtr{ptr: self.ptr} }
+    pub fn fwd(self) -> FwdPtr<T> {
+        FwdPtr { ptr: self.ptr }
+    }
 }
 
 impl<T> Clone for BwdPtr<T> {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl<T> Copy for BwdPtr<T> {}
 
 impl<T> PartialEq for BwdPtr<T> {
-    fn eq(&self, other: &Self) -> bool { self.ptr == other.ptr }
+    fn eq(&self, other: &Self) -> bool {
+        self.ptr == other.ptr
+    }
 }
 impl<T> Eq for BwdPtr<T> {}
 
@@ -108,10 +140,22 @@ impl<T> PartialOrd for BwdPtr<T> {
 }
 
 impl<T> Pos<T> for BwdPtr<T> {
-    unsafe fn add(self, d: usize) -> Self { BwdPtr{ptr: unsafe{self.ptr.sub(d)}} }
-    unsafe fn sub(self, d: usize) -> Self { BwdPtr{ptr: unsafe{self.ptr.add(d)}} }
-    unsafe fn offset_from_unsigned(self, origin: Self) -> usize { unsafe{origin.ptr.offset_from_unsigned(self.ptr)} }
-    unsafe fn swap(self, other: Self) { unsafe{std::ptr::swap(self.ptr.sub(1), other.ptr.sub(1))} }
+    unsafe fn add(self, d: usize) -> Self {
+        BwdPtr {
+            ptr: unsafe { self.ptr.sub(d) },
+        }
+    }
+    unsafe fn sub(self, d: usize) -> Self {
+        BwdPtr {
+            ptr: unsafe { self.ptr.add(d) },
+        }
+    }
+    unsafe fn offset_from_unsigned(self, origin: Self) -> usize {
+        unsafe { origin.ptr.offset_from_unsigned(self.ptr) }
+    }
+    unsafe fn swap(self, other: Self) {
+        unsafe { std::ptr::swap(self.ptr.sub(1), other.ptr.sub(1)) }
+    }
     unsafe fn precede<F: FnMut(&T, &T) -> bool, S: StrictFlag>(self, other: Self, f: &mut F, _strict: S) -> bool {
         unsafe {
             if S::FLAG {
@@ -197,7 +241,13 @@ pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
     }
 }
 
-pub unsafe fn binary_search<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFlag>(first: P, last: P, key: P, f: &mut F, strict: S) -> P {
+pub unsafe fn binary_search<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFlag>(
+    first: P,
+    last: P,
+    key: P,
+    f: &mut F,
+    strict: S,
+) -> P {
     unsafe {
         let mut base = first;
         let mut len = last.offset_from_unsigned(first) + 1;
@@ -227,7 +277,7 @@ mod tests {
         for l in [2, 42, 123] {
             for i in 1..l {
                 let mut data: Vec<i32> = (0..l).collect();
-                let Range{start, end} = data.as_mut_ptr_range();
+                let Range { start, end } = data.as_mut_ptr_range();
                 unsafe {
                     rotate(FwdPtr::new(start), FwdPtr::new(start).add(i as usize), FwdPtr::new(end));
                 }
@@ -238,4 +288,3 @@ mod tests {
         }
     }
 }
-

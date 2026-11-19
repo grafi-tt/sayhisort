@@ -72,19 +72,18 @@ pub fn determine_blocking(ctrl: &MergeSortControl) -> BlockingParam {
     let seq_len = ctrl.seq_len;
 
     let max_num_blocks = ctrl.imit_len + 2;
-    let num_blocks =
-        if ctrl.buf_len != 0 {
-            ((seq_len - 1) / ctrl.buf_len + 1) * 2
-        } else {
-            let limit_num_blocks = seq_len / over_approx_sqrt(seq_len * 2) * 2;
-            std::cmp::min(max_num_blocks, limit_num_blocks)
-        };
+    let num_blocks = if ctrl.buf_len != 0 {
+        ((seq_len - 1) / ctrl.buf_len + 1) * 2
+    } else {
+        let limit_num_blocks = seq_len / over_approx_sqrt(seq_len * 2) * 2;
+        std::cmp::min(max_num_blocks, limit_num_blocks)
+    };
 
     let block_len = (seq_len - 1) / (num_blocks / 2) + 1;
 
     let residual_len = seq_len - block_len * (num_blocks / 2 - 1);
 
-    BlockingParam{
+    BlockingParam {
         num_blocks: num_blocks,
         block_len: block_len,
         first_block_len: residual_len,
