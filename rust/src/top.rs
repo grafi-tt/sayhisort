@@ -32,20 +32,20 @@ unsafe fn collect_keys<T, F: FnMut(&T, &T) -> bool>(
                 }
                 keys_last = cur.add(1);
                 num_desired_keys -= 1;
-                if num_desired_keys == 0 {
-                    break;
-                }
-                cur = cur.add(1);
-                if cur == last {
-                    break;
-                }
+            }
+            if num_desired_keys == 0 {
+                break;
+            }
+            cur = cur.add(1);
+            if cur == last {
+                break;
             }
         }
 
         if keys.offset_from_unsigned(first) != 0 {
             rotate(first, keys, keys_last);
         }
-        keys.offset_from_unsigned(keys_last)
+        keys_last.offset_from_unsigned(keys)
     }
 }
 
@@ -144,6 +144,59 @@ pub unsafe fn sort<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T
 
         if first != data {
             merge_without_buf(first, data, last, f, strict_flag::<false>());
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_util::test_rng;
+    use std::collections::BTreeSet;
+
+    /// Reference implementation. Returns the expected array and the number of keys.
+    fn naive_collect_keys(ary: &[i32], num_desired_keys: usize) -> (Vec<i32>, usize) {
+        let mut keys = BTreeSet::new();
+        let mut dups = Vec::new();
+        let mut first = 0;
+        while first != ary.len() {
+            let v = ary[first];
+            first += 1;
+            if keys.insert(v) {
+                if keys.len() == num_desired_keys {
+                    break;
+                }
+            } else {
+                dups.push(v);
+            }
+        }
+
+        let mut expected: Vec<i32> = keys.iter().copied().collect();
+        expected.extend_from_slice(&dups);
+        expected.extend_from_slice(&ary[first..]);
+        (expected, keys.len())
+    }
+
+    #[test]
+    fn collect_keys_test() {
+        let ary_len = 1000;
+        let num_desired_keys = 10;
+        let mut rng = test_rng();
+
+        for k in [0, 1, 11] {
+            let mut ary: Vec<i32> = (0..ary_len).map(|_| rng.below(k + 1) as i32).collect();
+            let (expected, expected_num_keys) = naive_collect_keys(&ary, num_desired_keys);
+            let range = ary.as_mut_ptr_range();
+            let num_keys = unsafe {
+                collect_keys(
+                    FwdPtr::new(range.start),
+                    FwdPtr::new(range.end),
+                    num_desired_keys,
+                    &mut |a: &i32, b: &i32| a < b,
+                )
+            };
+            assert_eq!(num_keys, expected_num_keys, "k={k}");
+            assert_eq!(ary, expected, "k={k}");
         }
     }
 }
