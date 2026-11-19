@@ -652,14 +652,13 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
     }
 
     diff_t<Iterator> l_runlength = 0;
-    diff_t<Iterator> r_runlength{};
     // Initialized with an upper bound, since there are at most `imit_len / 2` pairs.
     diff_t<Iterator> num_rl_pairs = imit_len;
     diff_t<Iterator> old_num_rl_pairs{};
 
     do {
+        diff_t<Iterator> r_runlength = 0;
         old_num_rl_pairs = num_rl_pairs;
-        r_runlength = 0;
         num_rl_pairs = 0;
 
         Iterator cur = imit;
