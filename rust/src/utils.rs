@@ -290,4 +290,26 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn binary_search_test() {
+        let mut data: Vec<i32> = (0..17).collect();
+        for i in 1..=16 {
+            for j in -1..i {
+                data[16] = j;
+                let start = data.as_mut_ptr();
+                unsafe {
+                    let first = FwdPtr::new(start);
+                    let last = first.add(16);
+                    let middle = first.add(i as usize);
+                    let it = binary_search(first, middle, last, &mut |a, b| a.lt(b), strict_flag::<true>());
+                    let idx = it.offset_from_unsigned(first);
+                    assert_eq!(idx, std::cmp::max(0, j) as usize);
+                    let it2 = binary_search(first, middle, last, &mut |a, b| a.lt(b), strict_flag::<false>());
+                    let idx2 = it2.offset_from_unsigned(first);
+                    assert_eq!(idx2, std::cmp::min(j + 1, i) as usize);
+                }
+            }
+        }
+    }
 }
