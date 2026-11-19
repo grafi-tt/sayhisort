@@ -1,6 +1,6 @@
 # SayhiSort
 
-**Fast, portable and easy-to-use block merge sort implementation** written in C++17, inspired by [GrailSort](https://github.com/Mrrl/GrailSort). It's **in-place, stable and runs in O(N log(N)) worst-case time complexity**. Its interface is compatible with `std::sort` and `std::ranges::sort` (C++20).
+**Fast, portable and easy-to-use block merge sort implementation** written in C++17 and Rust, inspired by [GrailSort](https://github.com/Mrrl/GrailSort). It's **in-place, stable and runs in O(N log(N)) worst-case time complexity**. The C++ interface is compatible with `std::sort` and `std::ranges::sort` (C++20), and the Rust interface mirrors `slice::sort` and `slice::sort_by`.
 
 **Any items can be sorted as long as they are comparable and swappable.** They need not be default-constructible or move-constructible. The implementation doesn't use any pre-allocated buffer to store items, contrary to other block merge sort implementations. Despite the absence of the buffer, it shows **state-of-the-art performance**.
 
@@ -9,6 +9,8 @@ Substantial effort is made for portability and security. **No floating point num
 Its name derives from GrailSort, in memory of its author [Andrey Astrelin](https://superliminal.com/andrey/biography.html). “Say hi” sounds like the Japanese word 「聖杯（せいはい）」, which means grail.
 
 ## Usage
+
+### C++
 
 It's a header-only C++ library in the [`cpp`](cpp/) directory, so just including `sayhisort.h` is fine. You can also import the `cpp` directory as a CMake project, e.g. by `FetchContent` with `SOURCE_SUBDIR cpp`. It provides the `sayhisort::sort` function, which is compatible with `std::sort`.
 
@@ -37,6 +39,26 @@ template <std::ranges::random_access_range R,
 constexpr std::ranges::borrowed_iterator_t<R>
 sayhisort::sort(R&& range, Comp comp = {}, Proj proj = {});
 ```
+
+### Rust
+
+The Rust implementation is in the [`rust`](rust/) directory. It isn't published on crates.io yet, so add it as a git dependency.
+
+```toml
+[dependencies]
+sayhisort = { git = "https://github.com/grafi-tt/sayhisort" }
+```
+
+It provides the following functions, which are drop-in replacements for `slice::sort` and `slice::sort_by`.
+
+```rust
+pub fn sort<T: Ord>(v: &mut [T]);
+pub fn sort_by<T, F: FnMut(&T, &T) -> Ordering>(v: &mut [T], compare: F);
+```
+
+The crate is `#![no_std]` and **never allocates memory**, whereas `slice::sort` requires a heap allocator for its working buffer. Items need not be `Copy`, `Clone` or `Default`, and zero-sized types are supported. Like the standard library, it guarantees memory safety even when the comparator is inconsistent or panics: the slice is left as a permutation of the input, without double drop or leak.
+
+The Rust implementation is a port of the C++ one and shares the same algorithm. It's tested on 64-bit Linux, macOS and Windows, and on 32-bit x86 Linux. CI also checks that it builds for a bare-metal RISC-V target (`riscv32imc-unknown-none-elf`).
 
 ## Benchmark
 
@@ -71,6 +93,8 @@ build_clang/tests/sayhisort_bench > bench_result/clang.yml
 cd bench_result
 ./plot.py
 ```
+
+The Rust implementation has a benchmark ported from the C++ one. Run `cargo bench` in the [`rust`](rust/) directory, and it writes the result to stdout in the same YAML format.
 
 ## Similar projects
 
