@@ -27,6 +27,10 @@
 use core::cmp::Ordering;
 use core::mem::size_of;
 
+// The internal functions are ports of the C++ functions with the corresponding CamelCase names in `cpp/sayhisort.h`,
+// which is the canonical source of algorithm descriptions and proofs. The Rust doc comments only state what each
+// function does and, for an `unsafe fn`, its preconditions in `# Safety`. In addition to them, every position passed
+// to an `unsafe fn` must point into the slice being sorted (or one past its end).
 mod blocking;
 mod blockmerge;
 mod merge;

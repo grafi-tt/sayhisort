@@ -1,10 +1,20 @@
 use crate::utils::{Pos, StrictFlag, binary_search, rotate};
 
+/// Result of [`merge_with_buf`] and [`merge_without_buf`]: whether `xs` is fully consumed, and the position of the
+/// items not merged yet.
 pub struct MergeResult<P> {
     pub xs_consumed: bool,
     pub rest: P,
 }
 
+/// Merges adjacent sequences `xs` and `ys` into the buffer before `xs`. The buffer moves while merging.
+///
+/// Stops when `xs` or `ys` is fully consumed. `ys` must be no longer than the buffer, since buffer overrun isn't checked.
+///
+/// # Safety
+///
+/// * `buf < xs < ys < ys_last`.
+/// * `ys_last - ys <= xs - buf`.
 // Inlining into `merge_adjacent_blocks` is near LLVM's threshold and otherwise depends on the caller crate.
 #[inline(always)]
 pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFlag>(
@@ -87,6 +97,13 @@ pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFl
     }
 }
 
+/// Merges sequences `xs` and `ys` in-place.
+///
+/// Stops when `xs` or `ys` is fully consumed. For better performance, `xs` shouldn't be longer than `ys`.
+///
+/// # Safety
+///
+/// `xs < ys < ys_last`.
 pub unsafe fn merge_without_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFlag>(
     mut xs: P,
     mut ys: P,

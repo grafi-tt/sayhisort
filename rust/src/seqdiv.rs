@@ -1,6 +1,8 @@
 use crate::blockmerge::{BlockingParam, merge_blocking};
 use crate::utils::{FwdPtr, Pos};
 
+/// Helper to evenly divide data whose length may not be a power of 2. If `FORWARD` is false, sequences are yielded
+/// from the end.
 pub struct SequenceDivider<const FORWARD: bool = true> {
     log2_num_seqs: usize,
     num_seqs: usize,
@@ -22,6 +24,7 @@ impl<const FORWARD: bool> SequenceDivider<FORWARD> {
         obj
     }
 
+    /// Advances to the next sequence. Returns whether its length is `seq_len - 1` rather than `seq_len`.
     pub fn next(&mut self) -> bool {
         self.frac_counter += self.remainder;
         let mut no_carry = (self.frac_counter & (1usize << self.log2_num_seqs)) == 0;
@@ -33,11 +36,21 @@ impl<const FORWARD: bool> SequenceDivider<FORWARD> {
         no_carry
     }
 
+    /// Whether all sequences have been yielded.
     pub fn is_end(&self) -> bool {
         self.num_seqs == 0
     }
 }
 
+/// Merges each pair of adjacent sequences, doubling the sequence length.
+///
+/// # Safety
+///
+/// * The layout is `[imit | buf | data]` if `FORWARD`, and `[imit | data | buf]` otherwise, where `buf` and `data`
+///   are the start of the buffer and the data for the former, and the end of them for the latter.
+/// * `seq_len`, `seq_div` and `p` are consistent with the length of the data, as computed by
+///   [`MergeSortControl`](crate::blocking::MergeSortControl) and
+///   [`determine_blocking`](crate::blocking::determine_blocking).
 pub unsafe fn merge_one_level<T, F: FnMut(&T, &T) -> bool, const HAS_BUF: bool, const FORWARD: bool>(
     imit: FwdPtr<T>,
     mut buf: FwdPtr<T>,

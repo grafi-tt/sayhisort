@@ -1,5 +1,9 @@
 use crate::blockmerge::BlockingParam;
 
+/// Computes an over-approximation of `sqrt(x)` for `x >= 8`.
+///
+/// Returns 3 if `x == 8`, 4 if `9 <= x <= 16`, and `r` such that `sqrt(x) <= r < sqrt(x) * 1.25` otherwise. See
+/// `OverApproxSqrt` for the proof.
 pub fn over_approx_sqrt(x: usize) -> usize {
     let mut n = 1u32;
     let mut p = x;
@@ -14,6 +18,8 @@ pub fn over_approx_sqrt(x: usize) -> usize {
     (r0 + (x - 1) / r0) / 2 + 1
 }
 
+/// Control of the bottom-up merge sort: how the keys are split into the imitation buffer and the merge buffer, and the
+/// sequence length of each merge level.
 pub struct MergeSortControl {
     pub imit_len: usize,
     pub buf_len: usize,
@@ -25,6 +31,10 @@ pub struct MergeSortControl {
 }
 
 impl MergeSortControl {
+    /// Requires `num_keys == 0 || num_keys >= 8` and `data_len > 8`, and ensures `5 <= seq_len <= 8`.
+    ///
+    /// See the constructor of `MergeSortControl` for why the merge buffer is available until the last merge level, which
+    /// ensures O(*n*) time for each level.
     pub fn new(num_keys: usize, data_len: usize) -> Self {
         let mut ctrl = MergeSortControl {
             imit_len: 0,
@@ -48,6 +58,8 @@ impl MergeSortControl {
         ctrl
     }
 
+    /// Advances to the next merge level. Returns the length of the merge buffer if it's no longer used from this level,
+    /// and 0 otherwise.
     pub fn next(&mut self) -> usize {
         self.log2_num_seqs -= 1;
         self.seq_len = ((self.data_len - 1) >> self.log2_num_seqs) + 1;
@@ -68,6 +80,7 @@ impl MergeSortControl {
     }
 }
 
+/// Determines how two adjacent sequences of `ctrl.seq_len` items are divided into blocks.
 pub fn determine_blocking(ctrl: &MergeSortControl) -> BlockingParam {
     let seq_len = ctrl.seq_len;
 
@@ -89,6 +102,7 @@ pub fn determine_blocking(ctrl: &MergeSortControl) -> BlockingParam {
 
     let block_len = (seq_len - 1) / (num_blocks / 2) + 1;
 
+    // `residual_len >= 2` holds, so that all blocks have positive length. See `DetermineBlocking` for the proof.
     let residual_len = seq_len - block_len * (num_blocks / 2 - 1);
 
     BlockingParam {

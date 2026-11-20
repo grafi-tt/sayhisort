@@ -1,9 +1,11 @@
 use core::cmp::Ordering;
 
+/// Type-level boolean selecting strict (`<`) or non-strict (`<=`) comparison.
 #[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct StrictHolder<const B: bool>;
 
+/// Implemented by [`StrictHolder`] to read its flag and to negate it.
 pub trait StrictFlag: Copy {
     const FLAG: bool;
     type Not: StrictFlag;
@@ -24,10 +26,15 @@ impl StrictFlag for StrictHolder<false> {
     }
 }
 
+/// Creates a [`StrictHolder`], for passing the flag as an argument.
 pub fn strict_flag<const FLAG: bool>() -> StrictHolder<FLAG> {
     StrictHolder::<FLAG> {}
 }
 
+/// Position in a slice, moving forward ([`FwdPtr`]) or backward ([`BwdPtr`]).
+///
+/// Generic code written for `Pos` works in both directions, like iterators and `ReversedIterator` in C++. Comparison
+/// of positions and of items follows the direction, so a backward scan sees the slice reversed.
 pub trait Pos<T>: Copy + Ord {
     unsafe fn add(self, d: usize) -> Self;
     unsafe fn sub(self, d: usize) -> Self;
@@ -41,12 +48,15 @@ pub trait Pos<T>: Copy + Ord {
             *other = other.add(1);
         }
     }
+    /// Whether the item at `self` comes before the one at `other`, by `<` if `S` is strict and by `<=` otherwise.
     unsafe fn precede<F: FnMut(&T, &T) -> bool, S: StrictFlag>(self, other: Self, f: &mut F, strict: S) -> bool;
+    /// Same as [`Pos::precede`] with strict comparison.
     unsafe fn precede_strict<F: FnMut(&T, &T) -> bool>(self, other: Self, f: &mut F) -> bool {
         unsafe { self.precede(other, f, strict_flag::<true>()) }
     }
 }
 
+/// Position moving forward. It points to its item.
 #[repr(transparent)]
 pub struct FwdPtr<T> {
     ptr: *mut T,
@@ -114,6 +124,7 @@ impl<T> Pos<T> for FwdPtr<T> {
     }
 }
 
+/// Position moving backward. It points one past its item, so the end of a slice is the first position.
 #[repr(transparent)]
 pub struct BwdPtr<T> {
     ptr: *mut T,
@@ -178,6 +189,11 @@ impl<T> Pos<T> for BwdPtr<T> {
     }
 }
 
+/// Rotates two chunks split at `middle`.
+///
+/// # Safety
+///
+/// `first < middle < last`.
 pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
     unsafe {
         let mut l_len = middle.offset_from_unsigned(first);
@@ -252,6 +268,14 @@ pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
     }
 }
 
+/// Searches for `key` in the sorted sequence `[first, last)`.
+///
+/// Returns `pos` such that, for any `x` in `[first, last)`, `x < pos` iff `x` precedes `key` (by `<` if `S` is strict
+/// and by `<=` otherwise).
+///
+/// # Safety
+///
+/// `first < last`.
 pub unsafe fn binary_search<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFlag>(
     first: P,
     last: P,

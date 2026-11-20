@@ -1,6 +1,15 @@
 use crate::merge::{merge_with_buf, merge_without_buf};
 use crate::utils::{Pos, rotate, strict_flag};
 
+/// Interleaves blocks from two sorted sequences, so that blocks are sorted by their first items.
+///
+/// The permutation is recorded to the imitation buffer `imit`. Returns the position of the key that was at the middle
+/// of `imit`.
+///
+/// # Safety
+///
+/// * `imit_len` is a multiple of 2, and `block_len` is positive.
+/// * `[imit, imit + imit_len)` and `[blocks, blocks + imit_len * block_len)` don't overlap.
 unsafe fn interleave_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
     imit: P,
     blocks: P,
@@ -86,6 +95,12 @@ unsafe fn interleave_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
     }
 }
 
+/// Sorts interleaved keys in the imitation buffer, using `buf` as an auxiliary buffer.
+///
+/// # Safety
+///
+/// * `imit_len` is a multiple of 2.
+/// * `[imit, imit + imit_len)` and `[buf, buf + imit_len / 2)` don't overlap.
 unsafe fn deinterleave_imitation<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
     imit: P,
     imit_len: usize,
@@ -121,6 +136,12 @@ unsafe fn deinterleave_imitation<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
     }
 }
 
+/// Sorts interleaved keys in the imitation buffer in-place. Port of the overload of `DeinterleaveImitation` without
+/// buffer.
+///
+/// # Safety
+///
+/// `imit_len` is a multiple of 2.
 unsafe fn deinterleave_imitation_nobuf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
     imit: P,
     imit_len: usize,
@@ -172,6 +193,7 @@ unsafe fn deinterleave_imitation_nobuf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
     }
 }
 
+/// How two adjacent sequences are divided into blocks. The first and last blocks may be shorter than the others.
 pub struct BlockingParam {
     pub num_blocks: usize,
     pub block_len: usize,
@@ -179,6 +201,11 @@ pub struct BlockingParam {
     pub last_block_len: usize,
 }
 
+/// Merges the blocks interleaved by [`interleave_blocks`], following the imitation buffer.
+///
+/// # Safety
+///
+/// Same as [`merge_blocking`]. `mid_key` is the position returned by [`interleave_blocks`].
 unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HAS_BUF: bool>(
     mut imit: P,
     buf: &mut P,
@@ -284,6 +311,15 @@ unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HA
     }
 }
 
+/// Merges two adjacent sorted sequences by block merge. The keys in the imitation buffer are restored in order.
+///
+/// # Safety
+///
+/// * `[imit, imit + p.num_blocks - 2)` holds unique keys in ascending order.
+/// * The sequences start at `blocks`, and consist of `(p.num_blocks - 2) / 2` blocks of `p.block_len` items, plus
+///   `p.first_block_len` and `p.last_block_len` items respectively, which are positive.
+/// * If `HAS_BUF`, `[*buf, *buf + p.block_len)` is the buffer just before `blocks`. It moves to just after the merged
+///   sequence.
 pub unsafe fn merge_blocking<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HAS_BUF: bool>(
     imit: P,
     buf: &mut P,

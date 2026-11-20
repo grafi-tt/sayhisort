@@ -4,6 +4,11 @@ use crate::seqdiv::{SequenceDivider, merge_one_level};
 use crate::smallsort::{heap_sort, sort_0to8, sort_leaves};
 use crate::utils::{FwdPtr, Pos, binary_search, rotate, strict_flag};
 
+/// Collects unique keys to the start of `[first, last)` in ascending order, and returns the number of them.
+///
+/// # Safety
+///
+/// `last - first >= 2` and `num_desired_keys >= 2`.
 unsafe fn collect_keys<T, F: FnMut(&T, &T) -> bool>(
     first: FwdPtr<T>,
     last: FwdPtr<T>,
@@ -49,6 +54,11 @@ unsafe fn collect_keys<T, F: FnMut(&T, &T) -> bool>(
     }
 }
 
+/// Sorts `[first, last)`. Port of `detail::Sort`.
+///
+/// # Safety
+///
+/// `first <= last`.
 #[inline(never)]
 pub unsafe fn sort<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T>, f: &mut F) {
     unsafe {

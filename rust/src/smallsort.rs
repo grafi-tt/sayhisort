@@ -1,6 +1,11 @@
 use crate::seqdiv::SequenceDivider;
 use crate::utils::{FwdPtr, Pos};
 
+/// Sorts `LEN` items by stable odd-even sort.
+///
+/// # Safety
+///
+/// `[data, data + LEN)` is valid.
 unsafe fn odd_even_sort<T, F: FnMut(&T, &T) -> bool, const LEN: usize>(data: FwdPtr<T>, f: &mut F) {
     unsafe {
         for i in 0..LEN {
@@ -13,6 +18,11 @@ unsafe fn odd_even_sort<T, F: FnMut(&T, &T) -> bool, const LEN: usize>(data: Fwd
     }
 }
 
+/// Sorts leaf sequences of the bottom-up merge sort.
+///
+/// # Safety
+///
+/// `5 <= seq_len <= 8`, or `seq_len == 4` and `seq_div.next()` never returns true.
 pub unsafe fn sort_leaves<T, F: FnMut(&T, &T) -> bool>(
     mut data: FwdPtr<T>,
     seq_len: usize,
@@ -105,6 +115,11 @@ pub unsafe fn sort_leaves<T, F: FnMut(&T, &T) -> bool>(
     }
 }
 
+/// Sorts `len` items by stable sort.
+///
+/// # Safety
+///
+/// `len <= 8`.
 pub unsafe fn sort_0to8<T, F: FnMut(&T, &T) -> bool>(data: FwdPtr<T>, len: usize, f: &mut F) {
     unsafe {
         if len <= 1 {
@@ -129,6 +144,11 @@ pub unsafe fn sort_0to8<T, F: FnMut(&T, &T) -> bool>(data: FwdPtr<T>, len: usize
     }
 }
 
+/// Sorts `len` items by heapsort, which isn't stable.
+///
+/// # Safety
+///
+/// `len >= 2`.
 pub unsafe fn heap_sort<T, F: FnMut(&T, &T) -> bool>(data: FwdPtr<T>, mut len: usize, f: &mut F) {
     unsafe {
         let left = |i: usize| i * 2 + 1;
