@@ -11,7 +11,7 @@ pub struct SequenceDivider<const FORWARD: bool = true> {
 impl<const FORWARD: bool> SequenceDivider<FORWARD> {
     pub fn new(data_len: usize, log2_num_seqs: usize) -> Self {
         let mut obj = SequenceDivider {
-            log2_num_seqs: log2_num_seqs,
+            log2_num_seqs,
             num_seqs: 1usize << log2_num_seqs,
             remainder: (data_len - 1) % (1usize << log2_num_seqs) + 1,
             frac_counter: 0,

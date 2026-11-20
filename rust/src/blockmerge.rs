@@ -145,7 +145,7 @@ unsafe fn deinterleave_imitation_nobuf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
                 if cur == imit.add(imit_len) || !cur.precede_strict(mid_key, f) {
                     if l_runlength != 0 {
                         num_rl_pairs += 1;
-                        if num_rl_pairs % 2 != 0 {
+                        if !num_rl_pairs.is_multiple_of(2) {
                             let l_run = cur.sub(l_runlength);
                             let r_run = l_run.sub(r_runlength);
                             rotate(r_run, l_run, cur);
@@ -370,7 +370,7 @@ mod tests {
                 }
                 for range in [blocks..blocks + half_len, blocks + half_len..blocks + 2 * half_len] {
                     // Values in [a, a + 40]
-                    let a = if rng.next_u64() % 2 != 0 { 70 } else { 90 };
+                    let a = if !rng.next_u64().is_multiple_of(2) { 70 } else { 90 };
                     for v in &mut ary[range.clone()] {
                         *v = a + rng.below(41) as i32;
                     }
@@ -445,7 +445,7 @@ mod tests {
     fn deinterleave_imitation_inconsistent_comparator_test() {
         let imit_len = 256;
         let mut rng = test_rng();
-        let random_less = &mut |_: &i32, _: &i32| rng.next_u64() % 2 != 0;
+        let random_less = &mut |_: &i32, _: &i32| !rng.next_u64().is_multiple_of(2);
 
         for _ in 0..100 {
             let mut ary: Vec<i32> = (0..imit_len as i32).collect();

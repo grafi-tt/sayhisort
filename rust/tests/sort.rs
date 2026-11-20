@@ -42,8 +42,9 @@ fn sort_by_is_stable() {
     for len in 0..1024 {
         let mut ary = shuffled_with_sentinel(len, &mut rng);
         let mut expected = ary.clone();
-        sayhisort::sort_by(&mut ary[..len], |a, b| (a >> 2).cmp(&(b >> 2)));
-        expected[..len].sort_by(|a, b| (a >> 2).cmp(&(b >> 2)));
+        let compare = |a: &i32, b: &i32| (a >> 2).cmp(&(b >> 2));
+        sayhisort::sort_by(&mut ary[..len], compare);
+        expected[..len].sort_by(compare);
         assert_eq!(ary, expected, "len={len}");
     }
 }
@@ -77,8 +78,9 @@ fn sort_patterns() {
             // Pair with the original index to check stability.
             let mut ary: Vec<(u32, usize)> = data.into_iter().zip(0..).collect();
             let mut expected = ary.clone();
-            sayhisort::sort_by(&mut ary, |a, b| a.0.cmp(&b.0));
-            expected.sort_by(|a, b| a.0.cmp(&b.0));
+            let compare = |a: &(u32, usize), b: &(u32, usize)| a.0.cmp(&b.0);
+            sayhisort::sort_by(&mut ary, compare);
+            expected.sort_by(compare);
             assert!(ary == expected, "pattern={name} len={len}");
         }
     }

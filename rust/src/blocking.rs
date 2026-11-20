@@ -11,7 +11,7 @@ pub fn over_approx_sqrt(x: usize) -> usize {
         }
     }
     let r0 = (1usize << (n - 1)) + ((x - 1) >> (n + 1)) + 1;
-    return (r0 + (x - 1) / r0) / 2 + 1;
+    (r0 + (x - 1) / r0) / 2 + 1
 }
 
 pub struct MergeSortControl {
@@ -30,7 +30,7 @@ impl MergeSortControl {
             imit_len: 0,
             buf_len: 0,
             bufferable_len: 0,
-            data_len: data_len,
+            data_len,
             log2_num_seqs: 1,
             seq_len: 0,
             forward: true,
@@ -64,7 +64,7 @@ impl MergeSortControl {
             self.bufferable_len = 0;
             return old_buf_len;
         }
-        return 0;
+        0
     }
 }
 
@@ -72,6 +72,10 @@ pub fn determine_blocking(ctrl: &MergeSortControl) -> BlockingParam {
     let seq_len = ctrl.seq_len;
 
     let max_num_blocks = ctrl.imit_len + 2;
+    #[expect(
+        clippy::manual_checked_ops,
+        reason = "`buf_len != 0` selects whether the buffer is used, not a guard of the division"
+    )]
     let num_blocks = if ctrl.buf_len != 0 {
         ((seq_len - 1) / ctrl.buf_len + 1) * 2
     } else if ctrl.imit_len == 0 {
@@ -88,8 +92,8 @@ pub fn determine_blocking(ctrl: &MergeSortControl) -> BlockingParam {
     let residual_len = seq_len - block_len * (num_blocks / 2 - 1);
 
     BlockingParam {
-        num_blocks: num_blocks,
-        block_len: block_len,
+        num_blocks,
+        block_len,
         first_block_len: residual_len,
         last_block_len: residual_len,
     }

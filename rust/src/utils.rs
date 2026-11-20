@@ -54,7 +54,7 @@ pub struct FwdPtr<T> {
 
 impl<T> FwdPtr<T> {
     pub fn new(ptr: *mut T) -> Self {
-        FwdPtr { ptr: ptr }
+        FwdPtr { ptr }
     }
     pub fn bwd(self) -> BwdPtr<T> {
         BwdPtr { ptr: self.ptr }
@@ -199,7 +199,7 @@ pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
                 }
                 middle = last.sub(rem);
                 len = l_len;
-                l_len = l_len - rem;
+                l_len -= rem;
                 r_len = rem;
             } else {
                 core::hint::assert_unchecked(r_len != 0);
@@ -217,7 +217,7 @@ pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
                 }
                 middle = first.add(rem);
                 len = r_len;
-                r_len = r_len - rem;
+                r_len -= rem;
                 l_len = rem;
             }
         }
