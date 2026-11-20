@@ -1,34 +1,29 @@
 use core::cmp::Ordering;
 
-/// Type-level boolean selecting strict (`<`) or non-strict (`<=`) comparison.
+/// Type-level boolean, passed as an argument to select a code path at compile time, e.g. strict (`<`) or non-strict
+/// (`<=`) comparison, or whether the merge buffer is used.
 #[derive(Clone, Copy)]
-#[repr(transparent)]
-pub struct StrictHolder<const B: bool>;
+pub struct Flag<const B: bool>;
 
-/// Implemented by [`StrictHolder`] to read its flag and to negate it.
-pub trait StrictFlag: Copy {
+/// Implemented by [`Flag`] to read its value and to negate it.
+pub trait BoolFlag: Copy {
     const FLAG: bool;
-    type Not: StrictFlag;
+    type Not: BoolFlag;
     fn not(self) -> Self::Not;
 }
-impl StrictFlag for StrictHolder<true> {
+impl BoolFlag for Flag<true> {
     const FLAG: bool = true;
-    type Not = StrictHolder<false>;
+    type Not = Flag<false>;
     fn not(self) -> Self::Not {
-        StrictHolder
+        Flag
     }
 }
-impl StrictFlag for StrictHolder<false> {
+impl BoolFlag for Flag<false> {
     const FLAG: bool = false;
-    type Not = StrictHolder<true>;
+    type Not = Flag<true>;
     fn not(self) -> Self::Not {
-        StrictHolder
+        Flag
     }
-}
-
-/// Creates a [`StrictHolder`], for passing the flag as an argument.
-pub fn strict_flag<const FLAG: bool>() -> StrictHolder<FLAG> {
-    StrictHolder::<FLAG> {}
 }
 
 /// Position in a slice, moving forward ([`FwdPtr`]) or backward ([`BwdPtr`]).
@@ -49,10 +44,10 @@ pub trait Pos<T>: Copy + Ord {
         }
     }
     /// Whether the item at `self` comes before the one at `other`, by `<` if `S` is strict and by `<=` otherwise.
-    unsafe fn precede<F: FnMut(&T, &T) -> bool, S: StrictFlag>(self, other: Self, f: &mut F, strict: S) -> bool;
+    unsafe fn precede<F: FnMut(&T, &T) -> bool, S: BoolFlag>(self, other: Self, f: &mut F, strict: S) -> bool;
     /// Same as [`Pos::precede`] with strict comparison.
     unsafe fn precede_strict<F: FnMut(&T, &T) -> bool>(self, other: Self, f: &mut F) -> bool {
-        unsafe { self.precede(other, f, strict_flag::<true>()) }
+        unsafe { self.precede(other, f, Flag::<true>) }
     }
 }
 
@@ -113,7 +108,7 @@ impl<T> Pos<T> for FwdPtr<T> {
     unsafe fn offset_from_unsigned(self, origin: Self) -> usize {
         unsafe { self.ptr.offset_from_unsigned(origin.ptr) }
     }
-    unsafe fn precede<F: FnMut(&T, &T) -> bool, S: StrictFlag>(self, other: Self, f: &mut F, _strict: S) -> bool {
+    unsafe fn precede<F: FnMut(&T, &T) -> bool, S: BoolFlag>(self, other: Self, f: &mut F, _strict: S) -> bool {
         unsafe {
             if S::FLAG {
                 f(&*self.ptr, &*other.ptr)
@@ -178,7 +173,7 @@ impl<T> Pos<T> for BwdPtr<T> {
     unsafe fn swap(self, other: Self) {
         unsafe { core::ptr::swap(self.ptr.sub(1), other.ptr.sub(1)) }
     }
-    unsafe fn precede<F: FnMut(&T, &T) -> bool, S: StrictFlag>(self, other: Self, f: &mut F, _strict: S) -> bool {
+    unsafe fn precede<F: FnMut(&T, &T) -> bool, S: BoolFlag>(self, other: Self, f: &mut F, _strict: S) -> bool {
         unsafe {
             if S::FLAG {
                 f(&*other.ptr.sub(1), &*self.ptr.sub(1))
@@ -276,7 +271,7 @@ pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
 /// # Safety
 ///
 /// `first < last`.
-pub unsafe fn binary_search<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFlag>(
+pub unsafe fn binary_search<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: BoolFlag>(
     first: P,
     last: P,
     key: P,
@@ -333,10 +328,10 @@ mod tests {
                     let first = FwdPtr::new(start);
                     let last = first.add(16);
                     let middle = first.add(i as usize);
-                    let it = binary_search(first, middle, last, &mut |a, b| a.lt(b), strict_flag::<true>());
+                    let it = binary_search(first, middle, last, &mut |a, b| a.lt(b), Flag::<true>);
                     let idx = it.offset_from_unsigned(first);
                     assert_eq!(idx, std::cmp::max(0, j) as usize);
-                    let it2 = binary_search(first, middle, last, &mut |a, b| a.lt(b), strict_flag::<false>());
+                    let it2 = binary_search(first, middle, last, &mut |a, b| a.lt(b), Flag::<false>);
                     let idx2 = it2.offset_from_unsigned(first);
                     assert_eq!(idx2, std::cmp::min(j + 1, i) as usize);
                 }

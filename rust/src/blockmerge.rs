@@ -1,5 +1,5 @@
 use crate::merge::{merge_with_buf, merge_without_buf};
-use crate::utils::{Pos, rotate, strict_flag};
+use crate::utils::{BoolFlag, Flag, Pos, rotate};
 
 /// Interleaves blocks from two sorted sequences, so that blocks are sorted by their first items.
 ///
@@ -206,13 +206,14 @@ pub struct BlockingParam {
 /// # Safety
 ///
 /// Same as [`merge_blocking`]. `mid_key` is the position returned by [`interleave_blocks`].
-unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HAS_BUF: bool>(
+unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, B: BoolFlag>(
     mut imit: P,
     buf: &mut P,
     blocks: P,
     p: &BlockingParam,
     mid_key: P,
     f: &mut F,
+    _has_buf: B,
 ) {
     unsafe {
         let mut num_remained_blocks = p.num_blocks;
@@ -254,7 +255,7 @@ unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HA
             }
 
             if xs != last_block_before_ys {
-                if HAS_BUF {
+                if B::FLAG {
                     if num_remained_blocks != 0 {
                         loop {
                             buf.swap_incr(&mut xs);
@@ -274,17 +275,17 @@ unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HA
                 }
             }
 
-            let mr = if HAS_BUF {
+            let mr = if B::FLAG {
                 if xs_origin == BlockOrigin::Left {
-                    merge_with_buf(buf, xs, ys, ys_last, f, strict_flag::<false>())
+                    merge_with_buf(buf, xs, ys, ys_last, f, Flag::<false>)
                 } else {
-                    merge_with_buf(buf, xs, ys, ys_last, f, strict_flag::<true>())
+                    merge_with_buf(buf, xs, ys, ys_last, f, Flag::<true>)
                 }
             } else {
                 if xs_origin == BlockOrigin::Left {
-                    merge_without_buf(xs, ys, ys_last, f, strict_flag::<false>())
+                    merge_without_buf(xs, ys, ys_last, f, Flag::<false>)
                 } else {
-                    merge_without_buf(xs, ys, ys_last, f, strict_flag::<true>())
+                    merge_without_buf(xs, ys, ys_last, f, Flag::<true>)
                 }
             };
 
@@ -303,7 +304,7 @@ unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HA
             }
         }
 
-        if HAS_BUF {
+        if B::FLAG {
             while xs != ys {
                 buf.swap_incr(&mut xs);
             }
@@ -318,22 +319,23 @@ unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HA
 /// * `[imit, imit + p.num_blocks - 2)` holds unique keys in ascending order.
 /// * The sequences start at `blocks`, and consist of `(p.num_blocks - 2) / 2` blocks of `p.block_len` items, plus
 ///   `p.first_block_len` and `p.last_block_len` items respectively, which are positive.
-/// * If `HAS_BUF`, `[*buf, *buf + p.block_len)` is the buffer just before `blocks`. It moves to just after the merged
+/// * If `B::FLAG`, `[*buf, *buf + p.block_len)` is the buffer just before `blocks`. It moves to just after the merged
 ///   sequence.
-pub unsafe fn merge_blocking<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HAS_BUF: bool>(
+pub unsafe fn merge_blocking<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, B: BoolFlag>(
     imit: P,
     buf: &mut P,
     blocks: P,
     p: &BlockingParam,
     f: &mut F,
+    has_buf: B,
 ) {
     unsafe {
         let imit_len = p.num_blocks - 2;
         let mid_key = interleave_blocks(imit, blocks.add(p.first_block_len), imit_len, p.block_len, f);
 
-        merge_adjacent_blocks::<_, _, _, HAS_BUF>(imit, buf, blocks, p, mid_key, f);
+        merge_adjacent_blocks(imit, buf, blocks, p, mid_key, f, has_buf);
 
-        if HAS_BUF {
+        if B::FLAG {
             deinterleave_imitation(imit, imit_len, *buf, mid_key, f);
         } else {
             deinterleave_imitation_nobuf(imit, imit_len, mid_key, f);
@@ -547,23 +549,25 @@ mod tests {
                     );
                     let mut buf_pos = base.add(buf);
                     if has_buf {
-                        merge_adjacent_blocks::<_, _, _, true>(
+                        merge_adjacent_blocks(
                             base.add(imit),
                             &mut buf_pos,
                             base.add(lseq),
                             p,
                             mid_key,
                             less,
+                            Flag::<true>,
                         );
                         assert_eq!(buf_pos.offset_from_unsigned(base), ary_len - buf_len);
                     } else {
-                        merge_adjacent_blocks::<_, _, _, false>(
+                        merge_adjacent_blocks(
                             base.add(imit),
                             &mut buf_pos,
                             base.add(lseq),
                             p,
                             mid_key,
                             less,
+                            Flag::<false>,
                         );
                         rotate(base.add(buf), base.add(lseq), base.add(ary_len));
                     }
@@ -631,10 +635,10 @@ mod tests {
                 unsafe {
                     let mut buf_pos = base.add(buf);
                     if has_buf {
-                        merge_blocking::<_, _, _, true>(base.add(imit), &mut buf_pos, base.add(lseq), p, less);
+                        merge_blocking(base.add(imit), &mut buf_pos, base.add(lseq), p, less, Flag::<true>);
                         assert_eq!(buf_pos.offset_from_unsigned(base), ary_len - buf_len);
                     } else {
-                        merge_blocking::<_, _, _, false>(base.add(imit), &mut buf_pos, base.add(lseq), p, less);
+                        merge_blocking(base.add(imit), &mut buf_pos, base.add(lseq), p, less, Flag::<false>);
                         rotate(base.add(buf), base.add(lseq), base.add(ary_len));
                     }
                 }

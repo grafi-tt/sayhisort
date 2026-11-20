@@ -2,7 +2,7 @@ use crate::blocking::{MergeSortControl, determine_blocking, over_approx_sqrt};
 use crate::merge::merge_without_buf;
 use crate::seqdiv::{SequenceDivider, merge_one_level};
 use crate::smallsort::{heap_sort, sort_0to8, sort_leaves};
-use crate::utils::{FwdPtr, Pos, binary_search, rotate, strict_flag};
+use crate::utils::{Flag, FwdPtr, Pos, binary_search, rotate};
 
 /// Collects unique keys to the start of `[first, last)` in ascending order, and returns the number of them.
 ///
@@ -22,7 +22,7 @@ unsafe fn collect_keys<T, F: FnMut(&T, &T) -> bool>(
         num_desired_keys -= 1;
 
         loop {
-            let mut inspos = binary_search(keys, keys_last, cur, f, strict_flag::<true>());
+            let mut inspos = binary_search(keys, keys_last, cur, f, Flag::<true>);
             if inspos == keys_last || cur.precede_strict(inspos, f) {
                 let distance = cur.offset_from_unsigned(keys_last);
                 if distance != 0 {
@@ -96,7 +96,7 @@ pub unsafe fn sort<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T
             if ctrl.forward {
                 let mut seqdiv = SequenceDivider::<true>::new(ctrl.data_len, ctrl.log2_num_seqs);
                 if ctrl.buf_len != 0 {
-                    merge_one_level::<_, _, true, true>(
+                    merge_one_level(
                         imit,
                         imit.add(ctrl.imit_len),
                         data,
@@ -104,9 +104,10 @@ pub unsafe fn sort<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T
                         &mut seqdiv,
                         p,
                         f,
+                        Flag::<true>,
                     );
                 } else {
-                    merge_one_level::<_, _, false, true>(
+                    merge_one_level(
                         imit,
                         imit.add(ctrl.imit_len),
                         data,
@@ -114,11 +115,12 @@ pub unsafe fn sort<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T
                         &mut seqdiv,
                         p,
                         f,
+                        Flag::<false>,
                     );
                 }
             } else {
                 let mut seqdiv = SequenceDivider::<false>::new(ctrl.data_len, ctrl.log2_num_seqs);
-                merge_one_level::<_, _, true, false>(
+                merge_one_level(
                     imit,
                     last,
                     last.sub(ctrl.buf_len),
@@ -126,6 +128,7 @@ pub unsafe fn sort<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T
                     &mut seqdiv,
                     p,
                     f,
+                    Flag::<true>,
                 );
             }
 
@@ -151,7 +154,7 @@ pub unsafe fn sort<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T
         }
 
         if first != data {
-            merge_without_buf(first, data, last, f, strict_flag::<false>());
+            merge_without_buf(first, data, last, f, Flag::<false>);
         }
     }
 }

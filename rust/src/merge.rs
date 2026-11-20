@@ -1,4 +1,4 @@
-use crate::utils::{Pos, StrictFlag, binary_search, rotate};
+use crate::utils::{BoolFlag, Pos, binary_search, rotate};
 
 /// Result of [`merge_with_buf`] and [`merge_without_buf`]: whether `xs` is fully consumed, and the position of the
 /// items not merged yet.
@@ -17,7 +17,7 @@ pub struct MergeResult<P> {
 /// * `ys_last - ys <= xs - buf`.
 // Inlining into `merge_adjacent_blocks` is near LLVM's threshold and otherwise depends on the caller crate.
 #[inline(always)]
-pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFlag>(
+pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: BoolFlag>(
     buf: &mut P,
     mut xs: P,
     mut ys: P,
@@ -104,7 +104,7 @@ pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFl
 /// # Safety
 ///
 /// `xs < ys < ys_last`.
-pub unsafe fn merge_without_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFlag>(
+pub unsafe fn merge_without_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: BoolFlag>(
     mut xs: P,
     mut ys: P,
     ys_last: P,
@@ -141,7 +141,7 @@ pub unsafe fn merge_without_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: Stric
 mod tests {
     use super::*;
     use crate::test_util::test_rng;
-    use crate::utils::{FwdPtr, strict_flag};
+    use crate::utils::{Flag, FwdPtr};
 
     struct NaiveResult {
         buf: usize,
@@ -216,7 +216,7 @@ mod tests {
                         base.add(ys),
                         base.add(ys_last),
                         &mut |a: &i32, b: &i32| a < b,
-                        strict_flag::<false>(),
+                        Flag::<false>,
                     );
                     (
                         buf.offset_from_unsigned(base),
@@ -298,7 +298,7 @@ mod tests {
                         base.add(ys),
                         base.add(ys_last),
                         &mut |a: &i32, b: &i32| a < b,
-                        strict_flag::<false>(),
+                        Flag::<false>,
                     );
                     (result.xs_consumed, result.rest.offset_from_unsigned(base))
                 };

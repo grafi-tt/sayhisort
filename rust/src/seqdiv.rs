@@ -1,5 +1,5 @@
 use crate::blockmerge::{BlockingParam, merge_blocking};
-use crate::utils::{FwdPtr, Pos};
+use crate::utils::{BoolFlag, FwdPtr, Pos};
 
 /// Helper to evenly divide data whose length may not be a power of 2. If `FORWARD` is false, sequences are yielded
 /// from the end.
@@ -51,7 +51,7 @@ impl<const FORWARD: bool> SequenceDivider<FORWARD> {
 /// * `seq_len`, `seq_div` and `p` are consistent with the length of the data, as computed by
 ///   [`MergeSortControl`](crate::blocking::MergeSortControl) and
 ///   [`determine_blocking`](crate::blocking::determine_blocking).
-pub unsafe fn merge_one_level<T, F: FnMut(&T, &T) -> bool, const HAS_BUF: bool, const FORWARD: bool>(
+pub unsafe fn merge_one_level<T, F: FnMut(&T, &T) -> bool, B: BoolFlag, const FORWARD: bool>(
     imit: FwdPtr<T>,
     mut buf: FwdPtr<T>,
     mut data: FwdPtr<T>,
@@ -59,6 +59,7 @@ pub unsafe fn merge_one_level<T, F: FnMut(&T, &T) -> bool, const HAS_BUF: bool, 
     seq_div: &mut SequenceDivider<FORWARD>,
     mut p: BlockingParam,
     f: &mut F,
+    has_buf: B,
 ) {
     unsafe {
         let residual_len = p.first_block_len;
@@ -70,11 +71,18 @@ pub unsafe fn merge_one_level<T, F: FnMut(&T, &T) -> bool, const HAS_BUF: bool, 
             p.last_block_len = residual_len - rseq_decr as usize;
 
             if FORWARD {
-                merge_blocking::<_, _, _, HAS_BUF>(imit, &mut buf, data, &p, f);
+                merge_blocking(imit, &mut buf, data, &p, f, has_buf);
                 data = data.add(merging_len);
             } else {
                 let mut bwd_buf = buf.bwd();
-                merge_blocking::<_, _, _, HAS_BUF>(imit.add(p.num_blocks - 2).bwd(), &mut bwd_buf, data.bwd(), &p, f);
+                merge_blocking(
+                    imit.add(p.num_blocks - 2).bwd(),
+                    &mut bwd_buf,
+                    data.bwd(),
+                    &p,
+                    f,
+                    has_buf,
+                );
                 buf = bwd_buf.fwd();
                 data = data.sub(merging_len);
             }
@@ -89,6 +97,7 @@ pub unsafe fn merge_one_level<T, F: FnMut(&T, &T) -> bool, const HAS_BUF: bool, 
 mod tests {
     use super::*;
     use crate::test_util::test_rng;
+    use crate::utils::Flag;
 
     #[test]
     fn merge_one_level_test() {
@@ -150,24 +159,26 @@ mod tests {
                 let f = &mut |a: &i32, b: &i32| comp(a, b);
                 unsafe {
                     if forward {
-                        merge_one_level::<_, _, true, true>(
+                        merge_one_level(
                             base,
                             base.add(imit_len),
                             base.add(data),
                             150,
-                            &mut SequenceDivider::new(data_len, 2),
+                            &mut SequenceDivider::<true>::new(data_len, 2),
                             BlockingParam { ..p },
                             f,
+                            Flag::<true>,
                         );
                     } else {
-                        merge_one_level::<_, _, true, false>(
+                        merge_one_level(
                             base,
                             base.add(ary_len),
                             base.add(ary_len - buf_len),
                             150,
-                            &mut SequenceDivider::new(data_len, 2),
+                            &mut SequenceDivider::<false>::new(data_len, 2),
                             BlockingParam { ..p },
                             f,
+                            Flag::<true>,
                         );
                     }
                 }
