@@ -99,6 +99,12 @@ private:
 template <typename Iterator>
 ReversedIterator(Iterator) -> ReversedIterator<Iterator>;
 
+// Whether `Iterator` moves forward. Code generic over the direction uses it, e.g. to divide sequences from the end.
+template <typename Iterator>
+constexpr bool kForward = true;
+template <typename Iterator>
+constexpr bool kForward<ReversedIterator<Iterator>> = false;
+
 /**
  * @brief Identity projection, used when no projection is given.
  */
@@ -1141,33 +1147,31 @@ struct SequenceDivider {
     SsizeT frac_counter;
 };
 
-template <bool has_buf, bool forward, typename Iterator, typename Comp, typename Proj>
+/**
+ * @brief Merge each pair of adjacent sequences, doubling the sequence length.
+ *
+ * The layout is `[imit | buf | data]` in the direction of `Iterator`. If `Iterator` is `ReversedIterator`, the
+ * sequences are divided from the end, and `imit` is the start of the reversed imitation buffer.
+ */
+template <bool has_buf, typename Iterator, typename Comp, typename Proj>
 #if defined(__GNUC__) && !defined(__clang__)
 __attribute__((flatten))  // It seems clang behaves strangely with this attribute
 #endif
-SAYHISORT_CONSTEXPR_SWAP void MergeOneLevel(Iterator imit, Iterator buf, Iterator data, diff_t<Iterator> seq_len,
-                                            SequenceDivider<diff_t<Iterator>, forward> seq_div,
+SAYHISORT_CONSTEXPR_SWAP void MergeOneLevel(Iterator imit, Iterator buf, Iterator data,
+                                            const MergeSortControl<diff_t<Iterator>>& ctrl,
                                             BlockingParam<diff_t<Iterator>> p, IterComp<Comp, Proj> iter_comp) {
     SAYHISORT_PERF_TRACE("MergeOneLevel");
+    SequenceDivider<diff_t<Iterator>, kForward<Iterator>> seq_div{ctrl.data_len, ctrl.log2_num_seqs};
     diff_t<Iterator> residual_len = p.first_block_len;
     do {
         bool lseq_decr = seq_div.Next();
         bool rseq_decr = seq_div.Next();
-        diff_t<Iterator> merging_len = (seq_len - lseq_decr) + (seq_len - rseq_decr);
+        diff_t<Iterator> merging_len = (ctrl.seq_len - lseq_decr) + (ctrl.seq_len - rseq_decr);
         p.first_block_len = residual_len - lseq_decr;
         p.last_block_len = residual_len - rseq_decr;
 
-        if constexpr (forward) {
-            MergeBlocking<has_buf>(imit, buf, data, p, iter_comp);
-            data += merging_len;
-        } else {
-            auto rev_imit = ReversedIterator{imit + p.num_blocks - 2};
-            auto rev_buf = ReversedIterator{buf};
-            auto rev_data = ReversedIterator{data};
-            MergeBlocking<has_buf>(rev_imit, rev_buf, rev_data, p, iter_comp);
-            buf = rev_buf.base;
-            data -= merging_len;
-        }
+        MergeBlocking<has_buf>(imit, buf, data, p, iter_comp);
+        data += merging_len;
     } while (!seq_div.IsEnd());
 }
 
@@ -1514,15 +1518,15 @@ SAYHISORT_CONSTEXPR_SWAP Iterator Sort(Iterator first, Iterator last, IterComp<C
         BlockingParam p = DetermineBlocking(ctrl);
 
         if (ctrl.forward) {
-            SequenceDivider<diff_t<Iterator>, true> seq_div{ctrl.data_len, ctrl.log2_num_seqs};
             if (ctrl.buf_len) {
-                MergeOneLevel<true>(imit, imit + ctrl.imit_len, data, ctrl.seq_len, seq_div, p, iter_comp);
+                MergeOneLevel<true>(imit, imit + ctrl.imit_len, data, ctrl, p, iter_comp);
             } else {
-                MergeOneLevel<false>(imit, imit + ctrl.imit_len, data, ctrl.seq_len, seq_div, p, iter_comp);
+                MergeOneLevel<false>(imit, imit + ctrl.imit_len, data, ctrl, p, iter_comp);
             }
         } else {
-            SequenceDivider<diff_t<Iterator>, false> seq_div{ctrl.data_len, ctrl.log2_num_seqs};
-            MergeOneLevel<true>(imit, last, last - ctrl.buf_len, ctrl.seq_len, seq_div, p, iter_comp);
+            // Layout: [ imit | data | buf ], which is [ buf | data | imit ] when reversed.
+            MergeOneLevel<true>(ReversedIterator{imit + p.num_blocks - 2}, ReversedIterator{last},
+                                ReversedIterator{last - ctrl.buf_len}, ctrl, p, iter_comp);
         }
 
         if (diff_t<Iterator> old_buf_len = ctrl.Next()) {

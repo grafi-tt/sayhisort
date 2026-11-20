@@ -31,6 +31,8 @@ impl BoolFlag for Flag<false> {
 /// Generic code written for `Pos` works in both directions, like iterators and `ReversedIterator` in C++. Comparison
 /// of positions and of items follows the direction, so a backward scan sees the slice reversed.
 pub trait Pos<T>: Copy + Ord {
+    /// Whether the position moves forward, like `kForward` in C++.
+    type Forward: BoolFlag;
     unsafe fn add(self, d: usize) -> Self;
     unsafe fn sub(self, d: usize) -> Self;
     unsafe fn offset_from_unsigned(self, origin: Self) -> usize;
@@ -92,6 +94,7 @@ impl<T> PartialOrd for FwdPtr<T> {
 }
 
 impl<T> Pos<T> for FwdPtr<T> {
+    type Forward = Flag<true>;
     unsafe fn add(self, d: usize) -> Self {
         FwdPtr {
             ptr: unsafe { self.ptr.add(d) },
@@ -125,12 +128,6 @@ pub struct BwdPtr<T> {
     ptr: *mut T,
 }
 
-impl<T> BwdPtr<T> {
-    pub fn fwd(self) -> FwdPtr<T> {
-        FwdPtr { ptr: self.ptr }
-    }
-}
-
 impl<T> Clone for BwdPtr<T> {
     fn clone(&self) -> Self {
         *self
@@ -157,6 +154,7 @@ impl<T> PartialOrd for BwdPtr<T> {
 }
 
 impl<T> Pos<T> for BwdPtr<T> {
+    type Forward = Flag<false>;
     unsafe fn add(self, d: usize) -> Self {
         BwdPtr {
             ptr: unsafe { self.ptr.sub(d) },

@@ -676,6 +676,9 @@ TEST(SayhiSortTest, MergeOneLevel) {
     SsizeT imit_len = 14;
     SsizeT buf_len = 19;
     SsizeT ary_len = imit_len + buf_len + 599;
+    MergeSortControl<SsizeT> ctrl{0, 599};
+    ctrl.log2_num_seqs = 2;
+    ctrl.seq_len = 150;
 
     std::vector<int> ary(ary_len);
     std::vector<int> expected(ary_len);
@@ -704,8 +707,7 @@ TEST(SayhiSortTest, MergeOneLevel) {
         std::stable_sort(edata + 299, edata + 599, comp);
         std::fill(expected.end() - buf_len, expected.end(), 42);
 
-        MergeOneLevel<true, true>(ary.begin(), ary.begin() + imit_len, data, 150, {SsizeT{599}, SsizeT{2}}, p,
-                                  IterComp{comp, Identity{}});
+        MergeOneLevel<true>(ary.begin(), ary.begin() + imit_len, data, ctrl, p, IterComp{comp, Identity{}});
         EXPECT_EQ(ary, expected);
     };
 
@@ -731,8 +733,8 @@ TEST(SayhiSortTest, MergeOneLevel) {
         std::stable_sort(edata, edata + 299, comp);
         std::stable_sort(edata + 299, edata + 599, comp);
 
-        MergeOneLevel<true, false>(ary.begin(), ary.end(), ary.end() - buf_len, 150, {SsizeT{599}, SsizeT{2}}, p,
-                                   IterComp{comp, Identity{}});
+        MergeOneLevel<true>(ReversedIterator{ary.begin() + p.num_blocks - 2}, ReversedIterator{ary.end()},
+                            ReversedIterator{ary.end() - buf_len}, ctrl, p, IterComp{comp, Identity{}});
         EXPECT_EQ(ary, expected);
     };
 

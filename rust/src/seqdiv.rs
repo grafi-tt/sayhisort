@@ -1,24 +1,29 @@
-use crate::blockmerge::{BlockingParam, merge_blocking};
-use crate::utils::{BoolFlag, FwdPtr, Pos};
+use core::marker::PhantomData;
 
-/// Helper to evenly divide data whose length may not be a power of 2. If `FORWARD` is false, sequences are yielded
+use crate::blocking::MergeSortControl;
+use crate::blockmerge::{BlockingParam, merge_blocking};
+use crate::utils::{BoolFlag, Flag, Pos};
+
+/// Helper to evenly divide data whose length may not be a power of 2. If `D::FLAG` is false, sequences are yielded
 /// from the end.
-pub struct SequenceDivider<const FORWARD: bool = true> {
+pub struct SequenceDivider<D: BoolFlag = Flag<true>> {
     log2_num_seqs: usize,
     num_seqs: usize,
     remainder: usize,
     frac_counter: usize,
+    forward: PhantomData<D>,
 }
 
-impl<const FORWARD: bool> SequenceDivider<FORWARD> {
+impl<D: BoolFlag> SequenceDivider<D> {
     pub fn new(data_len: usize, log2_num_seqs: usize) -> Self {
         let mut obj = SequenceDivider {
             log2_num_seqs,
             num_seqs: 1usize << log2_num_seqs,
             remainder: (data_len - 1) % (1usize << log2_num_seqs) + 1,
             frac_counter: 0,
+            forward: PhantomData,
         };
-        if !FORWARD {
+        if !D::FLAG {
             obj.remainder = obj.num_seqs - obj.remainder;
         }
         obj
@@ -28,7 +33,7 @@ impl<const FORWARD: bool> SequenceDivider<FORWARD> {
     pub fn next(&mut self) -> bool {
         self.frac_counter += self.remainder;
         let mut no_carry = (self.frac_counter & (1usize << self.log2_num_seqs)) == 0;
-        if !FORWARD {
+        if !D::FLAG {
             no_carry = !no_carry;
         }
         self.frac_counter &= (1usize << self.log2_num_seqs) - 1;
@@ -46,46 +51,30 @@ impl<const FORWARD: bool> SequenceDivider<FORWARD> {
 ///
 /// # Safety
 ///
-/// * The layout is `[imit | buf | data]` if `FORWARD`, and `[imit | data | buf]` otherwise, where `buf` and `data`
-///   are the start of the buffer and the data for the former, and the end of them for the latter.
-/// * `seq_len`, `seq_div` and `p` are consistent with the length of the data, as computed by
-///   [`MergeSortControl`](crate::blocking::MergeSortControl) and
-///   [`determine_blocking`](crate::blocking::determine_blocking).
-pub unsafe fn merge_one_level<T, F: FnMut(&T, &T) -> bool, B: BoolFlag, const FORWARD: bool>(
-    imit: FwdPtr<T>,
-    mut buf: FwdPtr<T>,
-    mut data: FwdPtr<T>,
-    seq_len: usize,
-    seq_div: &mut SequenceDivider<FORWARD>,
+/// * The layout is `[imit | buf | data]` in the direction of `P`. If `P` is [`BwdPtr`](crate::utils::BwdPtr), the
+///   sequences are divided from the end, and `imit` is the start of the reversed imitation buffer.
+/// * `p` is computed from `ctrl` by [`determine_blocking`](crate::blocking::determine_blocking).
+pub unsafe fn merge_one_level<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, B: BoolFlag>(
+    imit: P,
+    mut buf: P,
+    mut data: P,
+    ctrl: &MergeSortControl,
     mut p: BlockingParam,
     f: &mut F,
     has_buf: B,
 ) {
     unsafe {
+        let mut seq_div = SequenceDivider::<P::Forward>::new(ctrl.data_len, ctrl.log2_num_seqs);
         let residual_len = p.first_block_len;
         loop {
             let lseq_decr = seq_div.next();
             let rseq_decr = seq_div.next();
-            let merging_len = (seq_len - lseq_decr as usize) + (seq_len - rseq_decr as usize);
+            let merging_len = (ctrl.seq_len - lseq_decr as usize) + (ctrl.seq_len - rseq_decr as usize);
             p.first_block_len = residual_len - lseq_decr as usize;
             p.last_block_len = residual_len - rseq_decr as usize;
 
-            if FORWARD {
-                merge_blocking(imit, &mut buf, data, &p, f, has_buf);
-                data = data.add(merging_len);
-            } else {
-                let mut bwd_buf = buf.bwd();
-                merge_blocking(
-                    imit.add(p.num_blocks - 2).bwd(),
-                    &mut bwd_buf,
-                    data.bwd(),
-                    &p,
-                    f,
-                    has_buf,
-                );
-                buf = bwd_buf.fwd();
-                data = data.sub(merging_len);
-            }
+            merge_blocking(imit, &mut buf, data, &p, f, has_buf);
+            data = data.add(merging_len);
             if seq_div.is_end() {
                 break;
             }
@@ -97,7 +86,7 @@ pub unsafe fn merge_one_level<T, F: FnMut(&T, &T) -> bool, B: BoolFlag, const FO
 mod tests {
     use super::*;
     use crate::test_util::test_rng;
-    use crate::utils::Flag;
+    use crate::utils::FwdPtr;
 
     #[test]
     fn merge_one_level_test() {
@@ -111,6 +100,9 @@ mod tests {
         let buf_len = 19;
         let data_len = 599;
         let ary_len = imit_len + buf_len + data_len;
+        let mut ctrl = MergeSortControl::new(0, data_len);
+        ctrl.log2_num_seqs = 2;
+        ctrl.seq_len = 150;
         let mut rng = test_rng();
 
         let less: fn(&i32, &i32) -> bool = |a, b| a < b;
@@ -163,19 +155,17 @@ mod tests {
                             base,
                             base.add(imit_len),
                             base.add(data),
-                            150,
-                            &mut SequenceDivider::<true>::new(data_len, 2),
+                            &ctrl,
                             BlockingParam { ..p },
                             f,
                             Flag::<true>,
                         );
                     } else {
                         merge_one_level(
-                            base,
-                            base.add(ary_len),
-                            base.add(ary_len - buf_len),
-                            150,
-                            &mut SequenceDivider::<false>::new(data_len, 2),
+                            base.add(p.num_blocks - 2).bwd(),
+                            base.add(ary_len).bwd(),
+                            base.add(ary_len - buf_len).bwd(),
+                            &ctrl,
                             BlockingParam { ..p },
                             f,
                             Flag::<true>,

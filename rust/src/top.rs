@@ -94,38 +94,18 @@ pub unsafe fn sort<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T
             let p = determine_blocking(&ctrl);
 
             if ctrl.forward {
-                let mut seqdiv = SequenceDivider::<true>::new(ctrl.data_len, ctrl.log2_num_seqs);
                 if ctrl.buf_len != 0 {
-                    merge_one_level(
-                        imit,
-                        imit.add(ctrl.imit_len),
-                        data,
-                        ctrl.seq_len,
-                        &mut seqdiv,
-                        p,
-                        f,
-                        Flag::<true>,
-                    );
+                    merge_one_level(imit, imit.add(ctrl.imit_len), data, &ctrl, p, f, Flag::<true>);
                 } else {
-                    merge_one_level(
-                        imit,
-                        imit.add(ctrl.imit_len),
-                        data,
-                        ctrl.seq_len,
-                        &mut seqdiv,
-                        p,
-                        f,
-                        Flag::<false>,
-                    );
+                    merge_one_level(imit, imit.add(ctrl.imit_len), data, &ctrl, p, f, Flag::<false>);
                 }
             } else {
-                let mut seqdiv = SequenceDivider::<false>::new(ctrl.data_len, ctrl.log2_num_seqs);
+                // Layout: [ imit | data | buf ], which is [ buf | data | imit ] when reversed.
                 merge_one_level(
-                    imit,
-                    last,
-                    last.sub(ctrl.buf_len),
-                    ctrl.seq_len,
-                    &mut seqdiv,
+                    imit.add(p.num_blocks - 2).bwd(),
+                    last.bwd(),
+                    last.sub(ctrl.buf_len).bwd(),
+                    &ctrl,
                     p,
                     f,
                     Flag::<true>,
