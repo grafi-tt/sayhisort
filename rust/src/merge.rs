@@ -20,19 +20,11 @@ pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFl
 
         while xs < xs_last.sub(1) && ys < ys_last.sub(1) {
             if xs.add(1).precede(ys, f, is_xs_from_right) {
-                buf.swap(xs);
-                *buf = buf.add(1);
-                xs = xs.add(1);
-                buf.swap(xs);
-                *buf = buf.add(1);
-                xs = xs.add(1);
+                buf.swap_incr(&mut xs);
+                buf.swap_incr(&mut xs);
             } else if !xs.precede(ys.add(1), f, is_xs_from_right) {
-                buf.swap(ys);
-                *buf = buf.add(1);
-                ys = ys.add(1);
-                buf.swap(ys);
-                *buf = buf.add(1);
-                ys = ys.add(1);
+                buf.swap_incr(&mut ys);
+                buf.swap_incr(&mut ys);
             } else {
                 let y_pos = xs.precede(ys, f, is_xs_from_right);
                 buf.add(!y_pos as usize).swap(xs);
@@ -49,15 +41,11 @@ pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFl
             xs_consumed = false;
             loop {
                 if xs.precede(ys, f, is_xs_from_right) {
-                    buf.swap(xs);
-                    *buf = buf.add(1);
-                    xs = xs.add(1);
+                    buf.swap_incr(&mut xs);
                     xs_consumed = true;
                     break;
                 }
-                buf.swap(ys);
-                *buf = buf.add(1);
-                ys = ys.add(1);
+                buf.swap_incr(&mut ys);
                 if ys == ys_last {
                     break;
                 }
@@ -66,15 +54,11 @@ pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: StrictFl
             xs_consumed = true;
             loop {
                 if !xs.precede(ys, f, is_xs_from_right) {
-                    buf.swap(ys);
-                    *buf = buf.add(1);
-                    ys = ys.add(1);
+                    buf.swap_incr(&mut ys);
                     xs_consumed = false;
                     break;
                 }
-                buf.swap(xs);
-                *buf = buf.add(1);
-                xs = xs.add(1);
+                buf.swap_incr(&mut xs);
                 if xs == xs_last {
                     break;
                 }

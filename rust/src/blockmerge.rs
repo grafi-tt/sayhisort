@@ -19,9 +19,7 @@ unsafe fn interleave_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
             }
             let mut i = block_len;
             loop {
-                a.swap(b);
-                a = a.add(1);
-                b = b.add(1);
+                a.swap_incr(&mut b);
                 i -= 1;
                 if i == 0 {
                     break;
@@ -108,20 +106,14 @@ unsafe fn deinterleave_imitation<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
 
         while cur != imit.add(imit_len) {
             if cur.precede_strict(mid_key, f) {
-                left_cur.swap(cur);
-                left_cur = left_cur.add(1);
-                cur = cur.add(1);
+                left_cur.swap_incr(&mut cur);
             } else {
-                right_cur.swap(cur);
-                right_cur = right_cur.add(1);
-                cur = cur.add(1);
+                right_cur.swap_incr(&mut cur);
             }
         }
 
         loop {
-            left_cur.swap(buf);
-            left_cur = left_cur.add(1);
-            buf = buf.add(1);
+            left_cur.swap_incr(&mut buf);
             if buf == right_cur {
                 break;
             }
@@ -238,9 +230,7 @@ unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HA
                 if HAS_BUF {
                     if num_remained_blocks != 0 {
                         loop {
-                            buf.swap(xs);
-                            *buf = buf.add(1);
-                            xs = xs.add(1);
+                            buf.swap_incr(&mut xs);
                             if xs == last_block_before_ys.add(1) {
                                 break;
                             }
@@ -288,9 +278,7 @@ unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, const HA
 
         if HAS_BUF {
             while xs != ys {
-                buf.swap(xs);
-                *buf = buf.add(1);
-                xs = xs.add(1);
+                buf.swap_incr(&mut xs);
             }
         }
     }

@@ -123,13 +123,11 @@ pub unsafe fn sort<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T
             if old_buf_len != 0 {
                 let buf = data.sub(old_buf_len);
                 if !ctrl.forward {
-                    let mut back_buf = last;
-                    let mut back_data = last.sub(old_buf_len);
+                    let mut back_buf = last.bwd();
+                    let mut back_data = last.sub(old_buf_len).bwd();
                     loop {
-                        back_data = back_data.sub(1);
-                        back_buf = back_buf.sub(1);
-                        back_data.swap(back_buf);
-                        if back_data == buf {
+                        back_data.swap_incr(&mut back_buf);
+                        if back_data == buf.bwd() {
                             break;
                         }
                     }

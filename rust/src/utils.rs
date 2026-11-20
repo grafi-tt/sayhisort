@@ -33,6 +33,14 @@ pub trait Pos<T>: Copy + Ord {
     unsafe fn sub(self, d: usize) -> Self;
     unsafe fn offset_from_unsigned(self, origin: Self) -> usize;
     unsafe fn swap(self, other: Self);
+    /// Swaps the items at `self` and `other`, then advances both.
+    unsafe fn swap_incr(&mut self, other: &mut Self) {
+        unsafe {
+            self.swap(*other);
+            *self = self.add(1);
+            *other = other.add(1);
+        }
+    }
     unsafe fn precede<F: FnMut(&T, &T) -> bool, S: StrictFlag>(self, other: Self, f: &mut F, strict: S) -> bool;
     unsafe fn precede_strict<F: FnMut(&T, &T) -> bool>(self, other: Self, f: &mut F) -> bool {
         unsafe { self.precede(other, f, strict_flag::<true>()) }
@@ -181,9 +189,7 @@ pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
                 core::hint::assert_unchecked(l_len != 0);
                 let rem = r_len % l_len;
                 loop {
-                    first.swap(middle);
-                    first = first.add(1);
-                    middle = middle.add(1);
+                    first.swap_incr(&mut middle);
                     if middle == last {
                         break;
                     }
