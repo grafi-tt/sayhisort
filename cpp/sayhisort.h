@@ -1513,15 +1513,16 @@ SAYHISORT_CONSTEXPR_SWAP Iterator Sort(Iterator first, Iterator last, IterComp<C
     do {
         BlockingParam p = DetermineBlocking(ctrl);
 
-        if (!ctrl.buf_len) {
-            MergeOneLevel<false, true>(imit, imit + ctrl.imit_len, data, ctrl.seq_len,
-                                       {ctrl.data_len, ctrl.log2_num_seqs}, p, iter_comp);
-        } else if (ctrl.forward) {
-            MergeOneLevel<true, true>(imit, imit + ctrl.imit_len, data, ctrl.seq_len,
-                                      {ctrl.data_len, ctrl.log2_num_seqs}, p, iter_comp);
+        if (ctrl.forward) {
+            SequenceDivider<diff_t<Iterator>, true> seq_div{ctrl.data_len, ctrl.log2_num_seqs};
+            if (ctrl.buf_len) {
+                MergeOneLevel<true>(imit, imit + ctrl.imit_len, data, ctrl.seq_len, seq_div, p, iter_comp);
+            } else {
+                MergeOneLevel<false>(imit, imit + ctrl.imit_len, data, ctrl.seq_len, seq_div, p, iter_comp);
+            }
         } else {
-            MergeOneLevel<true, false>(imit, last, last - ctrl.buf_len, ctrl.seq_len,
-                                       {ctrl.data_len, ctrl.log2_num_seqs}, p, iter_comp);
+            SequenceDivider<diff_t<Iterator>, false> seq_div{ctrl.data_len, ctrl.log2_num_seqs};
+            MergeOneLevel<true>(imit, last, last - ctrl.buf_len, ctrl.seq_len, seq_div, p, iter_comp);
         }
 
         if (diff_t<Iterator> old_buf_len = ctrl.Next()) {

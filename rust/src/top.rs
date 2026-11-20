@@ -95,8 +95,8 @@ pub unsafe fn sort<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T
 
             if ctrl.forward {
                 let mut seqdiv = SequenceDivider::<true>::new(ctrl.data_len, ctrl.log2_num_seqs);
-                if ctrl.buf_len == 0 {
-                    merge_one_level::<_, _, false, true>(
+                if ctrl.buf_len != 0 {
+                    merge_one_level::<_, _, true, true>(
                         imit,
                         imit.add(ctrl.imit_len),
                         data,
@@ -106,7 +106,7 @@ pub unsafe fn sort<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T
                         f,
                     );
                 } else {
-                    merge_one_level::<_, _, true, true>(
+                    merge_one_level::<_, _, false, true>(
                         imit,
                         imit.add(ctrl.imit_len),
                         data,
