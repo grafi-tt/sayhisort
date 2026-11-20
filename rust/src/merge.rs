@@ -15,7 +15,6 @@ pub struct MergeResult<P> {
 ///
 /// * `buf < xs < ys < ys_last`.
 /// * `ys_last - ys <= xs - buf`.
-// Inlining into `merge_adjacent_blocks` is near LLVM's threshold and otherwise depends on the caller crate.
 #[inline(always)]
 pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: BoolFlag>(
     buf: &mut P,
@@ -104,6 +103,7 @@ pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: BoolFlag
 /// # Safety
 ///
 /// `xs < ys < ys_last`.
+#[inline(always)]
 pub unsafe fn merge_without_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: BoolFlag>(
     mut xs: P,
     mut ys: P,

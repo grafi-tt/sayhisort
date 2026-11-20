@@ -149,6 +149,7 @@ pub unsafe fn sort_0to8<T, F: FnMut(&T, &T) -> bool>(data: FwdPtr<T>, len: usize
 /// # Safety
 ///
 /// `len >= 2`.
+#[inline(never)]
 pub unsafe fn heap_sort<T, F: FnMut(&T, &T) -> bool>(data: FwdPtr<T>, mut len: usize, f: &mut F) {
     unsafe {
         let left = |i: usize| i * 2 + 1;

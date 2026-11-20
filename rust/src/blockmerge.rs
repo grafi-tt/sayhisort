@@ -10,6 +10,7 @@ use crate::utils::{BoolFlag, Flag, Pos, rotate};
 ///
 /// * `imit_len` is a multiple of 2, and `block_len` is positive.
 /// * `[imit, imit + imit_len)` and `[blocks, blocks + imit_len * block_len)` don't overlap.
+#[inline(never)]
 unsafe fn interleave_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
     imit: P,
     blocks: P,
@@ -101,6 +102,7 @@ unsafe fn interleave_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
 ///
 /// * `imit_len` is a multiple of 2.
 /// * `[imit, imit + imit_len)` and `[buf, buf + imit_len / 2)` don't overlap.
+#[inline(never)]
 unsafe fn deinterleave_imitation<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
     imit: P,
     imit_len: usize,
@@ -142,6 +144,7 @@ unsafe fn deinterleave_imitation<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
 /// # Safety
 ///
 /// `imit_len` is a multiple of 2.
+#[inline(never)]
 unsafe fn deinterleave_imitation_nobuf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
     imit: P,
     imit_len: usize,
@@ -206,6 +209,7 @@ pub struct BlockingParam {
 /// # Safety
 ///
 /// Same as [`merge_blocking`]. `mid_key` is the position returned by [`interleave_blocks`].
+#[inline(always)]
 unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, B: BoolFlag>(
     mut imit: P,
     buf: &mut P,
@@ -321,6 +325,7 @@ unsafe fn merge_adjacent_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, B: BoolF
 ///   `p.first_block_len` and `p.last_block_len` items respectively, which are positive.
 /// * If `B::FLAG`, `[*buf, *buf + p.block_len)` is the buffer just before `blocks`. It moves to just after the merged
 ///   sequence.
+#[inline(always)]
 pub unsafe fn merge_blocking<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, B: BoolFlag>(
     imit: P,
     buf: &mut P,

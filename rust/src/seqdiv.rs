@@ -54,6 +54,7 @@ impl<D: BoolFlag> SequenceDivider<D> {
 /// * The layout is `[imit | buf | data]` in the direction of `P`. If `P` is [`BwdPtr`](crate::utils::BwdPtr), the
 ///   sequences are divided from the end, and `imit` is the start of the reversed imitation buffer.
 /// * `p` is computed from `ctrl` by [`determine_blocking`](crate::blocking::determine_blocking).
+#[inline(never)]
 pub unsafe fn merge_one_level<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, B: BoolFlag>(
     imit: P,
     mut buf: P,

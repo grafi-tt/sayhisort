@@ -31,6 +31,10 @@ use core::mem::size_of;
 // which is the canonical source of algorithm descriptions and proofs. The Rust doc comments only state what each
 // function does and, for an `unsafe fn`, its preconditions in `# Safety`. In addition to them, every position passed
 // to an `unsafe fn` must point into the slice being sorted (or one past its end).
+//
+// Inlining is fixed instead of depending on LLVM's heuristic threshold, the same as the C++ implementation.
+// `merge_one_level` is the boundary: routines in the merge loop are always inlined into it, and the routines running
+// once per merge are kept out of it.
 mod blocking;
 mod blockmerge;
 mod merge;

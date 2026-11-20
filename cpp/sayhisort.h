@@ -22,6 +22,23 @@
 #define SAYHISORT_CONSTEXPR_SWAP
 #endif
 
+// Fix inlining decisions, instead of depending on the compiler's heuristic threshold.
+// MergeOneLevel is the boundary: routines in the merge loop are always inlined into it, and the routines running once
+// per merge are kept out of it.
+#if defined(__GNUC__)
+#define SAYHISORT_ALWAYS_INLINE __attribute__((always_inline)) inline
+#define SAYHISORT_ALWAYS_INLINE_LAMBDA __attribute__((always_inline))
+#define SAYHISORT_NOINLINE __attribute__((noinline))
+#elif defined(_MSC_VER)
+#define SAYHISORT_ALWAYS_INLINE __forceinline
+#define SAYHISORT_ALWAYS_INLINE_LAMBDA
+#define SAYHISORT_NOINLINE __declspec(noinline)
+#else
+#define SAYHISORT_ALWAYS_INLINE inline
+#define SAYHISORT_ALWAYS_INLINE_LAMBDA
+#define SAYHISORT_NOINLINE
+#endif
+
 // Disable vectorization of the following loop.
 #if defined(__clang__)
 #define SAYHISORT_NOVECTOR _Pragma("clang loop vectorize(disable) interleave(disable)")
@@ -93,7 +110,9 @@ struct ReversedIterator {
     constexpr friend bool operator>=(ReversedIterator a, ReversedIterator b) { return a.base <= b.base; }
 
 private:
-    friend void iter_swap(ReversedIterator a, ReversedIterator b) { iter_swap(--a.base, --b.base); }
+    friend SAYHISORT_ALWAYS_INLINE void iter_swap(ReversedIterator a, ReversedIterator b) {
+        iter_swap(--a.base, --b.base);
+    }
 };
 
 template <typename Iterator>
@@ -377,8 +396,9 @@ struct MergeResult {
  * @note The implementation actually works if xs or ys is empty, but the behaviour shall not be depended on.
  */
 template <bool is_xs_from_right, typename Iterator, typename Comp, typename Proj>
-SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Iterator xs, Iterator ys, Iterator ys_last,
-                                                            IterComp<Comp, Proj> iter_comp) {
+SAYHISORT_ALWAYS_INLINE SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Iterator xs,
+                                                                                    Iterator ys, Iterator ys_last,
+                                                                                    IterComp<Comp, Proj> iter_comp) {
     Iterator xs_last = ys;
 
 #if 0
@@ -471,8 +491,9 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithBuf(Iterator& buf, Itera
  *       the numbers of unique keys in `xs` and `ys`.
  */
 template <bool is_xs_from_right, typename Iterator, typename Comp, typename Proj>
-SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iterator ys, Iterator ys_last,
-                                                               IterComp<Comp, Proj> iter_comp) {
+SAYHISORT_ALWAYS_INLINE SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iterator ys,
+                                                                                       Iterator ys_last,
+                                                                                       IterComp<Comp, Proj> iter_comp) {
     while (true) {
         // Seek xs so that xs[0] > ys[0]
         xs = BinarySearch<is_xs_from_right>(xs, ys, ys, iter_comp);
@@ -508,8 +529,10 @@ SAYHISORT_CONSTEXPR_SWAP MergeResult<Iterator> MergeWithoutBuf(Iterator xs, Iter
  * @param iter_comp
  */
 template <typename Iterator, typename Comp, typename Proj>
-SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator blocks, diff_t<Iterator> imit_len,
-                                                   diff_t<Iterator> block_len, IterComp<Comp, Proj> iter_comp) {
+SAYHISORT_NOINLINE SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator blocks,
+                                                                      diff_t<Iterator> imit_len,
+                                                                      diff_t<Iterator> block_len,
+                                                                      IterComp<Comp, Proj> iter_comp) {
     if (!imit_len) {
         return imit;
     }
@@ -598,8 +621,9 @@ SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator imit, Iterator block
  * @param iter_comp
  */
 template <typename Iterator, typename Comp, typename Proj>
-SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterator> imit_len, Iterator buf,
-                                                    Iterator mid_key, IterComp<Comp, Proj> iter_comp) {
+SAYHISORT_NOINLINE SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterator> imit_len,
+                                                                       Iterator buf, Iterator mid_key,
+                                                                       IterComp<Comp, Proj> iter_comp) {
     // Bin-sort like algorithm based on partitioning.
     // The same algorithm is found in HolyGrailsort.
     // https://github.com/HolyGrailSortProject/Holy-Grailsort/blob/ccfcc4315c6ccafbca5f6a51886710898a06c8a1/Holy%20Grail%20Sort/Java/Summer%20Dragonfly%20et%20al.'s%20Rough%20Draft/src/holygrail/HolyGrailSort.java#L1328-L1330
@@ -637,8 +661,9 @@ SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterat
  * @param iter_comp
  */
 template <typename Iterator, typename Comp, typename Proj>
-SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterator> imit_len, Iterator mid_key,
-                                                    IterComp<Comp, Proj> iter_comp) {
+SAYHISORT_NOINLINE SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator imit, diff_t<Iterator> imit_len,
+                                                                       Iterator mid_key,
+                                                                       IterComp<Comp, Proj> iter_comp) {
     // We colour each key by whether they are from left or right.
     // Then we can see the imitation buffer as a sequence of runs with alternating colour.
     //
@@ -706,9 +731,10 @@ struct BlockingParam {
 };
 
 template <bool has_buf, typename Iterator, typename Comp, typename Proj>
-SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, Iterator blocks,
-                                                  const BlockingParam<diff_t<Iterator>>& p, Iterator mid_key,
-                                                  IterComp<Comp, Proj> iter_comp) {
+SAYHISORT_ALWAYS_INLINE SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, Iterator blocks,
+                                                                          const BlockingParam<diff_t<Iterator>>& p,
+                                                                          Iterator mid_key,
+                                                                          IterComp<Comp, Proj> iter_comp) {
     diff_t<Iterator> num_remained_blocks = p.num_blocks;
 
     enum BlockOrigin {
@@ -758,7 +784,7 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
             }
         }
 
-        MergeResult mr = ([&]() {
+        MergeResult mr = ([&]() SAYHISORT_ALWAYS_INLINE_LAMBDA {
             if constexpr (has_buf) {
                 if (xs_origin == kLeft) {
                     return MergeWithBuf<false>(buf, xs, ys, ys_last, iter_comp);
@@ -789,8 +815,9 @@ SAYHISORT_CONSTEXPR_SWAP void MergeAdjacentBlocks(Iterator imit, Iterator& buf, 
 }
 
 template <bool has_buf, typename Iterator, typename Comp, typename Proj>
-SAYHISORT_CONSTEXPR_SWAP void MergeBlocking(Iterator imit, Iterator& buf, Iterator blocks,
-                                            const BlockingParam<diff_t<Iterator>>& p, IterComp<Comp, Proj> iter_comp) {
+SAYHISORT_ALWAYS_INLINE SAYHISORT_CONSTEXPR_SWAP void MergeBlocking(Iterator imit, Iterator& buf, Iterator blocks,
+                                                                    const BlockingParam<diff_t<Iterator>>& p,
+                                                                    IterComp<Comp, Proj> iter_comp) {
     // Skip interleaving the first block and the last one, which may have shorter length.
     diff_t<Iterator> imit_len = p.num_blocks - 2;
     Iterator mid_key = InterleaveBlocks(imit, blocks + p.first_block_len, imit_len, p.block_len, iter_comp);
@@ -1154,12 +1181,10 @@ struct SequenceDivider {
  * sequences are divided from the end, and `imit` is the start of the reversed imitation buffer.
  */
 template <bool has_buf, typename Iterator, typename Comp, typename Proj>
-#if defined(__GNUC__) && !defined(__clang__)
-__attribute__((flatten))  // It seems clang behaves strangely with this attribute
-#endif
-SAYHISORT_CONSTEXPR_SWAP void MergeOneLevel(Iterator imit, Iterator buf, Iterator data,
-                                            const MergeSortControl<diff_t<Iterator>>& ctrl,
-                                            BlockingParam<diff_t<Iterator>> p, IterComp<Comp, Proj> iter_comp) {
+SAYHISORT_NOINLINE SAYHISORT_CONSTEXPR_SWAP void MergeOneLevel(Iterator imit, Iterator buf, Iterator data,
+                                                               const MergeSortControl<diff_t<Iterator>>& ctrl,
+                                                               BlockingParam<diff_t<Iterator>> p,
+                                                               IterComp<Comp, Proj> iter_comp) {
     SAYHISORT_PERF_TRACE("MergeOneLevel");
     SequenceDivider<diff_t<Iterator>, kForward<Iterator>> seq_div{ctrl.data_len, ctrl.log2_num_seqs};
     diff_t<Iterator> residual_len = p.first_block_len;
@@ -1390,7 +1415,8 @@ SAYHISORT_CONSTEXPR_SWAP void Sort0To8(Iterator data, diff_t<Iterator> len, Iter
  * @param iter_comp
  */
 template <typename Iterator, typename Comp, typename Proj>
-SAYHISORT_CONSTEXPR_SWAP void HeapSort(Iterator data, diff_t<Iterator> len, IterComp<Comp, Proj> iter_comp) {
+SAYHISORT_NOINLINE SAYHISORT_CONSTEXPR_SWAP void HeapSort(Iterator data, diff_t<Iterator> len,
+                                                          IterComp<Comp, Proj> iter_comp) {
     auto left = [](diff_t<Iterator> i) -> diff_t<Iterator> { return i * 2 + 1; };
     auto right = [](diff_t<Iterator> i) -> diff_t<Iterator> { return i * 2 + 2; };
     auto parent = [](diff_t<Iterator> i) -> diff_t<Iterator> { return (i - 1) / 2; };
@@ -1588,5 +1614,8 @@ SAYHISORT_CONSTEXPR_SWAP Iterator sort(Iterator first, Sentinel last, Comp comp 
 #endif
 
 #undef SAYHISORT_NOVECTOR
+#undef SAYHISORT_ALWAYS_INLINE
+#undef SAYHISORT_ALWAYS_INLINE_LAMBDA
+#undef SAYHISORT_NOINLINE
 
 #endif  // SAYHISORT_H
