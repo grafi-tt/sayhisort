@@ -39,15 +39,6 @@
 #define SAYHISORT_NOINLINE
 #endif
 
-// Disable vectorization of the following loop.
-#if defined(__clang__)
-#define SAYHISORT_NOVECTOR _Pragma("clang loop vectorize(disable) interleave(disable)")
-#elif defined(__GNUC__) && __GNUC__ >= 14
-#define SAYHISORT_NOVECTOR _Pragma("GCC novector")
-#else
-#define SAYHISORT_NOVECTOR
-#endif
-
 namespace sayhisort {
 
 namespace detail {
@@ -276,57 +267,79 @@ template <typename Iterator>
 SAYHISORT_CONSTEXPR_SWAP void Rotate(Iterator first, Iterator middle, Iterator last) {
     diff_t<Iterator> l_len = middle - first;
     diff_t<Iterator> r_len = last - middle;
-    diff_t<Iterator> len = l_len + r_len;
 
-    // Helix Rotation
+    // Helix rotation while the shorter side has 32 or more items
     // description available: https://github.com/scandum/rotate#helix-rotation
     //
-    // Vectorization of the swapping loops is disabled, since the logic isn't designed for vectorization and its
-    // performance gets unstable. E.g. the swapped ranges overlap with a short distance if one chunk is short, which
-    // makes vectorized code by GCC much slower due to store-to-load forwarding failure.
-    while (len > 64) {
+    // Each sweep swaps two ranges whose distance is the length of the shorter side. A short distance causes chains of
+    // store-to-load forwarding and makes vectorization impossible, so the sweep is used only if the distance is 32 or
+    // more.
+    //
+    // The sweep is written as a double loop, which swaps the same items in the same order as a single loop. In a
+    // single loop, the two swapped ranges `[first, first + r_len)` and `[middle, middle + r_len)` overlap, and the
+    // distance of 32 or more isn't known at compile time. GCC vectorizes it with a runtime check of the distance, but
+    // Clang checks only whether the ranges overlap at all, and always falls back to the scalar loop. Splitting the
+    // sweep into blocks of the shorter length makes the two ranges of each inner loop adjacent and non-overlapping,
+    // so that Clang also takes the vectorized loop. The outer loop and the runtime check cost is little, since each
+    // block has 32 or more items.
+    while (true) {
         if (l_len <= r_len) {
+            if (l_len < 32) {
+                break;
+            }
+            // Helix rotation from left to right
             diff_t<Iterator> rem = r_len % l_len;
-            SAYHISORT_NOVECTOR
+            Iterator stop = middle;
             do {
-                iter_swap(first++, middle++);
+                // End of the current block, without advancing the iterator beyond `last`
+                stop = last - stop < l_len ? last : stop + l_len;
+                do {
+                    iter_swap(first++, middle++);
+                } while (middle != stop);
             } while (middle != last);
             if (!rem) {
                 return;
             }
             middle = last - rem;
-            len = l_len;
             l_len -= rem;
             r_len = rem;
         } else {
+            if (r_len < 32) {
+                break;
+            }
+            // Helix rotation from right to left
             diff_t<Iterator> rem = l_len % r_len;
-            SAYHISORT_NOVECTOR
+            Iterator stop = middle;
             do {
-                iter_swap(--last, --middle);
+                // Start of the current block, without advancing the iterator beyond `first`
+                stop = stop - first < r_len ? first : stop - r_len;
+                do {
+                    iter_swap(--last, --middle);
+                } while (middle != stop);
             } while (middle != first);
             if (!rem) {
                 return;
             }
             middle = first + rem;
-            len = r_len;
             r_len -= rem;
             l_len = rem;
         }
     }
 
-    // Triple reversal for small data to avoid integer division
+    // Triple reversal if the shorter side has less than 32 items
+    //
+    // Each item moves at most twice and the swaps of each reversal are independent, so there are no long chains of
+    // store-to-load forwarding even if one side is very short. Reversals are vectorizable since the swapped ranges
+    // don't overlap.
     Iterator f = first;
     Iterator m = middle;
     Iterator l = last;
-    SAYHISORT_NOVECTOR
     while (f < --m) {
         iter_swap(f++, m);
     }
-    SAYHISORT_NOVECTOR
     while (middle < --l) {
         iter_swap(middle++, l);
     }
-    SAYHISORT_NOVECTOR
     while (first < --last) {
         iter_swap(first++, last);
     }
@@ -1613,7 +1626,6 @@ SAYHISORT_CONSTEXPR_SWAP Iterator sort(Iterator first, Sentinel last, Comp comp 
 #undef SAYHISORT_PERF_TRACE
 #endif
 
-#undef SAYHISORT_NOVECTOR
 #undef SAYHISORT_ALWAYS_INLINE
 #undef SAYHISORT_ALWAYS_INLINE_LAMBDA
 #undef SAYHISORT_NOINLINE
