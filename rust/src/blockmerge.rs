@@ -100,7 +100,7 @@ unsafe fn interleave_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
 ///
 /// # Safety
 ///
-/// * `imit_len` is a multiple of 2.
+/// * `imit_len` is a positive multiple of 2.
 /// * `[imit, imit + imit_len)` and `[buf, buf + imit_len / 2)` don't overlap.
 #[inline(never)]
 unsafe fn deinterleave_imitation<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
@@ -111,10 +111,6 @@ unsafe fn deinterleave_imitation<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
     f: &mut F,
 ) {
     unsafe {
-        if imit_len == 0 {
-            return;
-        }
-
         mid_key.swap(buf);
         let mut left_cur = mid_key;
         let mut right_cur = buf.add(1);
@@ -143,7 +139,7 @@ unsafe fn deinterleave_imitation<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
 ///
 /// # Safety
 ///
-/// `imit_len` is a multiple of 2.
+/// `imit_len` is a positive multiple of 2.
 #[inline(never)]
 unsafe fn deinterleave_imitation_nobuf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
     imit: P,
@@ -152,10 +148,6 @@ unsafe fn deinterleave_imitation_nobuf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
     f: &mut F,
 ) {
     unsafe {
-        if imit_len == 0 {
-            return;
-        }
-
         let mut l_runlength = 0usize;
         let mut num_rl_pairs = imit_len;
 
@@ -340,6 +332,10 @@ pub unsafe fn merge_blocking<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, B: BoolFlag
 
         merge_adjacent_blocks(imit, buf, blocks, p, mid_key, f, has_buf);
 
+        // Skip the call if there are only two blocks. See `MergeBlocking` for why.
+        if imit_len == 0 {
+            return;
+        }
         if B::FLAG {
             deinterleave_imitation(imit, imit_len, *buf, mid_key, f);
         } else {
@@ -447,7 +443,7 @@ mod tests {
         let mut rng = test_rng();
 
         for use_buf in [true, false] {
-            let mut imit_len = 0;
+            let mut imit_len = 2;
             while imit_len + imit_len / 2 < ary_len {
                 let buf_len = imit_len / 2;
                 let imit = 0;

@@ -627,7 +627,7 @@ SAYHISORT_NOINLINE SAYHISORT_CONSTEXPR_SWAP Iterator InterleaveBlocks(Iterator i
  *
  * @param imit
  * @param imit_len
- *   @pre imit_len is a non-negative multiple of 2
+ *   @pre imit_len is a positive multiple of 2
  * @param buf
  *   @pre [imit, imit + imit_len) and [buf, buf + imit_len / 2) are non-overlapping
  * @param mid_key
@@ -640,10 +640,6 @@ SAYHISORT_NOINLINE SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator 
     // Bin-sort like algorithm based on partitioning.
     // The same algorithm is found in HolyGrailsort.
     // https://github.com/HolyGrailSortProject/Holy-Grailsort/blob/ccfcc4315c6ccafbca5f6a51886710898a06c8a1/Holy%20Grail%20Sort/Java/Summer%20Dragonfly%20et%20al.'s%20Rough%20Draft/src/holygrail/HolyGrailSort.java#L1328-L1330
-    if (!imit_len) {
-        return;
-    }
-
     iter_swap(mid_key, buf);
     Iterator left_cur = mid_key;
     Iterator right_cur = buf + 1;
@@ -669,7 +665,7 @@ SAYHISORT_NOINLINE SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator 
  *
  * @param imit
  * @param imit_len
- *   @pre imit_len is a non-negative multiple of 2
+ *   @pre imit_len is a positive multiple of 2
  * @param mid_key
  * @param iter_comp
  */
@@ -690,10 +686,6 @@ SAYHISORT_NOINLINE SAYHISORT_CONSTEXPR_SWAP void DeinterleaveImitation(Iterator 
     //
     // The idea to rotate pairs of runs is borrowed from HolyGrailsort's algorithm.
     // https://github.com/HolyGrailSortProject/Holy-Grailsort/blob/ccfcc4315c6ccafbca5f6a51886710898a06c8a1/Holy%20Grail%20Sort/Java/Summer%20Dragonfly%20et%20al.'s%20Rough%20Draft/src/holygrail/HolyGrailSort.java#L1373-L1376
-    if (!imit_len) {
-        return;
-    }
-
     diff_t<Iterator> l_runlength = 0;
     // Initialized with an upper bound, since there are at most `imit_len / 2` pairs.
     diff_t<Iterator> num_rl_pairs = imit_len;
@@ -837,6 +829,11 @@ SAYHISORT_ALWAYS_INLINE SAYHISORT_CONSTEXPR_SWAP void MergeBlocking(Iterator imi
 
     MergeAdjacentBlocks<has_buf>(imit, buf, blocks, p, mid_key, iter_comp);
 
+    // `imit_len` is 0 if there are only two blocks, e.g. no keys are collected. Skip the call in that case, since the
+    // prologue and epilogue of `DeinterleaveImitation` may be costly (e.g. saving registers and vzeroupper).
+    if (!imit_len) {
+        return;
+    }
     if constexpr (has_buf) {
         DeinterleaveImitation(imit, imit_len, buf, mid_key, iter_comp);
     } else {

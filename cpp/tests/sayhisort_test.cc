@@ -402,7 +402,7 @@ TEST(SayhiSortTest, DeinterleaveImitation) {
     auto rng = GetPerTestRNG();
 
     for (bool use_buf : {true, false}) {
-        for (SsizeT imit_len = 0; imit_len + imit_len / 2 < ary_len; imit_len += 2) {
+        for (SsizeT imit_len = 2; imit_len + imit_len / 2 < ary_len; imit_len += 2) {
             SsizeT buf_len = imit_len / 2;
             Iterator imit = ary.begin();
             Iterator imit_last = imit + imit_len;
