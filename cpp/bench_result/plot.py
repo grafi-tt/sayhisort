@@ -48,7 +48,7 @@ def plot_data(filename, libs, benches, table, compiler):
     for i, lib in enumerate(libs):
         barcenter = (i - 0.5 * (len(libs) - 1)) * groupheight / len(libs)
         barheight = groupheight / len(libs)
-        c = 8 if lib == "logsort" else i
+        c = {"std::stable_sort": 4, "std::slice::sort": 4, "logsort": 8}.get(lib, i)
         ax.barh(yticks + barcenter, table[i], height=barheight, label=lib, color=tab20c[c])
 
     plt.rcParams["font.family"] = ["M PLUS Code Latin 60"]
