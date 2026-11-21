@@ -1,189 +1,189 @@
 Random:
   sayhisort_profile:
-    elapsed_time_ms: 53.5969
+    elapsed_time_ms: 53.6002
     CollectKeys:
-      elapsed_time_ms: 0.326324
+      elapsed_time_ms: 0.327394
     MergeOneLevel:
-      elapsed_time_ms: 46.3463
+      elapsed_time_ms: 46.3563
     SortLeaves:
-      elapsed_time_ms: 6.0226
+      elapsed_time_ms: 6.01166
   sayhisort:
-    elapsed_time_ms: 53.0147
+    elapsed_time_ms: 53.2367
   wikisort:
-    elapsed_time_ms: 82.7353
+    elapsed_time_ms: 82.285
   octosort:
-    elapsed_time_ms: 82.1782
+    elapsed_time_ms: 82.364
   grailsort:
-    elapsed_time_ms: 88.7045
+    elapsed_time_ms: 87.2899
   std::stable_sort:
-    elapsed_time_ms: 75.9819
+    elapsed_time_ms: 75.7684
   logsort:
-    elapsed_time_ms: 31.381
+    elapsed_time_ms: 31.1475
 RandomSqrtKeys:
   sayhisort_profile:
-    elapsed_time_ms: 51.6278
+    elapsed_time_ms: 51.3516
     CollectKeys:
-      elapsed_time_ms: 9.74598
+      elapsed_time_ms: 9.68886
     MergeOneLevel:
-      elapsed_time_ms: 35.3526
+      elapsed_time_ms: 35.1374
     SortLeaves:
-      elapsed_time_ms: 6.04719
+      elapsed_time_ms: 6.04839
   sayhisort:
-    elapsed_time_ms: 52.7456
+    elapsed_time_ms: 50.9831
   wikisort:
-    elapsed_time_ms: 59.3795
+    elapsed_time_ms: 58.8923
   octosort:
-    elapsed_time_ms: 59.4686
+    elapsed_time_ms: 58.893
   grailsort:
-    elapsed_time_ms: 118.726
+    elapsed_time_ms: 119.541
   std::stable_sort:
-    elapsed_time_ms: 50.8443
+    elapsed_time_ms: 50.9416
   logsort:
-    elapsed_time_ms: 16.126
+    elapsed_time_ms: 15.9965
 RandomFewKeys:
   sayhisort_profile:
-    elapsed_time_ms: 44.1035
+    elapsed_time_ms: 44.0757
     CollectKeys:
-      elapsed_time_ms: 5.62632
+      elapsed_time_ms: 5.67432
     MergeOneLevel:
-      elapsed_time_ms: 32.2419
+      elapsed_time_ms: 32.1549
     SortLeaves:
-      elapsed_time_ms: 6.06723
+      elapsed_time_ms: 6.0777
   sayhisort:
-    elapsed_time_ms: 43.9794
+    elapsed_time_ms: 43.5561
   wikisort:
-    elapsed_time_ms: 44.5916
+    elapsed_time_ms: 44.0278
   octosort:
-    elapsed_time_ms: 43.7667
+    elapsed_time_ms: 43.8003
   grailsort:
-    elapsed_time_ms: 85.7756
+    elapsed_time_ms: 86.6266
   std::stable_sort:
-    elapsed_time_ms: 38.6374
+    elapsed_time_ms: 38.2014
   logsort:
-    elapsed_time_ms: 11.2918
+    elapsed_time_ms: 11.2091
 MostlyAscending:
   sayhisort_profile:
-    elapsed_time_ms: 9.14476
+    elapsed_time_ms: 9.05235
     CollectKeys:
-      elapsed_time_ms: 0.150744
+      elapsed_time_ms: 0.156323
     MergeOneLevel:
-      elapsed_time_ms: 5.39075
+      elapsed_time_ms: 5.30412
     SortLeaves:
-      elapsed_time_ms: 3.43938
+      elapsed_time_ms: 3.42759
   sayhisort:
-    elapsed_time_ms: 9.16653
+    elapsed_time_ms: 9.11006
   wikisort:
-    elapsed_time_ms: 9.266
+    elapsed_time_ms: 9.32123
   octosort:
-    elapsed_time_ms: 9.25251
+    elapsed_time_ms: 9.45233
   grailsort:
-    elapsed_time_ms: 13.3748
+    elapsed_time_ms: 13.7072
   std::stable_sort:
-    elapsed_time_ms: 10.1553
+    elapsed_time_ms: 10.0991
   logsort:
-    elapsed_time_ms: 26.0751
+    elapsed_time_ms: 25.897
 MostlyDescending:
   sayhisort_profile:
-    elapsed_time_ms: 16.1669
+    elapsed_time_ms: 16.1341
     CollectKeys:
-      elapsed_time_ms: 0.726407
+      elapsed_time_ms: 0.730391
     MergeOneLevel:
-      elapsed_time_ms: 10.2171
+      elapsed_time_ms: 10.1919
     SortLeaves:
-      elapsed_time_ms: 4.93619
+      elapsed_time_ms: 4.92371
   sayhisort:
-    elapsed_time_ms: 16.1696
+    elapsed_time_ms: 16.0981
   wikisort:
-    elapsed_time_ms: 15.295
+    elapsed_time_ms: 15.483
   octosort:
-    elapsed_time_ms: 19.1669
+    elapsed_time_ms: 19.4374
   grailsort:
-    elapsed_time_ms: 19.2793
+    elapsed_time_ms: 19.3835
   std::stable_sort:
-    elapsed_time_ms: 12.2324
+    elapsed_time_ms: 12.1357
   logsort:
-    elapsed_time_ms: 30.2448
+    elapsed_time_ms: 30.0569
 MostlyEqual:
   sayhisort_profile:
-    elapsed_time_ms: 24.9905
+    elapsed_time_ms: 25.3324
     CollectKeys:
-      elapsed_time_ms: 2.32114
+      elapsed_time_ms: 2.38871
     MergeOneLevel:
-      elapsed_time_ms: 17.1737
+      elapsed_time_ms: 17.4706
     SortLeaves:
-      elapsed_time_ms: 5.35481
+      elapsed_time_ms: 5.32844
   sayhisort:
-    elapsed_time_ms: 25.2791
+    elapsed_time_ms: 25.12
   wikisort:
-    elapsed_time_ms: 22.794
+    elapsed_time_ms: 22.8421
   octosort:
-    elapsed_time_ms: 21.9295
+    elapsed_time_ms: 22.355
   grailsort:
-    elapsed_time_ms: 40.551
+    elapsed_time_ms: 41.6795
   std::stable_sort:
-    elapsed_time_ms: 19.8003
+    elapsed_time_ms: 19.774
   logsort:
-    elapsed_time_ms: 4.95292
+    elapsed_time_ms: 4.90783
 Ascending:
   sayhisort_profile:
-    elapsed_time_ms: 4.86216
+    elapsed_time_ms: 4.81386
     CollectKeys:
-      elapsed_time_ms: 0.015399
+      elapsed_time_ms: 0.014678
     MergeOneLevel:
-      elapsed_time_ms: 4.34945
+      elapsed_time_ms: 4.28138
     SortLeaves:
-      elapsed_time_ms: 0.470275
+      elapsed_time_ms: 0.490821
   sayhisort:
-    elapsed_time_ms: 4.79718
+    elapsed_time_ms: 4.82794
   wikisort:
-    elapsed_time_ms: 1.16631
+    elapsed_time_ms: 0.863811
   octosort:
-    elapsed_time_ms: 0.761834
+    elapsed_time_ms: 0.81521
   grailsort:
-    elapsed_time_ms: 10.0012
+    elapsed_time_ms: 9.66205
   std::stable_sort:
-    elapsed_time_ms: 6.5619
+    elapsed_time_ms: 6.48718
   logsort:
-    elapsed_time_ms: 15.886
+    elapsed_time_ms: 15.9114
 Descending:
   sayhisort_profile:
-    elapsed_time_ms: 10.9066
+    elapsed_time_ms: 10.8774
     CollectKeys:
-      elapsed_time_ms: 0.607714
+      elapsed_time_ms: 0.613862
     MergeOneLevel:
-      elapsed_time_ms: 8.96645
+      elapsed_time_ms: 8.92703
     SortLeaves:
-      elapsed_time_ms: 1.16627
+      elapsed_time_ms: 1.17324
   sayhisort:
-    elapsed_time_ms: 10.8477
+    elapsed_time_ms: 10.7853
   wikisort:
-    elapsed_time_ms: 3.334
+    elapsed_time_ms: 3.34686
   octosort:
-    elapsed_time_ms: 0.468171
+    elapsed_time_ms: 0.464322
   grailsort:
-    elapsed_time_ms: 13.2239
+    elapsed_time_ms: 12.7364
   std::stable_sort:
-    elapsed_time_ms: 8.30247
+    elapsed_time_ms: 8.29651
   logsort:
-    elapsed_time_ms: 29.4561
+    elapsed_time_ms: 29.5218
 Equal:
   sayhisort_profile:
-    elapsed_time_ms: 3.09394
+    elapsed_time_ms: 3.08308
     CollectKeys:
-      elapsed_time_ms: 1.19509
+      elapsed_time_ms: 1.16703
     MergeOneLevel:
-      elapsed_time_ms: 1.35474
+      elapsed_time_ms: 1.36668
     SortLeaves:
-      elapsed_time_ms: 0.543242
+      elapsed_time_ms: 0.548349
   sayhisort:
-    elapsed_time_ms: 3.03471
+    elapsed_time_ms: 2.99819
   wikisort:
-    elapsed_time_ms: 1.11715
+    elapsed_time_ms: 1.0847
   octosort:
-    elapsed_time_ms: 0.701631
+    elapsed_time_ms: 0.774224
   grailsort:
-    elapsed_time_ms: 5.70308
+    elapsed_time_ms: 5.73494
   std::stable_sort:
-    elapsed_time_ms: 6.54849
+    elapsed_time_ms: 6.37789
   logsort:
-    elapsed_time_ms: 2.16822
+    elapsed_time_ms: 2.14519
