@@ -38,6 +38,7 @@ pub trait Pos<T>: Copy + Ord {
     unsafe fn offset_from_unsigned(self, origin: Self) -> usize;
     unsafe fn swap(self, other: Self);
     /// Swaps the items at `self` and `other`, then advances both.
+    #[inline(always)]
     unsafe fn swap_incr(&mut self, other: &mut Self) {
         unsafe {
             self.swap(*other);
