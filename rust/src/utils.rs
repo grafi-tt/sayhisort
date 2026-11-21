@@ -185,6 +185,9 @@ impl<T> Pos<T> for BwdPtr<T> {
 
 /// Rotates two chunks split at `middle`.
 ///
+/// Helix rotation while the shorter side has 32 or more items, and triple reversal otherwise. See `Rotate` for the
+/// details, including why the helix sweep is a double loop.
+///
 /// # Safety
 ///
 /// `first < middle < last`.
@@ -192,14 +195,28 @@ pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
     unsafe {
         let mut l_len = middle.offset_from_unsigned(first);
         let mut r_len = last.offset_from_unsigned(middle);
-        let mut len = l_len + r_len;
 
-        while len > 64 {
+        loop {
             if l_len <= r_len {
-                core::hint::assert_unchecked(l_len != 0);
+                if l_len < 32 {
+                    break;
+                }
+                // Helix rotation from left to right
                 let rem = r_len % l_len;
+                let mut stop = middle;
                 loop {
-                    first.swap_incr(&mut middle);
+                    // End of the current block, without advancing the pointer beyond `last`
+                    stop = if last.offset_from_unsigned(stop) < l_len {
+                        last
+                    } else {
+                        stop.add(l_len)
+                    };
+                    loop {
+                        first.swap_incr(&mut middle);
+                        if middle == stop {
+                            break;
+                        }
+                    }
                     if middle == last {
                         break;
                     }
@@ -208,16 +225,30 @@ pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
                     return;
                 }
                 middle = last.sub(rem);
-                len = l_len;
                 l_len -= rem;
                 r_len = rem;
             } else {
-                core::hint::assert_unchecked(r_len != 0);
+                if r_len < 32 {
+                    break;
+                }
+                // Helix rotation from right to left
                 let rem = l_len % r_len;
+                let mut stop = middle;
                 loop {
-                    last = last.sub(1);
-                    middle = middle.sub(1);
-                    last.swap(middle);
+                    // Start of the current block, without advancing the pointer beyond `first`
+                    stop = if stop.offset_from_unsigned(first) < r_len {
+                        first
+                    } else {
+                        stop.sub(r_len)
+                    };
+                    loop {
+                        last = last.sub(1);
+                        middle = middle.sub(1);
+                        last.swap(middle);
+                        if middle == stop {
+                            break;
+                        }
+                    }
                     if middle == first {
                         break;
                     }
@@ -226,12 +257,12 @@ pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
                     return;
                 }
                 middle = first.add(rem);
-                len = r_len;
                 r_len -= rem;
                 l_len = rem;
             }
         }
 
+        // Triple reversal if the shorter side has less than 32 items
         let mut f = first;
         let mut m = middle;
         let mut l = last;
@@ -302,16 +333,27 @@ mod tests {
 
     #[test]
     fn rotate_test() {
-        for l in [2, 42, 123] {
+        // Covers both helix rotation and triple reversal, and switching between them
+        for l in (2..300).chain([1000, 1031, 4099]) {
             for i in 1..l {
+                let mut expected: Vec<i32> = (i..l).collect();
+                expected.extend(0..i);
+
                 let mut data: Vec<i32> = (0..l).collect();
                 let Range { start, end } = data.as_mut_ptr_range();
                 unsafe {
                     rotate(FwdPtr::new(start), FwdPtr::new(start).add(i as usize), FwdPtr::new(end));
                 }
-                let mut expected: Vec<i32> = (i..l).collect();
-                expected.extend(0..i);
-                assert_eq!(data, expected);
+                assert_eq!(data, expected, "l={l} i={i}");
+
+                // Rotating the reversed view by `l - i` is the same rotation
+                let mut data: Vec<i32> = (0..l).collect();
+                let Range { start, end } = data.as_mut_ptr_range();
+                unsafe {
+                    let end = FwdPtr::new(end).bwd();
+                    rotate(end, end.add((l - i) as usize), FwdPtr::new(start).bwd());
+                }
+                assert_eq!(data, expected, "reversed l={l} i={i}");
             }
         }
     }
