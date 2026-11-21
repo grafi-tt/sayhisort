@@ -1,45 +1,45 @@
 Random:
   sayhisort:
-    elapsed_time_ms: 52.7720
+    elapsed_time_ms: 51.7805
   std::slice::sort:
-    elapsed_time_ms: 19.1092
+    elapsed_time_ms: 18.6108
 RandomSqrtKeys:
   sayhisort:
-    elapsed_time_ms: 49.0876
+    elapsed_time_ms: 48.1639
   std::slice::sort:
-    elapsed_time_ms: 7.6705
+    elapsed_time_ms: 7.6833
 RandomFewKeys:
   sayhisort:
-    elapsed_time_ms: 42.6803
+    elapsed_time_ms: 41.3938
   std::slice::sort:
-    elapsed_time_ms: 6.0200
+    elapsed_time_ms: 5.9801
 MostlyAscending:
   sayhisort:
-    elapsed_time_ms: 11.1781
+    elapsed_time_ms: 11.0338
   std::slice::sort:
-    elapsed_time_ms: 13.3727
+    elapsed_time_ms: 13.3092
 MostlyDescending:
   sayhisort:
-    elapsed_time_ms: 18.7688
+    elapsed_time_ms: 17.8674
   std::slice::sort:
-    elapsed_time_ms: 14.4115
+    elapsed_time_ms: 14.2887
 MostlyEqual:
   sayhisort:
-    elapsed_time_ms: 26.7092
+    elapsed_time_ms: 25.0900
   std::slice::sort:
-    elapsed_time_ms: 3.6621
+    elapsed_time_ms: 3.6571
 Ascending:
   sayhisort:
-    elapsed_time_ms: 6.6317
+    elapsed_time_ms: 6.7481
   std::slice::sort:
-    elapsed_time_ms: 0.4138
+    elapsed_time_ms: 0.2762
 Descending:
   sayhisort:
-    elapsed_time_ms: 13.3670
+    elapsed_time_ms: 12.9803
   std::slice::sort:
-    elapsed_time_ms: 0.3548
+    elapsed_time_ms: 0.3588
 Equal:
   sayhisort:
-    elapsed_time_ms: 2.8822
+    elapsed_time_ms: 3.0346
   std::slice::sort:
-    elapsed_time_ms: 0.4101
+    elapsed_time_ms: 0.2732
