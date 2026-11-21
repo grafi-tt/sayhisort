@@ -59,16 +59,20 @@ def plot_data(filename, libs, benches, table, compiler):
 
 def main():
     import matplotlib as mpl
+    from pathlib import Path
     mpl.use("Agg")
 
-    with open("gcc.yml") as f:
-        libs, benches, table = load_result(f)
-        plot_data("gcc.png", libs, benches, table, "Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (GCC 16.2.1)")
-
-    with open("clang.yml") as f:
-        libs, benches, table = load_result(f)
-        plot_data("clang.png", libs, benches, table, "Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (Clang 23.1.4)")
-
+    here = Path(__file__).resolve().parent
+    rust = here.parent.parent / "rust" / "bench_result"
+    for d, name, toolchain in [
+        (here, "gcc", "GCC 16.2.1"),
+        (here, "clang", "Clang 23.1.4"),
+        (rust, "rust", "rustc 1.99.0"),
+    ]:
+        with open(d / f"{name}.yml") as f:
+            libs, benches, table = load_result(f)
+        title = f"Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers ({toolchain})"
+        plot_data(d / f"{name}.png", libs, benches, table, title)
 
 if __name__ == "__main__":
     main()

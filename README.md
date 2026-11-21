@@ -66,6 +66,8 @@ The Rust implementation is a port of the C++ one and shares the same algorithm. 
 
 ![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (Clang 23.1.4)](cpp/bench_result/clang.png)
 
+![Benchmark of the Rust implementation on Ryzen 9 9950X by 1.5M items of 64bit integers (rustc 1.99.0)](rust/bench_result/rust.png)
+
 Note that other block merge sort implementations ([WikiSort](https://github.com/BonzaiThePenguin/WikiSort/), [octosort](https://github.com/scandum/octosort) and [GrailSort](https://github.com/Mrrl/GrailSort)) use a pre-allocated buffer that stores 512 items. Though the buffer is claimed to be crucial for performance, SayhiSort exhibits competitive speed.
 
 You may notice SayhiSort performs poorly on some data, compared to WikiSort and octosort. This shows whether each algorithm is tuned to already sorted data. Since SayhiSort is still fast on such data, the author believes there's no problem at all.
@@ -94,7 +96,12 @@ cd bench_result
 ./plot.py
 ```
 
-The Rust implementation has a benchmark ported from the C++ one. Run `cargo bench` in the [`rust`](rust/) directory, and it writes the result to stdout in the same YAML format.
+The Rust implementation has a benchmark ported from the C++ one, and its raw result is available in [`rust/bench_result`](rust/bench_result/) directory. Run it before `./plot.py` as follows.
+
+```sh
+cd rust
+RUSTFLAGS="-C target-cpu=native" cargo bench -q > bench_result/rust.yml
+```
 
 ## Similar projects
 
