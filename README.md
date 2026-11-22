@@ -2,7 +2,7 @@
 
 **Fast, portable and easy-to-use block merge sort implementation** written in C++17 and Rust, inspired by [GrailSort](https://github.com/Mrrl/GrailSort). It's **in-place, stable and runs in O(N log(N)) worst-case time complexity**. The C++ interface is compatible with `std::sort` and `std::ranges::sort` (C++20), and the Rust interface mirrors `slice::sort` and `slice::sort_by`.
 
-**Any items can be sorted as long as they are comparable and swappable.** They need not be default-constructible or move-constructible. The implementation doesn't use any pre-allocated buffer to store items, contrary to other block merge sort implementations. Despite the absence of the buffer, it shows **state-of-the-art performance**.
+**In C++, any items can be sorted as long as they are comparable and swappable.** They need not be default-constructible or move-constructible. **In Rust, it needs no allocator and works in `no_std` environments**, where the standard library provides no stable sort. Neither implementation uses any pre-allocated buffer to store items, contrary to other block merge sort implementations. Despite the absence of the buffer, it shows **state-of-the-art performance**.
 
 Substantial effort is made for portability and security. **No floating point number** is used, and the code is carefully written and tested to avoid overflow in any integer-like index type. There are meticulous comments to clarify mathematical invariants.
 
@@ -14,11 +14,9 @@ Its name derives from GrailSort, in memory of its author [Andrey Astrelin](https
 
 It's a header-only C++ library in the [`cpp`](cpp/) directory, so just including `sayhisort.h` is fine. You can also import the `cpp` directory as a CMake project, e.g. by `FetchContent` with `SOURCE_SUBDIR cpp`. It provides the `sayhisort::sort` function, which is compatible with `std::sort`.
 
-
 ```cpp
 template <typename Iterator, typename Sentinel, typename Comp = std::less<>>
 Iterator sayhisort::sort(Iterator first, Sentinel last, Comp comp = {});
-
 ```
 
 To use the interface compatible with `std::ranges::sort`, you need to compile `sayhisort.h` as C++20 or later. The interface is constrained by concepts.
@@ -32,7 +30,7 @@ constexpr I
 sayhisort::sort(I first, S last, Comp comp = {}, Proj proj = {});
 
 template <std::ranges::random_access_range R,
-         typename Comp = std::ranges::less, typename Proj = std::identity>
+          typename Comp = std::ranges::less, typename Proj = std::identity>
     requires std::indirectly_swappable<std::ranges::iterator_t<R>> &&
              std::indirect_strict_weak_order<
                  Comp, std::projected<std::ranges::iterator_t<R>, Proj>>
@@ -42,23 +40,23 @@ sayhisort::sort(R&& range, Comp comp = {}, Proj proj = {});
 
 ### Rust
 
-The Rust implementation is in the [`rust`](rust/) directory. It isn't published on crates.io yet, so add it as a git dependency.
+The Rust implementation in the [`rust`](rust/) directory is a port of the C++ one and shares the same algorithm. It isn't published on crates.io yet, so add it as a git dependency.
 
 ```toml
 [dependencies]
 sayhisort = { git = "https://github.com/grafi-tt/sayhisort" }
 ```
 
-It provides the following functions, which are drop-in replacements for `slice::sort` and `slice::sort_by`.
+It provides the following functions, which have the same semantics as `slice::sort` and `slice::sort_by`.
 
 ```rust
 pub fn sort<T: Ord>(v: &mut [T]);
 pub fn sort_by<T, F: FnMut(&T, &T) -> Ordering>(v: &mut [T], compare: F);
 ```
 
-The crate is `#![no_std]` and **never allocates memory**, whereas `slice::sort` requires a heap allocator for its working buffer. Items need not be `Copy`, `Clone` or `Default`, and zero-sized types are supported. Like the standard library, it guarantees memory safety even when the comparator is inconsistent or panics: the slice is left as a permutation of the input, without double drop or leak.
+The crate is `#![no_std]` and **never allocates memory**. In contrast, `slice::sort` is unavailable without the `alloc` crate, since it requires a heap allocator for its working buffer, and `core` only provides the unstable `slice::sort_unstable`. CI checks that the crate builds for a bare-metal RISC-V target (`riscv32imc-unknown-none-elf`), and tests run on 64-bit Linux, macOS and Windows, and on 32-bit x86 Linux.
 
-The Rust implementation is a port of the C++ one and shares the same algorithm. It's tested on 64-bit Linux, macOS and Windows, and on 32-bit x86 Linux. CI also checks that it builds for a bare-metal RISC-V target (`riscv32imc-unknown-none-elf`).
+Items need not be `Copy`, `Clone` or `Default`, and zero-sized types are supported. Like the standard library, it guarantees memory safety even when the comparator is inconsistent or panics: the slice is left as a permutation of the input, without double drop or leak.
 
 ## Benchmark
 
@@ -68,27 +66,21 @@ The Rust implementation is a port of the C++ one and shares the same algorithm. 
 
 ![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (Clang 23.1.4)](cpp/bench_result/clang.png)
 
-Note that other block merge sort implementations ([WikiSort](https://github.com/BonzaiThePenguin/WikiSort/), [octosort](https://github.com/scandum/octosort) and [GrailSort](https://github.com/Mrrl/GrailSort)) use a pre-allocated buffer that stores 512 items. Though the buffer is claimed to be crucial for performance, SayhiSort exhibits competitive speed.
+The other block merge sort implementations ([WikiSort](https://github.com/BonzaiThePenguin/WikiSort/), [octosort](https://github.com/scandum/octosort) and [GrailSort](https://github.com/Mrrl/GrailSort)) use a pre-allocated buffer that stores 512 items. Though the buffer is claimed to be crucial for performance, SayhiSort exhibits competitive speed without it.
 
-You may notice SayhiSort performs poorly on some data, compared to WikiSort and octosort. This shows whether each algorithm is tuned to already sorted data. Since SayhiSort is still fast on such data, the author believes there's no problem at all.
+You may notice SayhiSort performs poorly on some data, compared to WikiSort and octosort. This is because they are specially tuned for already sorted data. Since SayhiSort is still fast on such data, the author believes there's no problem at all.
 
 [Logsort](https://github.com/aphitorite/Logsort)'s excellent performance is noteworthy. The algorithm is completely different from the others based on merge sort. It's basically a variant of quicksort, using a novel tagging technique to ensure stability. Despite its practical performance, some caution is needed since its worst-case time complexity is O(N^2).
 
-Raw benchmark results are available in [`cpp/bench_result`](cpp/bench_result/) directory. You can run the benchmark by yourself as follows.
+Raw benchmark results are available in the [`cpp/bench_result`](cpp/bench_result/) directory. You can run the benchmark by yourself as follows.
 
 ```sh
 cd cpp
-mkdir build
-pushd build
-CC=gcc CXX=g++ cmake -DSAYHISORT_THIRDPARTY_BENCH=ON -GNinja ..
-popd
-ninja -C build
-build/tests/sayhisort_bench > bench_result/gcc.yml
+CC=gcc CXX=g++ cmake -S . -B build_gcc -DSAYHISORT_THIRDPARTY_BENCH=ON -GNinja
+ninja -C build_gcc
+build_gcc/tests/sayhisort_bench > bench_result/gcc.yml
 
-mkdir build_clang
-pushd build_clang
-CC=clang CXX=clang++ cmake -DSAYHISORT_THIRDPARTY_BENCH=ON -GNinja ..
-popd
+CC=clang CXX=clang++ cmake -S . -B build_clang -DSAYHISORT_THIRDPARTY_BENCH=ON -GNinja
 ninja -C build_clang
 build_clang/tests/sayhisort_bench > bench_result/clang.yml
 
@@ -100,13 +92,31 @@ cd bench_result
 
 ![Benchmark of the Rust implementation on Ryzen 9 9950X by 1.5M items of 64bit integers (rustc 1.99.0)](rust/bench_result/rust.png)
 
-The Rust implementation has a benchmark ported from the C++ one, and its raw results are available in [`rust/bench_result`](rust/bench_result/) directory. The standard `slice::sort` is stable and fast at the cost of O(N) extra space (at least N/2 items). Its algorithm is based on [driftsort](https://github.com/Voultapher/driftsort), which is described in detail in [its write-up](https://github.com/Voultapher/sort-research-rs/blob/main/writeup/driftsort_introduction/text.md).
+The Rust implementation has a benchmark ported from the C++ one, and its raw results are available in the [`rust/bench_result`](rust/bench_result/) directory. The standard `slice::sort` is stable and fast at the cost of O(N) extra space (at least N/2 items). Its algorithm is based on [driftsort](https://github.com/Voultapher/driftsort), which is described in detail in [its write-up](https://github.com/Voultapher/sort-research-rs/blob/main/writeup/driftsort_introduction/text.md).
 
 To regenerate the plot, run the benchmark before `./plot.py` in the C++ section as follows.
 
 ```sh
 cd rust
 RUSTFLAGS="-C target-cpu=native" cargo bench -q > bench_result/rust.yml
+```
+
+## Testing
+
+C++ tests use GoogleTest, which CMake fetches automatically. Pass `-DSAYHISORT_USE_SYSTEM_GTEST=ON` to use the installed one instead.
+
+```sh
+cd cpp
+cmake -S . -B build -GNinja
+ninja -C build
+ctest --test-dir build
+```
+
+Rust tests run with Cargo.
+
+```sh
+cd rust
+cargo test
 ```
 
 ## Similar projects
@@ -119,7 +129,7 @@ RUSTFLAGS="-C target-cpu=native" cargo bench -q > bench_result/rust.yml
 * https://github.com/HolyGrailSortProject/Holy-Grailsort
 * https://github.com/ecstatic-morse/MrrlSort/
 
-### Other fast in-place and stable sort
+### Other fast in-place and stable sorts
 
 * https://github.com/aphitorite/Logsort
 
@@ -158,8 +168,8 @@ Some adaptive merge logic can significantly improve performance, since the lengt
 
 When the data buffer isn't available, an in-place merge algorithm is required. The algorithm repeats the following procedure to merge sequences `xs` and `ys`:
 
-* find the index `i` such that `xs[i] > ys[0]` by binary searching `xs`
-* find the index `j` such that `xs[i] <= ys[j]` by binary searching `ys`, and
+* find the smallest index `i` such that `xs[i] > ys[0]` by binary searching `xs`
+* find the smallest index `j` such that `xs[i] <= ys[j]` by binary searching `ys`, and
 * rotate `xs[i:]` and `ys[:j]`.
 
 The computational complexity is still linear, since the algorithm is used only if the number of unique keys is small. In practice, however, the in-place merge algorithm is a bit slow. SayhiSort avoids any pre-allocated buffer, so it frequently resorts to in-place merging. Therefore it shows mediocre performance on the `RandomFewKeys` benchmark.
@@ -176,7 +186,7 @@ The author is reluctant to optimize further, because it would likely bloat the i
 
 Its cost is small compared to the whole sort, but not negligible. Benchmarks showed that keeping the O(K) bin-sorting below is faster than always using the O(K log(K)) algorithm.
 
-To de-interleave the imitation buffer, bin-sorting is used if the data buffer can be used as an auxiliary space. Otherwise a novel O(K log(K)) algorithm is used, where K is the number of unique keys collected. This algorithm iteratively rotates skewed parts. See [comments](https://github.com/grafi-tt/sayhisort/blob/1a5833f27aaeeb9c463a971ceabd35f51af4c9a9/sayhisort.h#L476-L485) for detail.
+To de-interleave the imitation buffer, bin-sorting is used if the data buffer can be used as an auxiliary space. Otherwise a novel O(K log(K)) algorithm is used, where K is the number of unique keys collected. This algorithm iteratively rotates skewed parts. See [comments](https://github.com/grafi-tt/sayhisort/blob/603cf0b27ff50e7a5482653618fac7a969c512f2/cpp/sayhisort.h#L676-L688) for detail.
 
 The data buffer is sorted by heapsort. Its solid computational complexity gives comfort to the author, even though Shell sort may perform well.
 
@@ -195,3 +205,7 @@ Uses [monobound binary search](https://github.com/scandum/binary_search). In gen
 ### Optimal sequence division technique
 
 Data are divided into sequences as evenly as possible if the input length is non-power-of-2. In principle, the length of each sequence is treated as a rational number. Actual implementation uses bit operations for the sake of efficiency. The author learned this technique from [WikiSort](https://github.com/BonzaiThePenguin/WikiSort/blob/master/Chapter%202.%20Merging.md).
+
+## License
+
+SayhiSort is dedicated to the public domain under [CC0 1.0 Universal](LICENSE).
