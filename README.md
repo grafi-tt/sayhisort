@@ -174,7 +174,7 @@ The author is reluctant to optimize further, because it would likely bloat the i
 
 ### Sorting unique keys
 
-Its cost is currently negligible, so it isn't worth micro-optimizing.
+Its cost is small compared to the whole sort, but not negligible. Benchmarks showed that keeping the O(K) bin-sorting below is faster than always using the O(K log(K)) algorithm.
 
 To de-interleave the imitation buffer, bin-sorting is used if the data buffer can be used as an auxiliary space. Otherwise a novel O(K log(K)) algorithm is used, where K is the number of unique keys collected. This algorithm iteratively rotates skewed parts. See [comments](https://github.com/grafi-tt/sayhisort/blob/1a5833f27aaeeb9c463a971ceabd35f51af4c9a9/sayhisort.h#L476-L485) for detail.
 
@@ -182,13 +182,11 @@ The data buffer is sorted by heapsort. Its solid computational complexity gives 
 
 ### Rotation sub-algorithm detail
 
-Uses [Helix rotation](https://github.com/scandum/rotate#helix-rotation) for large data, because of its simple control flow and cache memory friendliness. Switches to triple reversal when the length becomes small, to avoid integer modulo operation in Helix rotation.
+Uses [Helix rotation](https://github.com/scandum/rotate#helix-rotation) while the shorter chunk has 32 or more items, because of its simple control flow and cache memory friendliness. Switches to triple reversal once the shorter chunk becomes shorter than 32.
 
-The author noticed that the swapping loop in Helix rotation can be vectorized. The distance of its loop-carried dependence equals the length of the shorter chunk, so items can be swapped by SIMD instructions if the shorter chunk is at least as long as the vector width. An experiment showed that it makes rotation-heavy inputs such as `MostlyEqual` 5-12% faster. Nevertheless, SIMD isn't used for the following reasons.
+Each sweep of Helix rotation swaps two ranges whose distance equals the length of the shorter chunk. If the distance is short, the swaps form long chains of store-to-load forwarding, and the loop can't be vectorized. Triple reversal moves each item at most twice and its swaps are independent of each other, so it has no such chains even if one chunk is very short, and it is vectorizable. Claude Opus 5.5 found that suppressing Helix rotation for short chunks in this way makes the whole rotation vectorizable.
 
-* Explicit vectorization requires detecting contiguous iterators, but `std::contiguous_iterator` is unavailable in C++17.
-* It makes the code more complex.
-* Auto-vectorization by compilers is unstable, since the dependence distance varies with the rotation width. GCC vectorizes the loop even if the distance is short and not a multiple of the vector width, which causes store-to-load forwarding failures. Clang doesn't use vectorized code if the swapped ranges overlap. Thus auto-vectorization is disabled for the loop.
+The sweep of Helix rotation is written as a double loop, split into blocks of the shorter length. GCC vectorizes a single loop with a runtime check of the dependence distance, but Clang only checks whether the swapped ranges overlap at all, and always falls back to the scalar loop. The two ranges in each block are adjacent and don't overlap, so both compilers auto-vectorize the loop. This makes the sort of 64-bit integers 1-11% faster than the previous scalar implementation. No explicit SIMD code is used, and the Rust implementation relies on the same auto-vectorization.
 
 ### Binary search sub-algorithm detail
 
