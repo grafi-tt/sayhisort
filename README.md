@@ -62,11 +62,11 @@ The Rust implementation is a port of the C++ one and shares the same algorithm. 
 
 ## Benchmark
 
+### C++
+
 ![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (GCC 16.2.1)](cpp/bench_result/gcc.png)
 
 ![Benchmark on Ryzen 9 9950X by 1.5M items of 64bit integers (Clang 23.1.4)](cpp/bench_result/clang.png)
-
-![Benchmark of the Rust implementation on Ryzen 9 9950X by 1.5M items of 64bit integers (rustc 1.99.0)](rust/bench_result/rust.png)
 
 Note that other block merge sort implementations ([WikiSort](https://github.com/BonzaiThePenguin/WikiSort/), [octosort](https://github.com/scandum/octosort) and [GrailSort](https://github.com/Mrrl/GrailSort)) use a pre-allocated buffer that stores 512 items. Though the buffer is claimed to be crucial for performance, SayhiSort exhibits competitive speed.
 
@@ -74,7 +74,7 @@ You may notice SayhiSort performs poorly on some data, compared to WikiSort and 
 
 [Logsort](https://github.com/aphitorite/Logsort)'s excellent performance is noteworthy. The algorithm is completely different from the others based on merge sort. It's basically a variant of quicksort, using a novel tagging technique to ensure stability. Despite its practical performance, some caution is needed since its worst-case time complexity is O(N^2).
 
-Raw benchmark result is available in [`cpp/bench_result`](cpp/bench_result/) directory. You can run the benchmark by yourself as follows.
+Raw benchmark results are available in [`cpp/bench_result`](cpp/bench_result/) directory. You can run the benchmark by yourself as follows.
 
 ```sh
 cd cpp
@@ -96,7 +96,13 @@ cd bench_result
 ./plot.py
 ```
 
-The Rust implementation has a benchmark ported from the C++ one, and its raw result is available in [`rust/bench_result`](rust/bench_result/) directory. Run it before `./plot.py` as follows.
+### Rust
+
+![Benchmark of the Rust implementation on Ryzen 9 9950X by 1.5M items of 64bit integers (rustc 1.99.0)](rust/bench_result/rust.png)
+
+The Rust implementation has a benchmark ported from the C++ one, and its raw results are available in [`rust/bench_result`](rust/bench_result/) directory. The standard `slice::sort` is stable and fast at the cost of O(N) extra space (at least N/2 items). Its algorithm is based on [driftsort](https://github.com/Voultapher/driftsort), which is described in detail in [its write-up](https://github.com/Voultapher/sort-research-rs/blob/main/writeup/driftsort_introduction/text.md).
+
+To regenerate the plot, run the benchmark before `./plot.py` in the C++ section as follows.
 
 ```sh
 cd rust
