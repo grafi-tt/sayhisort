@@ -70,14 +70,16 @@ sayhisort = { git = "https://github.com/grafi-tt/sayhisort", features = ["mini"]
 opt-level = "s"
 ```
 
-Sorting 64-bit integers by `sayhisort::sort` with `opt-level = "s"` on x86-64 has the following code size and speed.
+Sorting 64-bit integers by `sayhisort::sort` on x86-64 (rustc 1.99.0 with LTO) has the following code size.
 
-| | Code size (`"s"`) | Code size (`"z"`) | Sorting time |
-|---|---|---|---|
-| Default | 7850 bytes | 7489 bytes | baseline |
-| `mini` | 4072 bytes (-48%) | 3783 bytes (-49%) | +33% (+16% to +59%) |
+| | Code size (`"s"`) | Code size (`"z"`) |
+|---|---|---|
+| Default | 7850 bytes | 7489 bytes |
+| `mini` | 4072 bytes (-48%) | 3783 bytes (-49%) |
 
-The sorting time is the geometric mean over random, few-key, sqrt(N)-key and mostly ascending inputs of 1K, 30K and 1M items, measured on Ryzen 9 7845HX fixed at 3GHz with LTO. Large random inputs and mostly ascending inputs slow down most. For reference, the default code with `opt-level = "s"` is 20% slower than with `opt-level = 3`. The `mini` feature drops optimizations for superscalar execution, so the slowdown is expected to be smaller on simple cores with low instruction-level parallelism, though it hasn't been measured on them. See [the algorithm detail](#mini-feature-of-the-rust-implementation) for what it changes.
+TODO: Add the sorting time of `mini` compared to the default with `opt-level = "s"`, and of the default with `opt-level = "s"` compared to `opt-level = 3`, measured on the same machine as the [benchmarks](#benchmark).
+
+The `mini` feature drops optimizations for superscalar execution, so the slowdown is expected to be smaller on simple cores with low instruction-level parallelism, though it hasn't been measured on them. See [the algorithm detail](#mini-feature-of-the-rust-implementation) for what it changes.
 
 ## Benchmark
 
