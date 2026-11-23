@@ -93,7 +93,7 @@ pub unsafe fn sort<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T
         loop {
             let p = determine_blocking(&ctrl);
 
-            if ctrl.forward {
+            if cfg!(feature = "mini") || ctrl.forward {
                 if ctrl.buf_len != 0 {
                     merge_one_level(imit, imit.add(ctrl.imit_len), data, &ctrl, p, f, Flag::<true>);
                 } else {
@@ -101,6 +101,7 @@ pub unsafe fn sort<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T
                 }
             } else {
                 // Layout: [ imit | data | buf ], which is [ buf | data | imit ] when reversed.
+                #[cfg(not(feature = "mini"))]
                 merge_one_level(
                     imit.add(p.num_blocks - 2).bwd(),
                     last.bwd(),
@@ -112,10 +113,17 @@ pub unsafe fn sort<T, F: FnMut(&T, &T) -> bool>(first: FwdPtr<T>, last: FwdPtr<T
                 );
             }
 
+            // Without alternating directions, the buffer moved to the end is rotated back to the front. This costs a pass
+            // over the data per level, but removes the backward instances of the merge routines.
+            #[cfg(feature = "mini")]
+            if ctrl.buf_len != 0 {
+                rotate(data.sub(ctrl.buf_len), last.sub(ctrl.buf_len), last);
+            }
+
             let old_buf_len = ctrl.next();
             if old_buf_len != 0 {
                 let buf = data.sub(old_buf_len);
-                if !ctrl.forward {
+                if cfg!(not(feature = "mini")) && !ctrl.forward {
                     let mut back_buf = last.bwd();
                     let mut back_data = last.sub(old_buf_len).bwd();
                     loop {

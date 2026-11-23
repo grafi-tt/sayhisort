@@ -102,6 +102,7 @@ unsafe fn interleave_blocks<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
 ///
 /// * `imit_len` is a positive multiple of 2.
 /// * `[imit, imit + imit_len)` and `[buf, buf + imit_len / 2)` don't overlap.
+#[cfg(not(feature = "mini"))]
 #[inline(never)]
 unsafe fn deinterleave_imitation<T, P: Pos<T>, F: FnMut(&T, &T) -> bool>(
     imit: P,
@@ -336,7 +337,8 @@ pub unsafe fn merge_blocking<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, B: BoolFlag
         if imit_len == 0 {
             return;
         }
-        if B::FLAG {
+        if B::FLAG && cfg!(not(feature = "mini")) {
+            #[cfg(not(feature = "mini"))]
             deinterleave_imitation(imit, imit_len, *buf, mid_key, f);
         } else {
             deinterleave_imitation_nobuf(imit, imit_len, mid_key, f);
@@ -460,12 +462,13 @@ mod tests {
                 let mid_key = imit + ary.iter().position(|&x| x == (imit_len / 2) as i32).unwrap();
                 ary[imit_last..buf].fill(100);
                 let less = &mut |a: &i32, b: &i32| a < b;
+                #[cfg(not(feature = "mini"))]
                 if use_buf {
                     let base = FwdPtr::new(ary.as_mut_ptr());
                     unsafe { deinterleave_imitation(base.add(imit), imit_len, base.add(buf), base.add(mid_key), less) };
                 }
                 ary[buf..].fill(200);
-                if !use_buf {
+                if !use_buf || cfg!(feature = "mini") {
                     let base = FwdPtr::new(ary.as_mut_ptr());
                     unsafe { deinterleave_imitation_nobuf(base.add(imit), imit_len, base.add(mid_key), less) };
                 }

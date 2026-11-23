@@ -9,6 +9,12 @@ bench = false
 
 [dependencies]
 
+[features]
+# Smaller code for targets where the binary size matters, at some cost of speed. Intended to be built with
+# `opt-level = "s"` or `"z"`. Merges always forward, sorts leaves by a single odd-even sort routine, merges one item at a
+# time, rotates by helix rotation only, and deinterleaves the imitation buffer in-place.
+mini = []
+
 [[bench]]
 name = "sort"
 harness = false

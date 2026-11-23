@@ -191,6 +191,7 @@ impl<T> Pos<T> for BwdPtr<T> {
 /// # Safety
 ///
 /// `first < middle < last`.
+#[cfg(not(feature = "mini"))]
 pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
     unsafe {
         let mut l_len = middle.offset_from_unsigned(first);
@@ -289,6 +290,67 @@ pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
             }
             first.swap(last);
             first = first.add(1);
+        }
+    }
+}
+
+/// Rotates two chunks split at `middle`. Version for the `mini` feature.
+///
+/// Helix rotation by a single loop for every length. Unlike triple reversal, which passes the items twice, each sweep
+/// touches each item twice within the distance of the shorter side, so that the items are passed once through the data
+/// cache. The sweep isn't split into blocks, as vectorization doesn't matter here. The remainder is computed by
+/// subtraction instead of `%`, since small cores may have no divide instruction. Its loop runs at most once per item
+/// of the longer side, which the sweep swaps anyway.
+///
+/// # Safety
+///
+/// `first < middle < last`.
+#[cfg(feature = "mini")]
+pub unsafe fn rotate<T, P: Pos<T>>(mut first: P, mut middle: P, mut last: P) {
+    unsafe {
+        let mut l_len = middle.offset_from_unsigned(first);
+        let mut r_len = last.offset_from_unsigned(middle);
+
+        loop {
+            if l_len <= r_len {
+                // Helix rotation from left to right
+                loop {
+                    first.swap_incr(&mut middle);
+                    if middle == last {
+                        break;
+                    }
+                }
+                let mut rem = r_len;
+                while rem >= l_len {
+                    rem -= l_len;
+                }
+                if rem == 0 {
+                    return;
+                }
+                middle = last.sub(rem);
+                l_len -= rem;
+                r_len = rem;
+            } else {
+                // Helix rotation from right to left
+                loop {
+                    last = last.sub(1);
+                    middle = middle.sub(1);
+                    last.swap(middle);
+                    if middle == first {
+                        break;
+                    }
+                }
+                let mut rem = l_len;
+                while rem >= r_len {
+                    rem -= r_len;
+                }
+                if rem == 0 {
+                    return;
+                }
+                middle = first.add(rem);
+                r_len -= rem;
+                l_len = rem;
+            }
         }
     }
 }

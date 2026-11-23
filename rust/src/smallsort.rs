@@ -6,6 +6,7 @@ use crate::utils::{FwdPtr, Pos};
 /// # Safety
 ///
 /// `[data, data + LEN)` is valid.
+#[cfg(not(feature = "mini"))]
 unsafe fn odd_even_sort<T, F: FnMut(&T, &T) -> bool, const LEN: usize>(data: FwdPtr<T>, f: &mut F) {
     unsafe {
         for i in 0..LEN {
@@ -18,11 +19,56 @@ unsafe fn odd_even_sort<T, F: FnMut(&T, &T) -> bool, const LEN: usize>(data: Fwd
     }
 }
 
+/// Sorts `len` items by stable odd-even sort, with the length known only at runtime.
+///
+/// # Safety
+///
+/// `[data, data + len)` is valid, and `len >= 1`.
+#[cfg(feature = "mini")]
+unsafe fn odd_even_sort_dyn<T, F: FnMut(&T, &T) -> bool>(data: FwdPtr<T>, len: usize, f: &mut F) {
+    unsafe {
+        for i in 0..len {
+            let mut j = i % 2;
+            while j + 1 < len {
+                if data.add(j + 1).precede_strict(data.add(j), f) {
+                    data.add(j).swap(data.add(j + 1));
+                }
+                j += 2;
+            }
+        }
+    }
+}
+
+/// Sorts leaf sequences of the bottom-up merge sort.
+///
+/// # Safety
+///
+/// `5 <= seq_len <= 8`, or `1 <= seq_len <= 4` and `seq_div.next()` never returns true.
+#[cfg(feature = "mini")]
+pub unsafe fn sort_leaves<T, F: FnMut(&T, &T) -> bool>(
+    mut data: FwdPtr<T>,
+    seq_len: usize,
+    seq_div: &mut SequenceDivider,
+    f: &mut F,
+) {
+    unsafe {
+        loop {
+            let len = seq_len - seq_div.next() as usize;
+            odd_even_sort_dyn(data, len, f);
+            data = data.add(len);
+            if seq_div.is_end() {
+                return;
+            }
+        }
+    }
+}
+
 /// Sorts leaf sequences of the bottom-up merge sort.
 ///
 /// # Safety
 ///
 /// `5 <= seq_len <= 8`, or `seq_len == 4` and `seq_div.next()` never returns true.
+#[cfg(not(feature = "mini"))]
 pub unsafe fn sort_leaves<T, F: FnMut(&T, &T) -> bool>(
     mut data: FwdPtr<T>,
     seq_len: usize,
@@ -125,7 +171,7 @@ pub unsafe fn sort_0to8<T, F: FnMut(&T, &T) -> bool>(data: FwdPtr<T>, len: usize
         if len <= 1 {
             return;
         }
-        if len <= 3 {
+        if cfg!(not(feature = "mini")) && len <= 3 {
             if data.add(1).precede_strict(data, f) {
                 data.swap(data.add(1));
             }

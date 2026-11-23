@@ -10,6 +10,7 @@ pub struct MergeResult<P> {
 /// Merges adjacent sequences `xs` and `ys` into the buffer before `xs`. The buffer moves while merging.
 ///
 /// Stops when `xs` or `ys` is fully consumed. `ys` must be no longer than the buffer, since buffer overrun isn't checked.
+/// Cross merge, which moves two items per iteration, unless the `mini` feature selects the one-at-a-time merge.
 ///
 /// # Safety
 ///
@@ -27,6 +28,25 @@ pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: BoolFlag
     unsafe {
         let mut xs_last = ys;
 
+        #[cfg(feature = "mini")]
+        loop {
+            if xs.precede(ys, f, is_xs_from_right) {
+                buf.swap_incr(&mut xs);
+                if xs == xs_last {
+                    return MergeResult {
+                        xs_consumed: true,
+                        rest: ys,
+                    };
+                }
+            } else {
+                buf.swap_incr(&mut ys);
+                if ys == ys_last {
+                    break;
+                }
+            }
+        }
+
+        #[cfg(not(feature = "mini"))]
         while xs < xs_last.sub(1) && ys < ys_last.sub(1) {
             if xs.add(1).precede(ys, f, is_xs_from_right) {
                 buf.swap_incr(&mut xs);
@@ -44,8 +64,10 @@ pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: BoolFlag
             }
         }
 
+        #[cfg(not(feature = "mini"))]
         let mut xs_consumed = xs == xs_last;
 
+        #[cfg(not(feature = "mini"))]
         if xs == xs_last.sub(1) {
             xs_consumed = false;
             loop {
@@ -74,6 +96,7 @@ pub unsafe fn merge_with_buf<T, P: Pos<T>, F: FnMut(&T, &T) -> bool, S: BoolFlag
             }
         }
 
+        #[cfg(not(feature = "mini"))]
         if xs_consumed {
             return MergeResult {
                 xs_consumed: true,
