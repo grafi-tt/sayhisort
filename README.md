@@ -58,6 +58,27 @@ The crate is `#![no_std]` and **never allocates memory**. In contrast, `slice::s
 
 Items need not be `Copy`, `Clone` or `Default`, and zero-sized types are supported. Like the standard library, it guarantees memory safety even when the comparator is inconsistent or panics: the slice is left as a permutation of the input, without double drop or leak.
 
+#### Smaller code with the `mini` feature
+
+For targets where the binary size matters, such as microcontrollers, the `mini` feature makes the code about half as large at some cost of speed. It's intended to be used with `opt-level = "s"` or `"z"`. Set the opt-level of the profile itself, not a per-package override for `sayhisort`, because the generic sort functions are compiled in the crate that calls them.
+
+```toml
+[dependencies]
+sayhisort = { git = "https://github.com/grafi-tt/sayhisort", features = ["mini"] }
+
+[profile.release]
+opt-level = "s"
+```
+
+Sorting 64-bit integers by `sayhisort::sort` with `opt-level = "s"` on x86-64 has the following code size and speed.
+
+| | Code size (`"s"`) | Code size (`"z"`) | Sorting time |
+|---|---|---|---|
+| Default | 7850 bytes | 7489 bytes | baseline |
+| `mini` | 4072 bytes (-48%) | 3783 bytes (-49%) | +33% (+16% to +59%) |
+
+The sorting time is the geometric mean over random, few-key, sqrt(N)-key and mostly ascending inputs of 1K, 30K and 1M items, measured on Ryzen 9 7845HX fixed at 3GHz with LTO. Large random inputs and mostly ascending inputs slow down most. For reference, the default code with `opt-level = "s"` is 20% slower than with `opt-level = 3`. The `mini` feature drops optimizations for superscalar execution, so the slowdown is expected to be smaller on simple cores with low instruction-level parallelism, though it hasn't been measured on them. See [the algorithm detail](#mini-feature-of-the-rust-implementation) for what it changes.
+
 ## Benchmark
 
 ### C++
@@ -112,11 +133,12 @@ ninja -C build
 ctest --test-dir build
 ```
 
-Rust tests run with Cargo.
+Rust tests run with Cargo. Run them with the `mini` feature as well, since it switches several routines.
 
 ```sh
 cd rust
 cargo test
+cargo test --features mini
 ```
 
 ## Similar projects
@@ -197,6 +219,16 @@ Uses [Helix rotation](https://github.com/scandum/rotate#helix-rotation) while th
 Each sweep of Helix rotation swaps two ranges whose distance equals the length of the shorter chunk. If the distance is short, the swaps form long chains of store-to-load forwarding, and the loop can't be vectorized. Triple reversal moves each item at most twice and its swaps are independent of each other, so it has no such chains even if one chunk is very short, and it is vectorizable. Claude Opus 5.5 found that suppressing Helix rotation for short chunks in this way makes the whole rotation vectorizable.
 
 The sweep of Helix rotation is written as a double loop, split into blocks of the shorter length. GCC vectorizes a single loop with a runtime check of the dependence distance, but Clang only checks whether the swapped ranges overlap at all, and always falls back to the scalar loop. The two ranges in each block are adjacent and don't overlap, so both compilers auto-vectorize the loop. This makes the sort of 64-bit integers 1-11% faster than the previous scalar implementation. No explicit SIMD code is used, and the Rust implementation relies on the same auto-vectorization.
+
+### `mini` feature of the Rust implementation
+
+The `mini` feature of the Rust implementation removes the code that exists only for speed. Small cores, where the binary size matters, typically have low instruction-level parallelism and simple caches, so the choices below favor fewer instructions and memory passes over parallelism. Claude Opus 5.5 measured each change in code size, speed, instruction count, branch misses and cache misses.
+
+* **Forward merge only**: Every level merges from left to right, and the data buffer, moved to the end, is rotated back to the front. This costs a pass over the data per merge level, but removes the right-to-left instances of all merge routines, which is the largest saving (26% of the code at `opt-level = "s"`).
+* **Simple leaf sorting**: Short sequences are sorted by a single odd-even sort routine taking the length at runtime, instead of the specialized functions and their dispatcher. The specialization lets superscalar execution run independent compare-and-swaps in parallel, which small cores can't exploit.
+* **Plain merge**: The merge with the data buffer moves one item at a time, instead of the cross merge. Its slowdown mainly comes from branch misses, whose penalty is small on cores with short pipelines; the instruction count increases by only 2-3%.
+* **Helix rotation only**: Rotation always uses Helix rotation by a single loop. Vectorization doesn't matter here, so the sweep isn't split into blocks, and triple reversal isn't needed for short chunks. Unlike triple reversal, which passes the items twice, Helix rotation passes them once, which reduced L1 data cache misses of the whole sort by 25-32%. The remainder is computed by repeated subtraction, since cores such as Cortex-M0+ and RV32E have no divide instruction. The subtraction loop runs no more times than the swaps of the sweep.
+* **In-place de-interleaving**: The imitation buffer is always de-interleaved by the O(K log(K)) algorithm, without the bin-sorting with the data buffer.
 
 ### Binary search sub-algorithm detail
 
